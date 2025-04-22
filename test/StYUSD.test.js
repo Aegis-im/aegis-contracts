@@ -244,6 +244,28 @@ describe('sYUSD', function () {
       const maxWithdraw = await sYusd.maxWithdraw(user1.address)
       expect(maxWithdraw).to.equal(ethers.parseEther('1000'))
     })
+    
+    it('Should implement maxRedeem correctly', async function () {
+      // Initially no shares to redeem
+      const initialMaxRedeem = await sYusd.maxRedeem(user1.address)
+      expect(initialMaxRedeem).to.equal(0)
+      
+      // After deposit but before lockup period passes
+      await sYusd.connect(user1).deposit(ethers.parseEther('1000'), user1.address)
+      let maxRedeem = await sYusd.maxRedeem(user1.address)
+      expect(maxRedeem).to.equal(0) // All shares are locked
+      
+      // After lockup period passes
+      await time.increase(7 * 24 * 60 * 60 + 1)
+      maxRedeem = await sYusd.maxRedeem(user1.address)
+      expect(maxRedeem).to.equal(ethers.parseEther('1000')) // All shares are now unlocked
+      
+      // After partial withdrawal
+      await sYusd.updateUnlockedSharesWithLimit(user1.address, 10)
+      await sYusd.connect(user1).withdraw(ethers.parseEther('400'), user1.address, user1.address)
+      maxRedeem = await sYusd.maxRedeem(user1.address)
+      expect(maxRedeem).to.equal(ethers.parseEther('600')) // Remaining unlocked shares
+    })
   })
 
   describe('Token Rescue', function () {
@@ -279,6 +301,61 @@ describe('sYUSD', function () {
           owner.address,
         ),
       ).to.be.revertedWithCustomError(sYusd, 'InvalidToken')
+    })
+  })
+  
+  describe('DoS Protection', function () {
+    it('Should process a limited number of locked shares with maxIterations', async function () {
+      // Make multiple small deposits to create many locked share entries
+      const smallDepositAmount = ethers.parseEther('1')
+      const numDeposits = 10
+      
+      for (let i = 0; i < numDeposits; i++) {
+        await sYusd.connect(user1).deposit(smallDepositAmount, user1.address)
+      }
+      
+      // Advance time past lockup period
+      await time.increase(7 * 24 * 60 * 60 + 1)
+      
+      // Process only a subset of the entries
+      const maxIterations = 5
+      await expect(sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, maxIterations))
+        .to.emit(sYusd, 'UnlockedSharesUpdated')
+      
+      // Check if only a subset was processed
+      const userSharesInfo = await sYusd.getUserSharesStatus(user1.address)
+      expect(userSharesInfo[0] + userSharesInfo[1]).to.equal(ethers.parseEther(numDeposits.toString()))
+      
+      // Process the rest
+      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, numDeposits)
+      
+      // Should now be fully processed
+      const updatedSharesInfo = await sYusd.getUserSharesStatus(user1.address)
+      expect(updatedSharesInfo[0]).to.equal(0) // No locked shares
+      expect(updatedSharesInfo[1]).to.equal(ethers.parseEther(numDeposits.toString())) // All shares unlocked
+    })
+    
+    it('Should still allow withdrawal after multiple processing steps', async function () {
+      // Make multiple small deposits to create many locked share entries
+      const smallDepositAmount = ethers.parseEther('10')
+      const numDeposits = 5
+      
+      for (let i = 0; i < numDeposits; i++) {
+        await sYusd.connect(user1).deposit(smallDepositAmount, user1.address)
+      }
+      
+      // Advance time past lockup period
+      await time.increase(7 * 24 * 60 * 60 + 1)
+      
+      // Process in steps
+      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, 2)
+      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, 2)
+      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, 2)
+      
+      // Try to withdraw everything
+      const totalDeposit = smallDepositAmount * BigInt(numDeposits)
+      await expect(sYusd.connect(user1).withdraw(totalDeposit, user1.address, user1.address))
+        .to.emit(sYusd, 'Withdraw')
     })
   })
 })
