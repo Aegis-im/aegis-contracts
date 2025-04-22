@@ -9,12 +9,12 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { IYUSD } from "./interfaces/IYUSD.sol";
 
 /**
- * @title StYUSD
- * @dev Staked YUSD (StYUSD) - an interest-bearing token that represents YUSD staked in the protocol.
+ * @title sYUSD
+ * @dev Staked YUSD (sYUSD) - an interest-bearing token that represents YUSD staked in the protocol.
  * The token's value increases over time relative to YUSD, reflecting staking rewards.
  * Implements ERC4626 Tokenized Vault Standard.
  */
-contract StYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
+contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
     
     // Constants for roles
@@ -42,14 +42,14 @@ contract StYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     event LockupPeriodUpdated(uint256 newLockupPeriod);
 
     /**
-     * @dev Constructor to initialize the StYUSD token
+     * @dev Constructor to initialize the sYUSD token
      * @param _yusd Address of the YUSD token
      * @param admin Address of the admin
      */
     constructor(
         address _yusd,
         address admin
-    ) ERC4626(IERC20(_yusd)) ERC20("Staked YUSD", "stYUSD") ERC20Permit("Staked YUSD") {
+    ) ERC4626(IERC20(_yusd)) ERC20("Staked YUSD", "sYUSD") ERC20Permit("Staked YUSD") {
         if (_yusd == address(0)) revert ZeroAddress("YUSD");
         if (admin == address(0)) revert ZeroAddress("Admin");
         

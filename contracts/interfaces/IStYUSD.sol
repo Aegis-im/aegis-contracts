@@ -5,47 +5,47 @@ import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 
 /**
- * @title IStYUSD
- * @dev Interface for the StYUSD (Staked YUSD) token.
+ * @title IsYUSD
+ * @dev Interface for the sYUSD (Staked YUSD) token.
  */
-interface IStYUSD is IERC20Permit, IERC20Metadata {
+interface IsYUSD is IERC20Permit, IERC20Metadata {
     /**
-     * @dev Stake YUSD to receive stYUSD
+     * @dev Stake YUSD to receive sYUSD
      * @param yusdAmount Amount of YUSD to stake
      */
     function stake(uint256 yusdAmount) external;
 
     /**
-     * @dev Unstake stYUSD to receive YUSD
-     * @param stYUSDAmount Amount of stYUSD to unstake
+     * @dev Unstake sYUSD to receive YUSD
+     * @param sYUSDAmount Amount of sYUSD to unstake
      */
-    function unstake(uint256 stYUSDAmount) external;
+    function unstake(uint256 sYUSDAmount) external;
 
     /**
-     * @dev Add rewards to the staking pool (increases stYUSD value)
+     * @dev Add rewards to the staking pool (increases sYUSD value)
      * @param yusdAmount Amount of YUSD to add as rewards
      */
     function addRewards(uint256 yusdAmount) external;
 
     /**
-     * @dev Get the exchange rate of stYUSD to YUSD
-     * @return Amount of YUSD that 1 stYUSD is worth
+     * @dev Get the exchange rate of sYUSD to YUSD
+     * @return Amount of YUSD that 1 sYUSD is worth
      */
     function getExchangeRate() external view returns (uint256);
 
     /**
-     * @dev Calculate the amount of stYUSD for a given amount of YUSD
+     * @dev Calculate the amount of sYUSD for a given amount of YUSD
      * @param yusdAmount Amount of YUSD
-     * @return Amount of stYUSD
+     * @return Amount of sYUSD
      */
-    function getStYUSDForYUSD(uint256 yusdAmount) external view returns (uint256);
+    function getsYUSDForYUSD(uint256 yusdAmount) external view returns (uint256);
 
     /**
-     * @dev Calculate the amount of YUSD for a given amount of stYUSD
-     * @param stYUSDAmount Amount of stYUSD
+     * @dev Calculate the amount of YUSD for a given amount of sYUSD
+     * @param sYUSDAmount Amount of sYUSD
      * @return Amount of YUSD
      */
-    function getYUSDForStYUSD(uint256 stYUSDAmount) external view returns (uint256);
+    function getYUSDForsYUSD(uint256 sYUSDAmount) external view returns (uint256);
 
     /**
      * @dev Get total amount of YUSD held by the contract
@@ -76,10 +76,10 @@ interface IStYUSD is IERC20Permit, IERC20Metadata {
 }
 
 /**
- * @title IStYUSDErrors
- * @dev Custom errors for the StYUSD contract.
+ * @title IsYUSDErrors
+ * @dev Custom errors for the sYUSD contract.
  */
-interface IStYUSDErrors {
+interface IsYUSDErrors {
     /**
      * @dev Error thrown when an address parameter is zero.
      * @param paramName Name of the parameter that was zero

@@ -1,4 +1,4 @@
-// scripts/deploy-stYUSD.js
+// scripts/deploy-sYUSD.js
 const { ethers } = require('hardhat')
 
 async function main() {
@@ -21,33 +21,33 @@ async function main() {
   console.log('YUSD Token Address:', yusdAddress)
   console.log('Admin Address:', adminAddress)
 
-  // Deploy StYUSD
-  console.log('Deploying StYUSD token...')
-  const StYUSD = await ethers.getContractFactory('StYUSD')
-  const deployTx = await StYUSD.deploy(yusdAddress, adminAddress)
+  // Deploy sYUSD
+  console.log('Deploying sYUSD token...')
+  const sYUSD = await ethers.getContractFactory('sYUSD')
+  const deployTx = await sYUSD.deploy(yusdAddress, adminAddress)
   await deployTx.waitForDeployment()
-  const stYusd = deployTx
+  const sYusd = deployTx
 
-  console.log('StYUSD deployed to:', await stYusd.getAddress())
+  console.log('sYUSD deployed to:', await sYusd.getAddress())
 
   // Verify deployment parameters
   console.log('\nVerifying deployment parameters:')
-  console.log(`Asset address: ${await stYusd.asset()}`)
-  console.log(`Default admin role for ${adminAddress}: ${await stYusd.hasRole(await stYusd.DEFAULT_ADMIN_ROLE(), adminAddress)}`)
+  console.log(`Asset address: ${await sYusd.asset()}`)
+  console.log(`Default admin role for ${adminAddress}: ${await sYusd.hasRole(await sYusd.DEFAULT_ADMIN_ROLE(), adminAddress)}`)
 
   // Get ADMIN_ROLE by hashing the string
   const adminRole = ethers.id('ADMIN_ROLE')
-  console.log(`Admin role for ${adminAddress}: ${await stYusd.hasRole(adminRole, adminAddress)}`)
+  console.log(`Admin role for ${adminAddress}: ${await sYusd.hasRole(adminRole, adminAddress)}`)
 
   // Print configuration values
   console.log('\nInitial configuration:')
-  console.log(`Lockup period: ${await stYusd.lockupPeriod()} seconds (${await stYusd.lockupPeriod() / 86400n} days)`)
+  console.log(`Lockup period: ${await sYusd.lockupPeriod()} seconds (${await sYusd.lockupPeriod() / 86400n} days)`)
 
   console.log('\nDeployment completed successfully!')
 
   // For verification on block explorers like Etherscan
   console.log('\nVerification command:')
-  console.log(`npx hardhat verify --network ${network.name} ${await stYusd.getAddress()} ${yusdAddress} ${adminAddress}`)
+  console.log(`npx hardhat verify --network ${network.name} ${await sYusd.getAddress()} ${yusdAddress} ${adminAddress}`)
 }
 
 main()
