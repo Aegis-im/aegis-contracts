@@ -1,5 +1,9 @@
 import { HardhatUserConfig } from 'hardhat/config'
 import '@nomicfoundation/hardhat-toolbox'
+import * as dotenv from 'dotenv'
+
+// Load environment variables from .env file
+dotenv.config()
 
 const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
@@ -9,6 +13,12 @@ const config: HardhatUserConfig = {
     },
     mainnet: {
       url: 'https://ethereum-rpc.publicnode.com',
+    },
+    bnbTestnet: {
+      url: 'https://data-seed-prebsc-1-s1.binance.org:8545',
+      chainId: 97,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: 10000000000, // 10 gwei
     },
   },
   solidity: {
@@ -30,6 +40,11 @@ const config: HardhatUserConfig = {
         },
       },
     ],
+  },
+  etherscan: {
+    apiKey: {
+      bscTestnet: process.env.BSCSCAN_API_KEY || '',
+    },
   },
 }
 
