@@ -13,11 +13,10 @@ describe('sYUSD', function () {
   let user2
   let accounts
 
-  const ZERO_ADDRESS = ethers.constants.AddressZero
-  const INITIAL_SUPPLY = ethers.utils.parseEther('1000000') // 1 million YUSD
+  const ZERO_ADDRESS = ethers.ZeroAddress
+  const INITIAL_SUPPLY = ethers.parseEther('1000000') // 1 million YUSD
   const DEFAULT_ADMIN_ROLE = '0x0000000000000000000000000000000000000000000000000000000000000000'
-  const ADMIN_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('ADMIN_ROLE'))
-  const REWARDS_DISTRIBUTOR_ROLE = ethers.utils.keccak256(ethers.utils.toUtf8Bytes('REWARDS_DISTRIBUTOR_ROLE'))
+  const ADMIN_ROLE = ethers.keccak256(ethers.toUtf8Bytes('ADMIN_ROLE'))
 
   beforeEach(async function () {
     accounts = await ethers.getSigners();
@@ -26,7 +25,8 @@ describe('sYUSD', function () {
     // Deploy YUSD token
     const YUSD = await ethers.getContractFactory('YUSD')
     yusd = await YUSD.deploy(owner.address)
-    await yusd.deployed()
+    // Wait for deployment to complete
+    await yusd.waitForDeployment()
 
     // Set minter role
     await yusd.setMinter(owner.address)
@@ -37,22 +37,22 @@ describe('sYUSD', function () {
     // Deploy sYUSD token
     const sYUSD = await ethers.getContractFactory('sYUSD')
     sYusd = await sYUSD.deploy(
-      yusd.address,
+      await yusd.getAddress(),
       owner.address,
-      rewardsDistributor.address,
     )
-    await sYusd.deployed()
+    // Wait for deployment to complete
+    await sYusd.waitForDeployment()
 
     // Distribute some YUSD to users for testing
-    await yusd.transfer(user1.address, ethers.utils.parseEther('10000'))
-    await yusd.transfer(user2.address, ethers.utils.parseEther('10000'))
-    await yusd.transfer(rewardsDistributor.address, ethers.utils.parseEther('100000'))
+    await yusd.transfer(user1.address, ethers.parseEther('10000'))
+    await yusd.transfer(user2.address, ethers.parseEther('10000'))
+    await yusd.transfer(rewardsDistributor.address, ethers.parseEther('100000'))
 
     // Approve sYUSD contract to spend YUSD
-    await yusd.connect(user1).approve(sYusd.address, ethers.constants.MaxUint256)
-    await yusd.connect(user2).approve(sYusd.address, ethers.constants.MaxUint256)
-    await yusd.connect(rewardsDistributor).approve(sYusd.address, ethers.constants.MaxUint256)
-    await yusd.connect(owner).approve(sYusd.address, ethers.constants.MaxUint256)
+    await yusd.connect(user1).approve(await sYusd.getAddress(), ethers.MaxUint256)
+    await yusd.connect(user2).approve(await sYusd.getAddress(), ethers.MaxUint256)
+    await yusd.connect(rewardsDistributor).approve(await sYusd.getAddress(), ethers.MaxUint256)
+    await yusd.connect(owner).approve(await sYusd.getAddress(), ethers.MaxUint256)
   })
 
   describe('Deployment', function () {
@@ -62,357 +62,224 @@ describe('sYUSD', function () {
     })
 
     it('Should set the correct YUSD token address', async function () {
-      expect(await sYusd.yusd()).to.equal(yusd.address)
+      expect(await sYusd.asset()).to.equal(await yusd.getAddress())
     })
 
     it('Should assign roles correctly', async function () {
       expect(await sYusd.hasRole(DEFAULT_ADMIN_ROLE, owner.address)).to.be.true
       expect(await sYusd.hasRole(ADMIN_ROLE, owner.address)).to.be.true
-      expect(await sYusd.hasRole(REWARDS_DISTRIBUTOR_ROLE, rewardsDistributor.address)).to.be.true
     })
 
     it('Should revert when YUSD address is zero', async function () {
       const sYUSD = await ethers.getContractFactory('sYUSD')
       await expect(
-        sYUSD.deploy(ZERO_ADDRESS, owner.address, rewardsDistributor.address),
+        sYUSD.deploy(ZERO_ADDRESS, owner.address),
       ).to.be.revertedWithCustomError(sYUSD, 'ZeroAddress')
     })
 
     it('Should revert when admin address is zero', async function () {
       const sYUSD = await ethers.getContractFactory('sYUSD')
       await expect(
-        sYUSD.deploy(yusd.address, ZERO_ADDRESS, rewardsDistributor.address),
+        sYUSD.deploy(await yusd.getAddress(), ZERO_ADDRESS),
       ).to.be.revertedWithCustomError(sYUSD, 'ZeroAddress')
     })
   })
 
-  describe('Staking', function () {
-    it('Should allow users to stake YUSD and receive sYUSD', async function () {
-      const stakeAmount = ethers.utils.parseEther('1000')
+  describe('Deposit/Mint (Staking)', function () {
+    it('Should allow users to deposit YUSD and receive sYUSD', async function () {
+      const depositAmount = ethers.parseEther('1000')
 
-      await expect(sYusd.connect(user1).stake(stakeAmount))
-        .to.emit(sYusd, 'Staked')
-        .withArgs(user1.address, stakeAmount, stakeAmount) // 1:1 ratio initially
+      await expect(sYusd.connect(user1).deposit(depositAmount, user1.address))
+        .to.emit(sYusd, 'Deposit')
+        .withArgs(user1.address, user1.address, depositAmount, depositAmount) // sender, receiver, assets, shares
 
-      expect(await sYusd.balanceOf(user1.address)).to.equal(stakeAmount)
-      expect(await sYusd.totalYUSDHeld()).to.equal(stakeAmount)
-      expect(await yusd.balanceOf(sYusd.address)).to.equal(stakeAmount)
+      expect(await sYusd.balanceOf(user1.address)).to.equal(depositAmount)
+      expect(await yusd.balanceOf(await sYusd.getAddress())).to.equal(depositAmount)
     })
 
-    it('Should maintain the correct exchange rate after multiple stakes', async function () {
-      await sYusd.connect(user1).stake(ethers.utils.parseEther('1000'))
-      await sYusd.connect(user2).stake(ethers.utils.parseEther('500'))
+    it('Should maintain the correct exchange rate after multiple deposits', async function () {
+      await sYusd.connect(user1).deposit(ethers.parseEther('1000'), user1.address)
+      await sYusd.connect(user2).deposit(ethers.parseEther('500'), user2.address)
 
-      expect(await sYusd.totalSupply()).to.equal(ethers.utils.parseEther('1500'))
-      expect(await sYusd.totalYUSDHeld()).to.equal(ethers.utils.parseEther('1500'))
-      expect(await sYusd.getExchangeRate()).to.equal(ethers.utils.parseEther('1'))
+      expect(await sYusd.totalSupply()).to.equal(ethers.parseEther('1500'))
+      expect(await sYusd.totalAssets()).to.equal(ethers.parseEther('1500'))
+
+      // Exchange rate should be 1:1 initially
+      expect(await sYusd.convertToAssets(ethers.parseEther('100'))).to.equal(ethers.parseEther('100'))
     })
 
-    it('Should revert when staking is disabled', async function () {
-      await sYusd.connect(owner).setStakingEnabled(false)
+    it('Should be able to use mint function too', async function () {
+      const mintAmount = ethers.parseEther('1000')
+      // Calculate assets needed for shares
+      const assetsNeeded = await sYusd.previewMint(mintAmount)
 
-      await expect(sYusd.connect(user1).stake(ethers.utils.parseEther('100')))
-        .to.be.revertedWithCustomError(sYusd, 'StakingDisabled')
-    })
+      await expect(sYusd.connect(user1).mint(mintAmount, user1.address))
+        .to.emit(sYusd, 'Deposit')
+        .withArgs(user1.address, user1.address, assetsNeeded, mintAmount)
 
-    it('Should revert when staking below minimum amount', async function () {
-      const minStakeAmount = await sYusd.minStakeAmount()
-
-      await expect(sYusd.connect(user1).stake(minStakeAmount.sub(1)))
-        .to.be.revertedWithCustomError(sYusd, 'BelowMinStakeAmount')
-    })
-
-    it('Should revert when staking above maximum amount if set', async function () {
-      await sYusd.connect(owner).setMaxStakeAmount(ethers.utils.parseEther('100'))
-
-      await expect(sYusd.connect(user1).stake(ethers.utils.parseEther('101')))
-        .to.be.revertedWithCustomError(sYusd, 'AboveMaxStakeAmount')
-    })
-
-    it('Should update lastStakeTimestamp when staking', async function () {
-      await sYusd.connect(user1).stake(ethers.utils.parseEther('100'))
-
-      const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
-      expect(await sYusd.lastStakeTimestamp(user1.address)).to.equal(blockTimestamp)
+      expect(await sYusd.balanceOf(user1.address)).to.equal(mintAmount)
     })
   })
 
-  describe('Unstaking', function () {
+  describe('Withdraw/Redeem (Unstaking)', function () {
     beforeEach(async function () {
-      // User1 stakes 1000 YUSD
-      await sYusd.connect(user1).stake(ethers.utils.parseEther('1000'))
+      // User1 deposits 1000 YUSD
+      await sYusd.connect(user1).deposit(ethers.parseEther('1000'), user1.address)
+
+      // Update unlocked shares to be able to withdraw
+      await sYusd.updateUnlockedShares(user1.address)
     })
 
-    it('Should allow users to unstake sYUSD and receive YUSD', async function () {
-      const unstakeAmount = ethers.utils.parseEther('500') // Unstake half
-
-      await expect(sYusd.connect(user1).unstake(unstakeAmount))
-        .to.emit(sYusd, 'Unstaked')
-        .withArgs(user1.address, unstakeAmount, unstakeAmount) // 1:1 ratio initially
-
-      expect(await sYusd.balanceOf(user1.address)).to.equal(ethers.utils.parseEther('500'))
-      expect(await sYusd.totalYUSDHeld()).to.equal(ethers.utils.parseEther('500'))
-      expect(await yusd.balanceOf(sYusd.address)).to.equal(ethers.utils.parseEther('500'))
+    it('Should respect lockup period for withdrawals', async function () {
+      // Trying to withdraw immediately should fail due to lockup period
+      await expect(sYusd.connect(user1).withdraw(ethers.parseEther('100'), user1.address, user1.address))
+        .to.be.revertedWithCustomError(sYusd, 'ERC4626ExceededMaxWithdraw')
     })
 
-    it('Should maintain the correct exchange rate after rewards and unstaking', async function () {
-      // Add rewards, which increases the YUSD per sYUSD ratio
-      const rewardAmount = ethers.utils.parseEther('500')
-      await sYusd.connect(rewardsDistributor).addRewards(rewardAmount)
+    it('Should allow withdrawals after lockup period expires', async function () {
+      // Advance time past the lockup period (default 7 days)
+      await time.increase(7 * 24 * 60 * 60 + 1)
 
-      // Exchange rate should now be 1.5 YUSD per sYUSD
-      expect(await sYusd.getExchangeRate()).to.equal(ethers.utils.parseEther('1.5'))
+      // Update unlocked shares
+      await sYusd.updateUnlockedShares(user1.address)
 
-      // Unstake half of sYUSD, should get 750 YUSD back (500 * 1.5)
-      const unstakeAmount = ethers.utils.parseEther('500')
-      const expectedYUSD = ethers.utils.parseEther('750')
+      // Now withdrawal should succeed
+      const withdrawAmount = ethers.parseEther('500')
 
-      await expect(sYusd.connect(user1).unstake(unstakeAmount))
-        .to.emit(sYusd, 'Unstaked')
-        .withArgs(user1.address, unstakeAmount, expectedYUSD)
+      await expect(sYusd.connect(user1).withdraw(withdrawAmount, user1.address, user1.address))
+        .to.emit(sYusd, 'Withdraw')
+        .withArgs(user1.address, user1.address, user1.address, withdrawAmount, withdrawAmount)
 
-      expect(await sYusd.balanceOf(user1.address)).to.equal(ethers.utils.parseEther('500'))
-      expect(await sYusd.totalYUSDHeld()).to.equal(ethers.utils.parseEther('750'))
-      expect(await yusd.balanceOf(sYusd.address)).to.equal(ethers.utils.parseEther('750'))
-
-      // Exchange rate should remain 1.5
-      expect(await sYusd.getExchangeRate()).to.equal(ethers.utils.parseEther('1.5'))
+      expect(await sYusd.balanceOf(user1.address)).to.equal(ethers.parseEther('500'))
+      expect(await yusd.balanceOf(await sYusd.getAddress())).to.equal(ethers.parseEther('500'))
     })
 
-    it('Should revert when unstaking is disabled', async function () {
-      await sYusd.connect(owner).setUnstakingEnabled(false)
+    it('Should also allow redeem after lockup period expires', async function () {
+      // Advance time past the lockup period
+      await time.increase(7 * 24 * 60 * 60 + 1)
 
-      await expect(sYusd.connect(user1).unstake(ethers.utils.parseEther('100')))
-        .to.be.revertedWithCustomError(sYusd, 'UnstakingDisabled')
-    })
+      // Update unlocked shares
+      await sYusd.updateUnlockedShares(user1.address)
 
-    it('Should respect cooldown period when set', async function () {
-      // Set cooldown period to 1 day
-      const cooldownPeriod = 86400 // 1 day in seconds
-      await sYusd.connect(owner).setCooldownPeriod(cooldownPeriod)
+      const redeemShares = ethers.parseEther('500')
+      const expectedAssets = await sYusd.previewRedeem(redeemShares)
 
-      // Try to unstake immediately, should fail
-      await expect(sYusd.connect(user1).unstake(ethers.utils.parseEther('100')))
-        .to.be.revertedWithCustomError(sYusd, 'CooldownActive')
-
-      // Advance time past cooldown
-      await time.increase(cooldownPeriod + 1)
-
-      // Now unstaking should work
-      await expect(sYusd.connect(user1).unstake(ethers.utils.parseEther('100')))
-        .to.emit(sYusd, 'Unstaked')
+      await expect(sYusd.connect(user1).redeem(redeemShares, user1.address, user1.address))
+        .to.emit(sYusd, 'Withdraw')
+        .withArgs(user1.address, user1.address, user1.address, expectedAssets, redeemShares)
     })
   })
 
-  describe('Rewards', function () {
+  describe('Lockup Period', function () {
+    it('Should allow admin to change lockup period', async function () {
+      const newLockupPeriod = 600 // 10 minutes
+
+      await expect(sYusd.connect(owner).setLockupPeriod(newLockupPeriod))
+        .to.emit(sYusd, 'LockupPeriodUpdated')
+        .withArgs(newLockupPeriod)
+
+      expect(await sYusd.lockupPeriod()).to.equal(newLockupPeriod)
+    })
+
+    it('Should prevent non-admin from changing lockup period', async function () {
+      await expect(sYusd.connect(user1).setLockupPeriod(600))
+        .to.be.revertedWithCustomError(sYusd, 'AccessControlUnauthorizedAccount')
+    })
+  })
+
+  describe('Share Tracking', function () {
     beforeEach(async function () {
-      // User1 stakes 1000 YUSD
-      await sYusd.connect(user1).stake(ethers.utils.parseEther('1000'))
+      await sYusd.connect(user1).deposit(ethers.parseEther('1000'), user1.address)
     })
 
-    it('Should allow rewards distributor to add rewards', async function () {
-      const rewardAmount = ethers.utils.parseEther('500')
+    it('Should correctly track locked shares', async function () {
+      const userSharesStatus = await sYusd.getUserSharesStatus(user1.address)
+      const lockedShares = userSharesStatus[0]
+      const unlockedShares = userSharesStatus[1]
 
-      await expect(sYusd.connect(rewardsDistributor).addRewards(rewardAmount))
-        .to.emit(sYusd, 'RewardsAdded')
-        .withArgs(rewardAmount)
-
-      expect(await sYusd.totalYUSDHeld()).to.equal(ethers.utils.parseEther('1500'))
-      expect(await yusd.balanceOf(sYusd.address)).to.equal(ethers.utils.parseEther('1500'))
+      expect(lockedShares).to.equal(ethers.parseEther('1000'))
+      expect(unlockedShares).to.equal(0)
     })
 
-    it('Should increase exchange rate when rewards are added', async function () {
-      // Initial exchange rate should be 1:1
-      expect(await sYusd.getExchangeRate()).to.equal(ethers.utils.parseEther('1'))
+    it('Should unlock shares after lockup period', async function () {
+      // Advance time past lockup period
+      await time.increase(7 * 24 * 60 * 60 + 1)
 
-      // Add rewards
-      const rewardAmount = ethers.utils.parseEther('1000')
-      await sYusd.connect(rewardsDistributor).addRewards(rewardAmount)
+      // Before calling updateUnlockedShares
+      let userSharesStatus = await sYusd.getUserSharesStatus(user1.address)
+      let lockedShares = userSharesStatus[0]
+      let unlockedShares = userSharesStatus[1]
 
-      // New exchange rate should be 2:1 (2000 YUSD / 1000 sYUSD)
-      expect(await sYusd.getExchangeRate()).to.equal(ethers.utils.parseEther('2'))
-    })
+      expect(lockedShares).to.equal(0) // Should be 0 as getUserSharesStatus already checks timestamps
+      expect(unlockedShares).to.equal(ethers.parseEther('1000'))
 
-    it('Should revert when non-rewards distributor attempts to add rewards', async function () {
-      await expect(sYusd.connect(user2).addRewards(ethers.utils.parseEther('100')))
-        .to.be.revertedWith(/AccessControl: account .* is missing role.*/)
-    })
+      // After explicitly updating
+      await sYusd.updateUnlockedShares(user1.address)
 
-    it('Should revert with zero amount reward', async function () {
-      await expect(sYusd.connect(rewardsDistributor).addRewards(0))
-        .to.be.revertedWithCustomError(sYusd, 'ZeroAmount')
-    })
+      // Check state
+      userSharesStatus = await sYusd.getUserSharesStatus(user1.address)
+      lockedShares = userSharesStatus[0]
+      unlockedShares = userSharesStatus[1]
 
-    it('Should revert when adding rewards with no stakers', async function () {
-      // Unstake all user1's tokens
-      await sYusd.connect(user1).unstake(await sYusd.balanceOf(user1.address))
-
-      // Attempting to add rewards with no stakers should fail
-      await expect(sYusd.connect(rewardsDistributor).addRewards(ethers.utils.parseEther('100')))
-        .to.be.revertedWithCustomError(sYusd, 'NoStakers')
+      expect(lockedShares).to.equal(0)
+      expect(unlockedShares).to.equal(ethers.parseEther('1000'))
     })
   })
 
-  describe('Admin Functions', function () {
-    it('Should allow admin to rescue excess YUSD', async function () {
-      // First stake some YUSD
-      await sYusd.connect(user1).stake(ethers.utils.parseEther('1000'))
-
-      // Send extra YUSD directly to the contract (bypassing stake)
-      await yusd.transfer(sYusd.address, ethers.utils.parseEther('500'))
-
-      // Rescue the excess YUSD
-      await expect(sYusd.connect(owner).rescueYUSD(owner.address, ethers.utils.parseEther('500')))
-        .to.emit(sYusd, 'YUSDRescued')
-        .withArgs(owner.address, ethers.utils.parseEther('500'))
-
-      // Total held should still be 1000 (staked) + 0 (rescued excess)
-      expect(await sYusd.totalYUSDHeld()).to.equal(ethers.utils.parseEther('1000'))
+  describe('ERC4626 Compatibility', function () {
+    it('Should implement maxDeposit correctly', async function () {
+      const maxDeposit = await sYusd.maxDeposit(user1.address)
+      expect(maxDeposit).to.equal(ethers.MaxUint256)
     })
 
-    it('Should revert when trying to rescue more YUSD than excess', async function () {
-      await sYusd.connect(user1).stake(ethers.utils.parseEther('1000'))
-      await yusd.transfer(sYusd.address, ethers.utils.parseEther('500'))
+    it('Should implement maxWithdraw correctly', async function () {
+      // Initially no assets to withdraw
+      const initialMaxWithdraw = await sYusd.maxWithdraw(user1.address)
+      expect(initialMaxWithdraw).to.equal(0)
 
-      // Try to rescue more than excess
-      await expect(sYusd.connect(owner).rescueYUSD(owner.address, ethers.utils.parseEther('600')))
-        .to.be.revertedWithCustomError(sYusd, 'InsufficientRescuableAmount')
+      // After deposit and lockup period passed
+      await sYusd.connect(user1).deposit(ethers.parseEther('1000'), user1.address)
+      await time.increase(7 * 24 * 60 * 60 + 1)
+
+      const maxWithdraw = await sYusd.maxWithdraw(user1.address)
+      expect(maxWithdraw).to.equal(ethers.parseEther('1000'))
     })
+  })
 
-    it('Should allow admin to rescue other ERC20 tokens', async function () {
+  describe('Token Rescue', function () {
+    it('Should allow admin to rescue other tokens', async function () {
       // Deploy a mock ERC20 for testing
-      const ERC20Mock = await ethers.getContractFactory('YUSD') // Reusing YUSD as generic ERC20
+      const ERC20Mock = await ethers.getContractFactory('YUSD')
       const mockToken = await ERC20Mock.deploy(owner.address)
-      await mockToken.deployed()
+      await mockToken.waitForDeployment()
 
-      // Set minter role
+      // Set minter role and mint tokens to the contract
       await mockToken.setMinter(owner.address)
+      await mockToken.mint(await sYusd.getAddress(), ethers.parseEther('1000'))
 
-      // Mint some tokens and send to sYUSD contract
-      await mockToken.mint(sYusd.address, ethers.utils.parseEther('1000'))
-
-      // Rescue those tokens
-      await expect(sYusd.connect(owner).rescueERC20(mockToken.address, owner.address, ethers.utils.parseEther('1000')))
-        .to.emit(sYusd, 'ERC20Rescued')
-        .withArgs(mockToken.address, owner.address, ethers.utils.parseEther('1000'))
-
-      expect(await mockToken.balanceOf(owner.address)).to.equal(ethers.utils.parseEther('1000'))
+      // Rescue tokens
+      await expect(
+        sYusd.connect(owner).rescueTokens(
+          await mockToken.getAddress(),
+          ethers.parseEther('1000'),
+          owner.address,
+        ),
+      ).to.changeTokenBalance(
+        mockToken,
+        owner,
+        ethers.parseEther('1000'),
+      )
     })
 
-    it('Should revert when trying to rescue YUSD using rescueERC20', async function () {
-      await expect(sYusd.connect(owner).rescueERC20(yusd.address, owner.address, ethers.utils.parseEther('100')))
-        .to.be.revertedWithCustomError(sYusd, 'CannotRescueUnderlyingAsset')
-    })
-
-    it('Should allow admin to set minimum stake amount', async function () {
-      const newMinStakeAmount = ethers.utils.parseEther('10')
-
-      await expect(sYusd.connect(owner).setMinStakeAmount(newMinStakeAmount))
-        .to.emit(sYusd, 'MinStakeAmountUpdated')
-        .withArgs(newMinStakeAmount)
-
-      expect(await sYusd.minStakeAmount()).to.equal(newMinStakeAmount)
-    })
-
-    it('Should allow admin to set maximum stake amount', async function () {
-      const newMaxStakeAmount = ethers.utils.parseEther('10000')
-
-      await expect(sYusd.connect(owner).setMaxStakeAmount(newMaxStakeAmount))
-        .to.emit(sYusd, 'MaxStakeAmountUpdated')
-        .withArgs(newMaxStakeAmount)
-
-      expect(await sYusd.maxStakeAmount()).to.equal(newMaxStakeAmount)
-    })
-
-    it('Should allow admin to disable staking', async function () {
-      await expect(sYusd.connect(owner).setStakingEnabled(false))
-        .to.emit(sYusd, 'StakingStatusUpdated')
-        .withArgs(false)
-
-      expect(await sYusd.stakingEnabled()).to.be.false
-    })
-
-    it('Should allow admin to disable unstaking', async function () {
-      await expect(sYusd.connect(owner).setUnstakingEnabled(false))
-        .to.emit(sYusd, 'UnstakingStatusUpdated')
-        .withArgs(false)
-
-      expect(await sYusd.unstakingEnabled()).to.be.false
-    })
-
-    it('Should allow admin to set cooldown period', async function () {
-      const newCooldownPeriod = 86400 // 1 day in seconds
-
-      await expect(sYusd.connect(owner).setCooldownPeriod(newCooldownPeriod))
-        .to.emit(sYusd, 'CooldownPeriodUpdated')
-        .withArgs(newCooldownPeriod)
-
-      expect(await sYusd.cooldownPeriod()).to.equal(newCooldownPeriod)
-    })
-  })
-
-  describe('Transfer', function () {
-    beforeEach(async function () {
-      // User1 stakes 1000 YUSD
-      await sYusd.connect(user1).stake(ethers.utils.parseEther('1000'))
-    })
-
-    it('Should allow transfer of sYUSD between accounts', async function () {
-      const transferAmount = ethers.utils.parseEther('500')
-
-      await expect(sYusd.connect(user1).transfer(user2.address, transferAmount))
-        .to.emit(sYusd, 'Transfer')
-        .withArgs(user1.address, user2.address, transferAmount)
-
-      expect(await sYusd.balanceOf(user1.address)).to.equal(ethers.utils.parseEther('500'))
-      expect(await sYusd.balanceOf(user2.address)).to.equal(transferAmount)
-    })
-
-    it('Should update cooldown timestamp on transfer when cooldown is active', async function () {
-      // Set cooldown period
-      await sYusd.connect(owner).setCooldownPeriod(86400) // 1 day
-
-      // Transfer sYUSD
-      await sYusd.connect(user1).transfer(user2.address, ethers.utils.parseEther('500'))
-
-      // Check that recipient has the current timestamp as their last stake timestamp
-      const blockTimestamp = (await ethers.provider.getBlock('latest')).timestamp
-      expect(await sYusd.lastStakeTimestamp(user2.address)).to.equal(blockTimestamp)
-    })
-  })
-
-  describe('Exchange Rate Calculations', function () {
-    it('Should correctly calculate sYUSD for YUSD amounts', async function () {
-      // Initial state: no deposits, 1:1 ratio
-      expect(await sYusd.getsYUSDForYUSD(ethers.utils.parseEther('100'))).to.equal(ethers.utils.parseEther('100'))
-
-      // After first stake, should remain 1:1
-      await sYusd.connect(user1).stake(ethers.utils.parseEther('1000'))
-      expect(await sYusd.getsYUSDForYUSD(ethers.utils.parseEther('100'))).to.equal(ethers.utils.parseEther('100'))
-
-      // Add rewards to change the rate to 2 YUSD per sYUSD
-      await sYusd.connect(rewardsDistributor).addRewards(ethers.utils.parseEther('1000'))
-      // Now 100 YUSD should give 50 sYUSD
-      expect(await sYusd.getsYUSDForYUSD(ethers.utils.parseEther('100'))).to.equal(ethers.utils.parseEther('50'))
-    })
-
-    it('Should correctly calculate YUSD for sYUSD amounts', async function () {
-      // Initial state: no deposits, 1:1 ratio
-      expect(await sYusd.getYUSDForsYUSD(ethers.utils.parseEther('100'))).to.equal(ethers.utils.parseEther('100'))
-
-      // After first stake, should remain 1:1
-      await sYusd.connect(user1).stake(ethers.utils.parseEther('1000'))
-      expect(await sYusd.getYUSDForsYUSD(ethers.utils.parseEther('100'))).to.equal(ethers.utils.parseEther('100'))
-
-      // Add rewards to change the rate to 2 YUSD per sYUSD
-      await sYusd.connect(rewardsDistributor).addRewards(ethers.utils.parseEther('1000'))
-      // Now 50 sYUSD should give 100 YUSD
-      expect(await sYusd.getYUSDForsYUSD(ethers.utils.parseEther('50'))).to.equal(ethers.utils.parseEther('100'))
-    })
-
-    it('Should handle zero amounts correctly', async function () {
-      expect(await sYusd.getsYUSDForYUSD(0)).to.equal(0)
-      expect(await sYusd.getYUSDForsYUSD(0)).to.equal(0)
+    it('Should prevent rescuing the underlying asset', async function () {
+      await expect(
+        sYusd.connect(owner).rescueTokens(
+          await yusd.getAddress(),
+          ethers.parseEther('100'),
+          owner.address,
+        ),
+      ).to.be.revertedWithCustomError(sYusd, 'InvalidToken')
     })
   })
 })
+

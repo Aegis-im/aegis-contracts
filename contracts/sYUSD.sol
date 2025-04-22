@@ -13,6 +13,28 @@ import { IYUSD } from "./interfaces/IYUSD.sol";
  * @dev Staked YUSD (sYUSD) - an interest-bearing token that represents YUSD staked in the protocol.
  * The token's value increases over time relative to YUSD, reflecting staking rewards.
  * Implements ERC4626 Tokenized Vault Standard.
+ * 
+ * @dev Staking Mechanics:
+ * - Users deposit YUSD and receive sYUSD shares in return
+ * - The exchange rate between YUSD and sYUSD can increase over time as rewards are added
+ * - The value of sYUSD (relative to YUSD) never decreases, making it a yield-bearing asset
+ * 
+ * @dev Lockup System:
+ * - All deposits are subject to a lockup period (default: 7 days)
+ * - Users cannot withdraw their shares until the lockup period expires
+ * - Multiple deposits create separate locked share entries with independent expiry times
+ * - Expired lockups must be processed via updateUnlockedShares before withdrawal
+ * 
+ * @dev Security Features:
+ * - Based on OpenZeppelin's ERC4626, ERC20Permit, AccessControl, and ReentrancyGuard
+ * - Admin role is required for changing critical parameters
+ * - Rescue function for recovering non-YUSD tokens sent to the contract accidentally
+ * - Safeguards against withdrawing locked shares
+ * 
+ * @dev Integration Notes:
+ * - Fully compatible with ERC4626 interfaces for better composability
+ * - Implements maxWithdraw and maxDeposit to properly communicate withdrawal limitations
+ * - Uses ERC20Permit for gasless approvals
  */
 contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -75,7 +97,13 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
 
     /**
      * @dev Updates the unlocked shares for a user by checking expired lockups
-     * @param user Address of the user
+     * @dev This function is called automatically during withdrawal but can also be called separately
+     * @dev Performs two key actions:
+     *   1. Checks all locked share entries and updates those with expired lockup periods
+     *   2. Moves shares from locked to unlocked status when their lockup expires
+     * @dev After updating, it calls _cleanupLockedShares to optimize storage
+     * @dev Can be called by anyone at any time to update a user's unlocked shares
+     * @param user Address of the user whose unlocked shares will be updated
      */
     function updateUnlockedShares(address user) public {
         LockedShares[] storage userLocks = userLockedShares[user];
@@ -93,7 +121,14 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     
     /**
      * @dev Removes empty entries from the locked shares array
-     * @param user Address of the user
+     * @dev Storage optimization function that compacts the locked shares array
+     * @dev Uses an efficient algorithm:
+     *   1. Replaces empty entry with the last entry in the array
+     *   2. Removes the last entry (pop operation)
+     *   3. Repeats until all empty entries are removed
+     * @dev This prevents the array from growing indefinitely with empty entries
+     * @dev Called internally by updateUnlockedShares to maintain storage efficiency
+     * @param user Address of the user whose locked shares array will be cleaned up
      */
     function _cleanupLockedShares(address user) internal {
         LockedShares[] storage userLocks = userLockedShares[user];
@@ -112,6 +147,14 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
 
     /**
      * @dev Override of _deposit to add shares to locked tracking
+     * @dev Extends the standard ERC4626 _deposit function to implement lockup functionality
+     * @dev Each deposit creates a new entry in the user's locked shares array with a timestamp
+     * @dev The shares will be locked until the lockupPeriod has passed from the deposit time
+     * @param caller The address that initiated the deposit
+     * @param receiver The address that will receive the shares
+     * @param assets The amount of underlying asset tokens being deposited
+     * @param shares The amount of vault shares being minted
+     * @inheritdoc ERC4626
      */
     function _deposit(
         address caller,
@@ -130,6 +173,16 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
 
     /**
      * @dev Override of _withdraw to ensure only unlocked shares can be withdrawn
+     * @dev Extends the standard ERC4626 _withdraw function to enforce lockup periods
+     * @dev Before withdrawal, it checks if the user has sufficient unlocked shares
+     * @dev First updates the user's unlocked shares by checking for expired lockup periods
+     * @dev If insufficient unlocked shares are available, the transaction will revert
+     * @param caller The address that initiated the withdrawal
+     * @param receiver The address that will receive the assets
+     * @param owner The address that owns the shares being burned
+     * @param assets The amount of underlying asset tokens being withdrawn
+     * @param shares The amount of vault shares being burned
+     * @inheritdoc ERC4626
      */
     function _withdraw(
         address caller,
@@ -154,6 +207,13 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
 
     /**
      * @dev Override of maxDeposit to enforce deposit limits
+     * @dev Returns the maximum amount of assets that can be deposited
+     * @dev In this implementation, there is no upper limit on deposits
+     * @dev Could be overridden in future versions to implement deposit caps
+     * @dev Required by the ERC4626 standard for proper integration with other protocols
+     * @param owner The address that would receive the vault shares
+     * @return The maximum amount of assets that can be deposited
+     * @inheritdoc ERC4626
      */
     function maxDeposit(address) public view virtual override returns (uint256) {
         return type(uint256).max;
@@ -161,6 +221,13 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
 
     /**
      * @dev Override of maxWithdraw to return only unlocked shares value
+     * @dev Calculates the maximum amount of assets that can be withdrawn by the owner
+     * @dev Takes into account both already unlocked shares and shares with expired lockup periods
+     * @dev This is important for ERC4626 compatibility, as it affects other interface functions
+     * @dev The returned value represents assets (not shares) that can be withdrawn
+     * @param owner The address whose maximum withdrawable assets is being calculated
+     * @return The maximum amount of assets that can be withdrawn by the owner
+     * @inheritdoc ERC4626
      */
     function maxWithdraw(address owner) public view virtual override returns (uint256) {
         // Calculate current unlocked amount (without state changes)
@@ -179,6 +246,9 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     
     /**
      * @dev Gets the total locked and unlocked shares for a user
+     * @dev Performs a calculation similar to updateUnlockedShares but without state changes
+     * @dev Provides a real-time view of the user's share positions broken down by lock status
+     * @dev Automatically considers expired lockups as unlocked, even if updateUnlockedShares hasn't been called
      * @param user Address of the user
      * @return Total locked shares, total unlocked shares
      */
@@ -198,6 +268,17 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
         return (lockedShares, currentUnlocked);
     }
 
+    /**
+     * @title Token Rescue Function
+     * @notice Allows admin to rescue ERC20 tokens accidentally sent to this contract
+     * @dev This function can only be called by an account with DEFAULT_ADMIN_ROLE
+     * @dev The underlying asset (YUSD) cannot be rescued to prevent manipulation
+     * @dev Uses nonReentrant modifier to prevent potential reentrancy attacks
+     * @dev Verifies the token is not the underlying asset before transfer
+     * @param token Address of the ERC20 token to rescue
+     * @param amount Amount of tokens to rescue
+     * @param to Address to send the rescued tokens to
+     */
     function rescueTokens(address token, uint256 amount, address to) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
         if (address(token) == asset()) revert InvalidToken();
         IERC20(token).safeTransfer(to, amount);
