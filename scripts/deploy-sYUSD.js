@@ -43,6 +43,36 @@ async function main() {
   console.log('\nInitial configuration:')
   console.log(`Lockup period: ${await sYusd.lockupPeriod()} seconds (${await sYusd.lockupPeriod() / 86400n} days)`)
 
+  // Make initial deposit to bootstrap liquidity
+  console.log('\nMaking initial deposit of 1 YUSD...')
+  try {
+    // Get YUSD token instance
+    const YUSD = await ethers.getContractFactory('YUSD')
+    const yusd = YUSD.attach(yusdAddress)
+
+    // Amount to deposit (1 YUSD)
+    const depositAmount = '1000000000001'
+
+    // Approve sYUSD contract to spend YUSD
+    console.log('Approving YUSD spend...')
+    const approveTx = await yusd.connect(deployer).approve(await sYusd.getAddress(), depositAmount)
+    await approveTx.wait()
+    console.log('Approval confirmed in transaction:', approveTx.hash)
+
+    // Make the deposit
+    console.log('Depositing YUSD...')
+    const depositTx = await sYusd.connect(deployer).deposit(depositAmount, deployer.address)
+    await depositTx.wait()
+    console.log('Deposit confirmed in transaction:', depositTx.hash)
+
+    // Verify the deposit
+    const sYusdBalance = await sYusd.balanceOf(deployer.address)
+    console.log(`Deposited successfully. sYUSD balance: ${ethers.formatEther(sYusdBalance)} sYUSD`)
+  } catch (error) {
+    console.error('Error making initial deposit:', error.message)
+    console.log('Make sure the deployer has sufficient YUSD balance and correct permissions')
+  }
+
   console.log('\nDeployment completed successfully!')
 
   // For verification on block explorers like Etherscan

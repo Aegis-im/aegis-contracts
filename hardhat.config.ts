@@ -12,7 +12,15 @@ const config: HardhatUserConfig = {
       chainId: 1337,
     },
     mainnet: {
-      url: 'https://ethereum-rpc.publicnode.com',
+      url: `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: 1000000000, // 1 gwei
+    },
+    bnbMainnet: {
+      url: `https://bnb-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: 3500000000, // 3.5 gwei
+      chainId: 56,
     },
     bnbTestnet: {
       url: 'https://data-seed-prebsc-1-s1.binance.org:8545',
@@ -44,6 +52,8 @@ const config: HardhatUserConfig = {
   etherscan: {
     apiKey: {
       bscTestnet: process.env.BSCSCAN_API_KEY || '',
+      mainnet: process.env.ETHERSCAN_API_KEY || '',
+      bsc: process.env.BSCSCAN_API_KEY || '',
     },
   },
 }
