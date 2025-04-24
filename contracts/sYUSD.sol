@@ -64,7 +64,6 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     error InsufficientUnlockedShares(uint256 requested, uint256 available);
     error ZeroAddress(string paramName);
     error InvalidToken();
-    error IncompleteProcessing(uint256 processed, uint256 total);
     
     event LockupPeriodUpdated(uint256 newLockupPeriod);
     event UnlockedSharesUpdated(address indexed user, uint256 processed, uint256 remaining);
@@ -100,39 +99,6 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
         lockupPeriod = _lockupPeriod;
         emit LockupPeriodUpdated(_lockupPeriod);
     }
-
-    /**
-     * @dev Updates the unlocked shares for a user by checking expired lockups
-     * @dev This function is called automatically during withdrawal but can also be called separately
-     * @dev Performs two key actions:
-     *   1. Checks all locked share entries and updates those with expired lockup periods
-     *   2. Moves shares from locked to unlocked status when their lockup expires
-     * @dev After updating, it calls _cleanupLockedShares to optimize storage
-     * @dev Can be called by anyone at any time to update a user's unlocked shares
-     * @param user Address of the user whose unlocked shares will be updated
-     * @param maxIterations Maximum number of locked share entries to process (prevents DoS)
-     */
-    function updateUnlockedShares(address user, uint256 maxIterations) public {
-        if (maxIterations == 0) {
-            maxIterations = DEFAULT_MAX_ITERATIONS;
-        }
-        
-        LockedShares[] storage userLocks = userLockedShares[user];
-        uint256 processedCount = 0;
-        
-        for (uint256 i = 0; i < userLocks.length && processedCount < maxIterations; i++) {
-            if (block.timestamp >= userLocks[i].expiryTimestamp && userLocks[i].amount > 0) {
-                unlockedShares[user] += userLocks[i].amount;
-                userLocks[i].amount = 0;
-            }
-            processedCount++;
-        }
-        
-        // Clean up empty entries with the same maxIterations constraint
-        _cleanupLockedShares(user, maxIterations);
-        
-        emit UnlockedSharesUpdated(user, processedCount, userLocks.length > processedCount ? userLocks.length - processedCount : 0);
-    }
     
     /**
      * @dev Backward compatibility for existing function calls
@@ -148,7 +114,7 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
      * @param maxIterations Maximum number of locked share entries to process
      */
     function updateUnlockedSharesWithLimit(address user, uint256 maxIterations) public {
-        if (maxIterations == 0) {
+        if (maxIterations == 0 || maxIterations > DEFAULT_MAX_ITERATIONS) {
             maxIterations = DEFAULT_MAX_ITERATIONS;
         }
         
@@ -163,10 +129,13 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
             processedCount++;
         }
         
+        // Cache the original length before cleanup
+        uint256 originalLength = userLocks.length;
+        
         // Clean up empty entries with the same maxIterations constraint
         _cleanupLockedShares(user, maxIterations);
         
-        emit UnlockedSharesUpdated(user, processedCount, userLocks.length > processedCount ? userLocks.length - processedCount : 0);
+        emit UnlockedSharesUpdated(user, processedCount, originalLength > processedCount ? originalLength - processedCount : 0);
     }
     
     /**
@@ -194,11 +163,10 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
                     userLocks[i] = userLocks[userLocks.length - 1];
                 }
                 userLocks.pop();
-                operations++;
             } else {
                 i++;
-                operations++;
             }
+            operations++;
         }
         
         return userLocks.length; // Return the number of remaining entries
