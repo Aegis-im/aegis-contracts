@@ -261,7 +261,7 @@ describe('sYUSD', function () {
       expect(maxRedeem).to.equal(ethers.parseEther('1000')) // All shares are now unlocked
 
       // After partial withdrawal
-      await sYusd.updateUnlockedSharesWithLimit(user1.address, 10)
+      await sYusd.updateUnlockedSharesWithLimit(user1.address, 0, 10)
       await sYusd.connect(user1).withdraw(ethers.parseEther('400'), user1.address, user1.address)
       maxRedeem = await sYusd.maxRedeem(user1.address)
       expect(maxRedeem).to.equal(ethers.parseEther('600')) // Remaining unlocked shares
@@ -302,9 +302,7 @@ describe('sYUSD', function () {
         ),
       ).to.be.revertedWithCustomError(sYusd, 'InvalidToken')
     })
-  })
 
-  describe('DoS Protection', function () {
     it('Should process a limited number of locked shares with maxIterations', async function () {
       // Make multiple small deposits to create many locked share entries
       const smallDepositAmount = ethers.parseEther('1')
@@ -319,7 +317,7 @@ describe('sYUSD', function () {
 
       // Process only a subset of the entries
       const maxIterations = 5
-      await expect(sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, maxIterations))
+      await expect(sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, 0, maxIterations))
         .to.emit(sYusd, 'UnlockedSharesUpdated')
 
       // Check if only a subset was processed
@@ -327,7 +325,7 @@ describe('sYUSD', function () {
       expect(userSharesInfo[0] + userSharesInfo[1]).to.equal(ethers.parseEther(numDeposits.toString()))
 
       // Process the rest
-      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, numDeposits)
+      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, 0, numDeposits)
 
       // Should now be fully processed
       const updatedSharesInfo = await sYusd.getUserSharesStatus(user1.address)
@@ -348,11 +346,144 @@ describe('sYUSD', function () {
       await time.increase(7 * 24 * 60 * 60 + 1)
 
       // Process in steps
-      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, 2)
-      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, 2)
-      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, 2)
+      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, 0, 2)
+      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, 0, 2)
+      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, 0, 2)
 
       // Try to withdraw everything
+      const totalDeposit = smallDepositAmount * BigInt(numDeposits)
+      await expect(sYusd.connect(user1).withdraw(totalDeposit, user1.address, user1.address))
+        .to.emit(sYusd, 'Withdraw')
+    })
+
+    it('Should process locked shares from a specific startIndex', async function () {
+      // Make multiple small deposits to create many locked share entries
+      const smallDepositAmount = ethers.parseEther('10')
+      const numDeposits = 10
+
+      for (let i = 0; i < numDeposits; i++) {
+        await sYusd.connect(user1).deposit(smallDepositAmount, user1.address)
+      }
+
+      // Advance time past lockup period
+      await time.increase(7 * 24 * 60 * 60 + 1)
+
+      // Process only the second half of entries
+      const startIndex = 5
+      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, startIndex, numDeposits - startIndex)
+
+      // Get unlockedShares directly (this should only reflect what's been processed)
+      const unlockedSharesBefore = await sYusd.unlockedShares(user1.address)
+      expect(unlockedSharesBefore).to.equal(ethers.parseEther('50')) // 5 entries of 10 YUSD each processed
+
+      // getUserSharesStatus will consider ALL shares with expired timestamps as unlocked
+      // even if not processed with updateUnlockedSharesWithLimit
+      const userSharesStatus = await sYusd.getUserSharesStatus(user1.address)
+      expect(userSharesStatus[0]).to.equal(0) // All shares have expired lockups
+      expect(userSharesStatus[1]).to.equal(ethers.parseEther('100')) // All shares appear unlocked when checking timestamps
+
+      // Process the rest
+      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, 0, startIndex)
+
+      // Check unlockedShares again (now all should be processed)
+      const unlockedSharesAfter = await sYusd.unlockedShares(user1.address)
+      expect(unlockedSharesAfter).to.equal(ethers.parseEther('100')) // All 10 entries actually unlocked in state
+
+      // Should be able to withdraw everything
+      const totalDeposit = smallDepositAmount * BigInt(numDeposits)
+      await expect(sYusd.connect(user1).withdraw(totalDeposit, user1.address, user1.address))
+        .to.emit(sYusd, 'Withdraw')
+    })
+  })
+
+  describe('DoS Protection', function () {
+    it('Should process a limited number of locked shares with maxIterations', async function () {
+      // Make multiple small deposits to create many locked share entries
+      const smallDepositAmount = ethers.parseEther('1')
+      const numDeposits = 10
+
+      for (let i = 0; i < numDeposits; i++) {
+        await sYusd.connect(user1).deposit(smallDepositAmount, user1.address)
+      }
+
+      // Advance time past lockup period
+      await time.increase(7 * 24 * 60 * 60 + 1)
+
+      // Process only a subset of the entries
+      const maxIterations = 5
+      await expect(sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, 0, maxIterations))
+        .to.emit(sYusd, 'UnlockedSharesUpdated')
+
+      // Check if only a subset was processed
+      const userSharesInfo = await sYusd.getUserSharesStatus(user1.address)
+      expect(userSharesInfo[0] + userSharesInfo[1]).to.equal(ethers.parseEther(numDeposits.toString()))
+
+      // Process the rest
+      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, 0, numDeposits)
+
+      // Should now be fully processed
+      const updatedSharesInfo = await sYusd.getUserSharesStatus(user1.address)
+      expect(updatedSharesInfo[0]).to.equal(0) // No locked shares
+      expect(updatedSharesInfo[1]).to.equal(ethers.parseEther(numDeposits.toString())) // All shares unlocked
+    })
+
+    it('Should still allow withdrawal after multiple processing steps', async function () {
+      // Make multiple small deposits to create many locked share entries
+      const smallDepositAmount = ethers.parseEther('10')
+      const numDeposits = 5
+
+      for (let i = 0; i < numDeposits; i++) {
+        await sYusd.connect(user1).deposit(smallDepositAmount, user1.address)
+      }
+
+      // Advance time past lockup period
+      await time.increase(7 * 24 * 60 * 60 + 1)
+
+      // Process in steps
+      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, 0, 2)
+      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, 0, 2)
+      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, 0, 2)
+
+      // Try to withdraw everything
+      const totalDeposit = smallDepositAmount * BigInt(numDeposits)
+      await expect(sYusd.connect(user1).withdraw(totalDeposit, user1.address, user1.address))
+        .to.emit(sYusd, 'Withdraw')
+    })
+
+    it('Should process locked shares from a specific startIndex', async function () {
+      // Make multiple small deposits to create many locked share entries
+      const smallDepositAmount = ethers.parseEther('10')
+      const numDeposits = 10
+
+      for (let i = 0; i < numDeposits; i++) {
+        await sYusd.connect(user1).deposit(smallDepositAmount, user1.address)
+      }
+
+      // Advance time past lockup period
+      await time.increase(7 * 24 * 60 * 60 + 1)
+
+      // Process only the second half of entries
+      const startIndex = 5
+      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, startIndex, numDeposits - startIndex)
+
+      // Get unlockedShares directly (this should only reflect what's been processed)
+      const unlockedSharesBefore = await sYusd.unlockedShares(user1.address)
+      expect(unlockedSharesBefore).to.equal(ethers.parseEther('50')) // 5 entries of 10 YUSD each processed
+
+      // getUserSharesStatus will consider ALL shares with expired timestamps as unlocked
+      // even if not processed with updateUnlockedSharesWithLimit
+      const userSharesStatus = await sYusd.getUserSharesStatus(user1.address)
+      expect(userSharesStatus[0]).to.equal(0) // All shares have expired lockups
+      expect(userSharesStatus[1]).to.equal(ethers.parseEther('100')) // All shares appear unlocked when checking timestamps
+
+      // Process the rest
+      await sYusd.connect(user1).updateUnlockedSharesWithLimit(user1.address, 0, startIndex)
+
+      // Check unlockedShares again (now all should be processed)
+      const unlockedSharesAfter = await sYusd.unlockedShares(user1.address)
+      expect(unlockedSharesAfter).to.equal(ethers.parseEther('100')) // All 10 entries actually unlocked in state
+
+      // Should be able to withdraw everything
       const totalDeposit = smallDepositAmount * BigInt(numDeposits)
       await expect(sYusd.connect(user1).withdraw(totalDeposit, user1.address, user1.address))
         .to.emit(sYusd, 'Withdraw')

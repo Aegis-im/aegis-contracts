@@ -105,23 +105,30 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
      * @param user Address of the user whose unlocked shares will be updated
      */
     function updateUnlockedShares(address user) public {
-        updateUnlockedSharesWithLimit(user, DEFAULT_MAX_ITERATIONS);
+        updateUnlockedSharesWithLimit(user, 0, DEFAULT_MAX_ITERATIONS);
     }
     
     /**
      * @dev Alternative name for updateUnlockedShares to avoid ambiguity in tests
      * @param user Address of the user whose unlocked shares will be updated
+     * @param startIndex Index to start processing from (allows processing beyond max iterations)
      * @param maxIterations Maximum number of locked share entries to process
      */
-    function updateUnlockedSharesWithLimit(address user, uint256 maxIterations) public {
+    function updateUnlockedSharesWithLimit(address user, uint256 startIndex, uint256 maxIterations) public {
         if (maxIterations == 0 || maxIterations > DEFAULT_MAX_ITERATIONS) {
             maxIterations = DEFAULT_MAX_ITERATIONS;
         }
         
         LockedShares[] storage userLocks = userLockedShares[user];
+        
+        // Ensure startIndex is within bounds
+        if (startIndex >= userLocks.length) {
+            return;
+        }
+        
         uint256 processedCount = 0;
         
-        for (uint256 i = 0; i < userLocks.length && processedCount < maxIterations; i++) {
+        for (uint256 i = startIndex; i < userLocks.length && processedCount < maxIterations; i++) {
             if (block.timestamp >= userLocks[i].expiryTimestamp && userLocks[i].amount > 0) {
                 unlockedShares[user] += userLocks[i].amount;
                 userLocks[i].amount = 0;
@@ -219,7 +226,7 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
         uint256 shares
     ) internal virtual override {
         // First update the unlocked shares with maximum possible iterations
-        updateUnlockedSharesWithLimit(owner, DEFAULT_MAX_ITERATIONS);
+        updateUnlockedSharesWithLimit(owner, 0, DEFAULT_MAX_ITERATIONS);
         
         // Ensure user has enough unlocked shares
         if (unlockedShares[owner] < shares) {
@@ -258,7 +265,8 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
         uint256 currentUnlocked = unlockedShares[owner];
         LockedShares[] storage userLocks = userLockedShares[owner];
         
-        for (uint256 i = 0; i < userLocks.length; i++) {
+        uint256 iterations = userLocks.length > DEFAULT_MAX_ITERATIONS ? DEFAULT_MAX_ITERATIONS : userLocks.length;
+        for (uint256 i = 0; i < iterations; i++) {
             if (block.timestamp >= userLocks[i].expiryTimestamp) {
                 currentUnlocked += userLocks[i].amount;
             }
@@ -282,7 +290,8 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
         uint256 currentUnlocked = unlockedShares[owner];
         LockedShares[] storage userLocks = userLockedShares[owner];
         
-        for (uint256 i = 0; i < userLocks.length; i++) {
+        uint256 iterations = userLocks.length > DEFAULT_MAX_ITERATIONS ? DEFAULT_MAX_ITERATIONS : userLocks.length;
+        for (uint256 i = 0; i < iterations; i++) {
             if (block.timestamp >= userLocks[i].expiryTimestamp) {
                 currentUnlocked += userLocks[i].amount;
             }
