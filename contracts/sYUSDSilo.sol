@@ -6,8 +6,8 @@ pragma solidity ^0.8.26;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
- * @title USDeSilo
- * @notice The Silo allows to store USDe during the stake cooldown process.
+ * @title YUSDSilo
+ * @notice The Silo allows to store YUSD during the stake cooldown process.
  */
 contract sYUSDSilo {
   address immutable _STAKING_VAULT;

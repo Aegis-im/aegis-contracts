@@ -41,7 +41,7 @@ async function main() {
 
   // Print configuration values
   console.log('\nInitial configuration:')
-  console.log(`Lockup period: ${await sYusd.lockupPeriod()} seconds (${await sYusd.lockupPeriod() / 86400n} days)`)
+  console.log(`Cooldown duration: ${await sYusd.cooldownDuration()} seconds (${await sYusd.cooldownDuration() / 86400n} days)`)
 
   // Make initial deposit to bootstrap liquidity
   console.log('\nMaking initial deposit of 1 YUSD...')
