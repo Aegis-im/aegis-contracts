@@ -34,40 +34,17 @@ async function main() {
     throw new Error('Please provide YUSD_ADDRESS environment variable')
   }
 
-  // Get admin address from command line or use defaults
-  const adminAddress = process.env.ADMIN_ADDRESS || deployer.address
-  const proposerAddress = process.env.PROPOSER_ADDRESS || deployer.address
-  const executorAddress = process.env.EXECUTOR_ADDRESS || deployer.address
-
   console.log('YUSD Token Address:', yusdAddress)
-  console.log('Admin Address:', adminAddress)
-  console.log('Proposer Address:', proposerAddress)
-  console.log('Executor Address:', executorAddress)
+  console.log('Admin Address:', deployer.address)
 
-  // Step 1: Deploy TimelockController
-  console.log('\nDeploying TimelockController...')
-  const TimelockController = await ethers.getContractFactory('TimelockControllerWrapper')
-
-  // Set minimum delay for timelock (60 seconds for testing)
-  const minDelay = 60
-  const proposers = [proposerAddress]
-  const executors = [executorAddress]
-
-  const timelock = await TimelockController.deploy(minDelay, proposers, executors, adminAddress)
-  await timelock.waitForDeployment()
-
-  const timelockAddress = await timelock.getAddress()
-  console.log('TimelockController deployed to:', timelockAddress)
-  console.log('Minimum delay:', minDelay, 'seconds')
-
-  // Step 2: Deploy sYUSDUpgradeable implementation and proxy
+  // Step 1: Deploy sYUSDUpgradeable implementation and proxy
   console.log('\nDeploying sYUSDUpgradeable...')
   const sYUSDUpgradeable = await ethers.getContractFactory('sYUSDUpgradeable')
 
-  // Set up proxy admin to be the timelock controller
+  // Deploy with deployer as admin instead of timelock
   const sYUSDProxy = await upgrades.deployProxy(
     sYUSDUpgradeable,
-    [yusdAddress, timelockAddress],
+    [yusdAddress, deployer.address],
     {
       kind: 'uups',
       initializer: 'initialize',
@@ -97,48 +74,37 @@ async function main() {
   const ADMIN_ROLE = ethers.id('ADMIN_ROLE')
   const UPGRADER_ROLE = ethers.id('UPGRADER_ROLE')
 
-  // Explicitly grant roles to timelock
-  console.log('\nChecking and granting roles to timelock...')
+  // Explicitly check roles for deployer
+  console.log('\nChecking deployer roles...')
 
-  // Check if deployer has admin role to be able to grant roles
+  // Check if deployer has admin role
   const deployerHasAdminRole = await sYUSDProxy.hasRole(DEFAULT_ADMIN_ROLE, deployer.address)
   console.log(`Deployer has DEFAULT_ADMIN_ROLE: ${deployerHasAdminRole}`)
 
+  // Check if deployer has ADMIN_ROLE
+  const deployerHasContractAdminRole = await sYUSDProxy.hasRole(ADMIN_ROLE, deployer.address)
+  console.log(`Deployer has ADMIN_ROLE: ${deployerHasContractAdminRole}`)
+
+  // Check if deployer has UPGRADER_ROLE
+  const deployerHasUpgraderRole = await sYUSDProxy.hasRole(UPGRADER_ROLE, deployer.address)
+  console.log(`Deployer has UPGRADER_ROLE: ${deployerHasUpgraderRole}`)
+
+  // Grant any missing roles to deployer if needed
   if (deployerHasAdminRole) {
-    try {
-      // First check current role status
-      const timelockHasUpgraderRole = await sYUSDProxy.hasRole(UPGRADER_ROLE, timelockAddress)
-      console.log(`Timelock currently has UPGRADER_ROLE: ${timelockHasUpgraderRole}`)
-
-      if (!timelockHasUpgraderRole) {
-        console.log(`Granting UPGRADER_ROLE to timelock at ${timelockAddress}...`)
-        const grantTx = await sYUSDProxy.grantRole(UPGRADER_ROLE, timelockAddress)
-        await grantTx.wait()
-        console.log('UPGRADER_ROLE granted to timelock')
-      }
-
-      // Check if timelock has ADMIN_ROLE
-      const timelockHasAdminRole = await sYUSDProxy.hasRole(ADMIN_ROLE, timelockAddress)
-      console.log(`Timelock currently has ADMIN_ROLE: ${timelockHasAdminRole}`)
-
-      if (!timelockHasAdminRole) {
-        console.log(`Granting ADMIN_ROLE to timelock at ${timelockAddress}...`)
-        const grantAdminTx = await sYUSDProxy.grantRole(ADMIN_ROLE, timelockAddress)
-        await grantAdminTx.wait()
-        console.log('ADMIN_ROLE granted to timelock')
-      }
-    } catch (error) {
-      console.error('Error granting roles to timelock:', error.message)
+    if (!deployerHasContractAdminRole) {
+      console.log('Granting ADMIN_ROLE to deployer...')
+      const grantAdminTx = await sYUSDProxy.grantRole(ADMIN_ROLE, deployer.address)
+      await grantAdminTx.wait()
+      console.log('ADMIN_ROLE granted to deployer')
     }
-  } else {
-    console.log('Deployer does not have DEFAULT_ADMIN_ROLE, cannot grant roles')
-  }
 
-  // Display final role status
-  console.log('\nFinal role status for timelock:')
-  console.log(`- DEFAULT_ADMIN_ROLE: ${await sYUSDProxy.hasRole(DEFAULT_ADMIN_ROLE, timelockAddress)}`)
-  console.log(`- ADMIN_ROLE: ${await sYUSDProxy.hasRole(ADMIN_ROLE, timelockAddress)}`)
-  console.log(`- UPGRADER_ROLE: ${await sYUSDProxy.hasRole(UPGRADER_ROLE, timelockAddress)}`)
+    if (!deployerHasUpgraderRole) {
+      console.log('Granting UPGRADER_ROLE to deployer...')
+      const grantUpgraderTx = await sYUSDProxy.grantRole(UPGRADER_ROLE, deployer.address)
+      await grantUpgraderTx.wait()
+      console.log('UPGRADER_ROLE granted to deployer')
+    }
+  }
 
   // Make initial deposit to bootstrap liquidity
   console.log('\nMaking initial deposit of 100 YUSD...')
@@ -178,17 +144,31 @@ async function main() {
 
   // For verification on block explorers like Etherscan
   console.log('\nVerification commands:')
-  console.log(`npx hardhat verify --network ${network.name} ${timelockAddress} ${minDelay} ${JSON.stringify([proposerAddress])} ${JSON.stringify([executorAddress])} ${adminAddress}`)
+  console.log('NOTE: Run these commands after deployment to verify contracts on Etherscan or similar explorers')
+
+  // Main implementation contract verification
+  console.log('\n# Verify sYUSD implementation contract:')
   console.log(`npx hardhat verify --network ${network.name} ${implementationAddress}`)
 
-  // Add YUSD contract verification command if deployed on this run
+  // If on local network, verify the YUSD token and silo contract
   if (network.name === 'hardhat' || network.name === 'localhost') {
+    console.log('\n# Verify YUSD token contract:')
     console.log(`npx hardhat verify --network ${network.name} ${yusdAddress} ${deployer.address}`)
-    // Add silo contract verification if deployed
+
     if (siloAddress) {
+      console.log('\n# Verify Silo contract:')
       console.log(`npx hardhat verify --network ${network.name} ${siloAddress} ${sYUSDAddress} ${yusdAddress}`)
     }
   }
+
+  console.log('\n# IMPORTANT: For the proxy contract, use the \'Verify as Proxy\' feature in Etherscan')
+  console.log(`Proxy address: ${sYUSDAddress}`)
+  console.log(`Implementation address: ${implementationAddress}`)
+  console.log('\nSteps to verify the proxy on Etherscan:')
+  console.log('1. First verify the implementation contract (command above)')
+  console.log('2. Go to the proxy contract address on Etherscan')
+  console.log('3. Under the "Contract" tab, click "More Options" and select "Verify as Proxy"')
+  console.log('4. Etherscan should automatically detect the implementation contract if already verified')
 }
 
 main()
