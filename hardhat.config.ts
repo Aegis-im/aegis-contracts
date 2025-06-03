@@ -15,7 +15,7 @@ const config: HardhatUserConfig = {
     mainnet: {
       url: `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      gasPrice: 1000000000, // 1 gwei
+      gasPrice: 10500000000, // 1 gwei
     },
     bnbMainnet: {
       url: `https://bnb-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,

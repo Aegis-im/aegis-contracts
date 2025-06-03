@@ -51,7 +51,8 @@ async function main() {
       unsafeAllow: ['constructor', 'delegatecall'], // Allow creating new contracts in initializer
     },
   )
-
+  13717002000000000
+  6921983267899993
   await sYUSDProxy.waitForDeployment()
 
   const sYUSDAddress = await sYUSDProxy.getAddress()
