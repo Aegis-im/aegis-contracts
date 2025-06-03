@@ -46,7 +46,7 @@ async function main() {
     sYUSDUpgradeable,
     [yusdAddress, deployer.address],
     {
-      kind: 'uups',
+      kind: 'transparent',
       initializer: 'initialize',
       unsafeAllow: ['constructor', 'delegatecall'], // Allow creating new contracts in initializer
     },
@@ -140,6 +140,10 @@ async function main() {
   const implementationAddress = await upgrades.erc1967.getImplementationAddress(sYUSDAddress)
   console.log('\nImplementation contract address:', implementationAddress)
 
+  // Get proxy admin address (specific to TransparentUpgradeableProxy)
+  const proxyAdminAddress = await upgrades.erc1967.getAdminAddress(sYUSDAddress)
+  console.log('Proxy admin address:', proxyAdminAddress)
+
   console.log('\nDeployment completed successfully!')
 
   // For verification on block explorers like Etherscan
@@ -164,6 +168,7 @@ async function main() {
   console.log('\n# IMPORTANT: For the proxy contract, use the \'Verify as Proxy\' feature in Etherscan')
   console.log(`Proxy address: ${sYUSDAddress}`)
   console.log(`Implementation address: ${implementationAddress}`)
+  console.log(`Proxy admin address: ${proxyAdminAddress}`)
   console.log('\nSteps to verify the proxy on Etherscan:')
   console.log('1. First verify the implementation contract (command above)')
   console.log('2. Go to the proxy contract address on Etherscan')

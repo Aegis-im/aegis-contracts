@@ -7,7 +7,6 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IYUSD } from "./interfaces/IYUSD.sol";
 import { sYUSDSilo } from "./sYUSDSilo.sol";
@@ -30,7 +29,7 @@ import { sYUSDSilo } from "./sYUSDSilo.sol";
  * - When cooldown duration is set to 0, direct withdrawals are allowed without cooldown
  * 
  * @dev Upgrade Features:
- * - Uses UUPS (Universal Upgradeable Proxy Standard) pattern
+ * - Uses TransparentUpgradeableProxy pattern
  * - The admin role can upgrade the implementation contract
  * - TimelockController is set as the proxy admin to provide time-delayed governance
  * 
@@ -50,17 +49,15 @@ contract sYUSDUpgradeable is
     ERC4626Upgradeable, 
     ERC20PermitUpgradeable, 
     AccessControlUpgradeable, 
-    ReentrancyGuardUpgradeable,
-    UUPSUpgradeable 
+    ReentrancyGuardUpgradeable
 {
     using SafeERC20 for IERC20;
     
     // Constants for roles
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
     
     // Maximum cooldown duration (90 days)
-    uint24 public constant MAX_COOLDOWN_DURATION = 120 days;
+    uint24 public constant MAX_COOLDOWN_DURATION = 90 days;
     
     // Cooldown duration in seconds (7 days by default)
     // When set to 0, cooldown is disabled and direct withdrawals are allowed
@@ -124,7 +121,6 @@ contract sYUSDUpgradeable is
         __ERC20Permit_init("Staked YUSD");
         __AccessControl_init();
         __ReentrancyGuard_init();
-        __UUPSUpgradeable_init();
 
         silo = new sYUSDSilo(address(this), _yusd);
         
@@ -132,7 +128,6 @@ contract sYUSDUpgradeable is
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
-        _grantRole(UPGRADER_ROLE, admin);
     }
 
     /**
@@ -267,10 +262,4 @@ contract sYUSDUpgradeable is
         if (address(token) == asset()) revert InvalidToken();
         IERC20(token).safeTransfer(to, amount);
     }
-
-    /**
-     * @dev Function that should revert when `msg.sender` is not authorized to upgrade the contract.
-     * Called by {upgradeTo} and {upgradeToAndCall}.
-     */
-    function _authorizeUpgrade(address newImplementation) internal override onlyRole(UPGRADER_ROLE) {}
 } 
