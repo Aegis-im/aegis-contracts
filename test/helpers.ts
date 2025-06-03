@@ -3,7 +3,7 @@ import { OrderLib } from '../typechain-types/contracts/AegisMinting'
 import { ClaimRewardsLib } from '../typechain-types/contracts/AegisRewards'
 import { HDNodeWallet } from 'ethers'
 
-export const DEFAULT_ADMIN_ROLE = '0x00'
+export const DEFAULT_ADMIN_ROLE = '0x0000000000000000000000000000000000000000000000000000000000000000'
 export const SETTINGS_MANAGER_ROLE = ethers.id('SETTINGS_MANAGER_ROLE')
 export const FUNDS_MANAGER_ROLE = ethers.id('FUNDS_MANAGER_ROLE')
 export const COLLATERAL_MANAGER_ROLE = ethers.id('COLLATERAL_MANAGER_ROLE')
