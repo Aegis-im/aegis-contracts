@@ -37,13 +37,13 @@ async function main() {
   console.log('YUSD Token Address:', yusdAddress)
   console.log('Admin Address:', deployer.address)
 
-  // Step 1: Deploy sYUSDUpgradeable implementation and proxy
-  console.log('\nDeploying sYUSDUpgradeable...')
-  const sYUSDUpgradeable = await ethers.getContractFactory('sYUSDUpgradeable')
+  // Step 1: Deploy sYUSD implementation and proxy
+  console.log('\nDeploying sYUSD...')
+  const sYUSD = await ethers.getContractFactory('sYUSD')
 
   // Deploy with deployer as admin instead of timelock
   const sYUSDProxy = await upgrades.deployProxy(
-    sYUSDUpgradeable,
+    sYUSD,
     [yusdAddress, deployer.address],
     {
       kind: 'transparent',

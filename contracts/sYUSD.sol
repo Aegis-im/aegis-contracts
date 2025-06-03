@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20PermitUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IYUSD } from "./interfaces/IYUSD.sol";
 import { sYUSDSilo } from "./sYUSDSilo.sol";
+
 /**
- * @title sYUSD
+ * @title sYUSDUpgradeable
  * @dev Staked YUSD (sYUSD) - an interest-bearing token that represents YUSD staked in the protocol.
  * The token's value increases over time relative to YUSD, reflecting staking rewards.
  * Implements ERC4626 Tokenized Vault Standard.
@@ -25,8 +28,13 @@ import { sYUSDSilo } from "./sYUSDSilo.sol";
  * - Users cannot withdraw their shares until the cooldown period expires
  * - When cooldown duration is set to 0, direct withdrawals are allowed without cooldown
  * 
+ * @dev Upgrade Features:
+ * - Uses TransparentUpgradeableProxy pattern
+ * - The admin role can upgrade the implementation contract
+ * - TimelockController is set as the proxy admin to provide time-delayed governance
+ * 
  * @dev Security Features:
- * - Based on OpenZeppelin's ERC4626, ERC20Permit, AccessControl, and ReentrancyGuard
+ * - Based on OpenZeppelin's upgradeable contracts
  * - Admin role is required for changing critical parameters
  * - Rescue function for recovering non-YUSD tokens sent to the contract accidentally
  * - Safeguards against withdrawing during cooldown period
@@ -36,8 +44,13 @@ import { sYUSDSilo } from "./sYUSDSilo.sol";
  * - Implements maxWithdraw and maxDeposit to properly communicate withdrawal limitations
  * - Uses ERC20Permit for gasless approvals
  */
-contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
-
+contract sYUSD is 
+    Initializable, 
+    ERC4626Upgradeable, 
+    ERC20PermitUpgradeable, 
+    AccessControlUpgradeable, 
+    ReentrancyGuardUpgradeable
+{
     using SafeERC20 for IERC20;
     
     // Constants for roles
@@ -48,8 +61,7 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     
     // Cooldown duration in seconds (7 days by default)
     // When set to 0, cooldown is disabled and direct withdrawals are allowed
-    uint24 public cooldownDuration = 7 days;
-
+    uint24 public cooldownDuration;
 
     sYUSDSilo public silo;
     
@@ -76,6 +88,11 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     event CooldownStarted(address indexed user, uint256 assets, uint256 shares, uint256 cooldownEnd);
     event Unstaked(address indexed user, address indexed receiver, uint256 assets);
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     // Modifiers to check cooldown mode
     modifier ensureCooldownOff() {
         if (cooldownDuration > 0) revert ExpectedCooldownOff();
@@ -88,19 +105,27 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     }
 
     /**
-     * @dev Constructor to initialize the sYUSD token
+     * @dev Initializer function
      * @param _yusd Address of the YUSD token
      * @param admin Address of the admin
      */
-    constructor(
+    function initialize(
         address _yusd,
         address admin
-    ) ERC4626(IERC20(_yusd)) ERC20("Staked YUSD", "sYUSD") ERC20Permit("Staked YUSD") {
+    ) public initializer {
         if (_yusd == address(0)) revert ZeroAddress("YUSD");
         if (admin == address(0)) revert ZeroAddress("Admin");
 
+        __ERC20_init("Staked YUSD", "sYUSD");
+        __ERC4626_init(IERC20(_yusd));
+        __ERC20Permit_init("Staked YUSD");
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+
         silo = new sYUSDSilo(address(this), _yusd);
         
+        cooldownDuration = 7 days; // Default value
+
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
     }
@@ -108,7 +133,7 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     /**
      * @dev Override decimals function to resolve conflict between ERC20 and ERC4626
      */
-    function decimals() public view virtual override(ERC4626, ERC20) returns (uint8) {
+    function decimals() public view virtual override(ERC4626Upgradeable, ERC20Upgradeable) returns (uint8) {
         return super.decimals();
     }
 
@@ -123,7 +148,7 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     /**
      * @dev Override of withdraw to enforce cooldown when enabled
      * @dev Can only be called directly when cooldown duration is 0
-     * @inheritdoc ERC4626
+     * @inheritdoc ERC4626Upgradeable
      */
     function withdraw(
         uint256 assets,
@@ -136,7 +161,7 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
     /**
      * @dev Override of redeem to enforce cooldown when enabled
      * @dev Can only be called directly when cooldown duration is 0
-     * @inheritdoc ERC4626
+     * @inheritdoc ERC4626Upgradeable
      */
     function redeem(
         uint256 shares,
@@ -216,12 +241,13 @@ contract sYUSD is ERC4626, ERC20Permit, AccessControl, ReentrancyGuard {
      */
     function _setCooldownDuration(uint24 newDuration) internal {
         uint24 previousDuration = cooldownDuration;
-        require(previousDuration != newDuration, DurationNotChanged());
-        require(newDuration <= MAX_COOLDOWN_DURATION, DurationExceedsMax());
+        if (previousDuration == newDuration) revert DurationNotChanged();
+        if (newDuration > MAX_COOLDOWN_DURATION) revert DurationExceedsMax();
 
         cooldownDuration = newDuration;
         emit CooldownDurationUpdated(previousDuration, newDuration);
     }
+
     /**
      * @notice Allows admin to rescue ERC20 tokens accidentally sent to this contract
      * @dev This function can only be called by an account with DEFAULT_ADMIN_ROLE
