@@ -178,6 +178,9 @@ contract sYUSD is
      * @return shares Amount of shares burned
      */
     function cooldownAssets(uint256 assets, address owner) external ensureCooldownOn returns (uint256 shares) {
+        if (assets == 0) revert ZeroAmount();
+        if (owner != msg.sender) revert("Only owner can initiate cooldown");
+        
         cooldowns[owner].cooldownEnd = uint104(block.timestamp) + cooldownDuration;
         cooldowns[owner].underlyingAmount += uint152(assets);
 
@@ -195,6 +198,9 @@ contract sYUSD is
      * @return assets Amount of underlying assets
      */
     function cooldownShares(uint256 shares, address owner) external ensureCooldownOn returns (uint256 assets) {        
+        if (shares == 0) revert ZeroAmount();
+        if (owner != msg.sender) revert("Only owner can initiate cooldown");
+        
         assets = super.redeem(shares, address(silo), owner);
 
         cooldowns[owner].cooldownEnd = uint104(block.timestamp) + cooldownDuration;
@@ -210,6 +216,8 @@ contract sYUSD is
      * @param receiver Address to receive the assets
      */
     function unstake(address receiver) external nonReentrant {        
+        if (receiver == address(0)) revert ZeroAddress("receiver");
+        
         Cooldown storage cooldown = cooldowns[msg.sender];
         uint256 assets = cooldown.underlyingAmount;
         
@@ -259,7 +267,11 @@ contract sYUSD is
      * @param to Address to send the rescued tokens to
      */
     function rescueTokens(address token, uint256 amount, address to) external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (address(token) == asset()) revert InvalidToken();
+        if (token == address(0)) revert ZeroAddress("token");
+        if (to == address(0)) revert ZeroAddress("to");
+        if (amount == 0) revert ZeroAmount();
+        if (token == asset()) revert InvalidToken();
+        
         IERC20(token).safeTransfer(to, amount);
     }
 } 
