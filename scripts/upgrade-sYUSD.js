@@ -27,7 +27,7 @@ async function main() {
 
   // Deploy a new implementation contract
   console.log('\nDeploying new implementation...')
-  const sYUSDUpgradeable = await ethers.getContractFactory('sYUSDUpgradeable')
+  const sYUSDUpgradeable = await ethers.getContractFactory('sYUSD')
 
   // Prepare the upgrade
   console.log('Preparing upgrade...')
