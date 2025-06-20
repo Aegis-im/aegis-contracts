@@ -34,7 +34,7 @@ async function main() {
 
   // Check if the caller has the executor role
   const EXECUTOR_ROLE = await timelock.EXECUTOR_ROLE()
-  const isExecutor = await timelock.hasRole(EXECUTOR_ROLE, deployer.address) 
+  const isExecutor = await timelock.hasRole(EXECUTOR_ROLE, deployer.address)
 
   if (!isExecutor) {
     console.error('Error: The deployer account does not have the EXECUTOR_ROLE')

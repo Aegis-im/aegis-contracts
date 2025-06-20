@@ -1367,6 +1367,28 @@
     "@jridgewell/resolve-uri" "^3.0.3"
     "@jridgewell/sourcemap-codec" "^1.4.10"
 
+"@layerzerolabs/lz-evm-messagelib-v2@^3.0.104":
+  version "3.0.104"
+  resolved "https://registry.yarnpkg.com/@layerzerolabs/lz-evm-messagelib-v2/-/lz-evm-messagelib-v2-3.0.104.tgz#ea1e4e5ffcac3b0b233d07360408163762fd01eb"
+  integrity sha512-KwzgTXz4XmIp0i7fBJMMeFmf+5jwU1ZC8tQm0wEnWKvrtA572v4L/ZvlSs8mzk02GrlYn8v6jzKJPQdTX2sREw==
+
+"@layerzerolabs/lz-evm-protocol-v2@^3.0.104":
+  version "3.0.104"
+  resolved "https://registry.yarnpkg.com/@layerzerolabs/lz-evm-protocol-v2/-/lz-evm-protocol-v2-3.0.104.tgz#97d89e9a844844132ed620583d6d1df39fb49f32"
+  integrity sha512-LdEgZyekVz74wtL4XUSqCI0TiNTlRkp+50BV3bwoAwnRcLcIVd/MSCLgRjhrCr9wLnEUvlThHJ6yUJfyd2OHoA==
+
+"@layerzerolabs/oapp-evm@^0.3.2":
+  version "0.3.2"
+  resolved "https://registry.yarnpkg.com/@layerzerolabs/oapp-evm/-/oapp-evm-0.3.2.tgz#ff2b84253af290891efe72e3a695a3365b6b7dd4"
+  integrity sha512-QqazLEl9KEPsipU/3m5eFDhyse+sG4bO2FWUEf/Kuee4JW6P3iIBI9wg0QfalUqLj0HL0ChFHL3yRTZVqzxrww==
+  dependencies:
+    ethers "^5.7.2"
+
+"@layerzerolabs/oft-evm@^3.1.4":
+  version "3.1.4"
+  resolved "https://registry.yarnpkg.com/@layerzerolabs/oft-evm/-/oft-evm-3.1.4.tgz#de20e47cf69655405d7c8cc67ff6afee97cf4484"
+  integrity sha512-jxuEXtzAv2x/ZErBtg6OI6rxq4KyMamPgy8+r3/AQ5uD4Ih2Sd51mBIebpzueJKqMk7MNdOauLfYRRK6tOFWXQ==
+
 "@manypkg/find-root@^1.1.0":
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/@manypkg/find-root/-/find-root-1.1.0.tgz#a62d8ed1cd7e7d4c11d9d52a8397460b5d4ad29f"
