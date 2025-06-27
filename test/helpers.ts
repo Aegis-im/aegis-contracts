@@ -2,6 +2,8 @@ import { ethers, network } from 'hardhat'
 import { OrderLib } from '../typechain-types/contracts/AegisMinting'
 import { ClaimRewardsLib } from '../typechain-types/contracts/AegisRewards'
 import { HDNodeWallet } from 'ethers'
+import * as fs from 'fs'
+import * as path from 'path'
 
 export const DEFAULT_ADMIN_ROLE = '0x0000000000000000000000000000000000000000000000000000000000000000'
 export const SETTINGS_MANAGER_ROLE = ethers.id('SETTINGS_MANAGER_ROLE')
@@ -154,5 +156,57 @@ export async function executeInBatch(...promises: Promise<any>[]) {
   await network.provider.send('hardhat_setNextBlockBaseFeePerGas', ['0x0'])
   await network.provider.send('hardhat_mine', ['0x1'])
   await network.provider.send('evm_setAutomine', [true])
+}
+
+// Helper function to update config/networks.json with deployed contract addresses
+export function updateNetworksConfig(networkName: string, contractAddresses: Record<string, string>) {
+  try {
+    const configPath = path.join(__dirname, '..', 'config', 'networks.json')
+
+    // Read existing config
+    const configData = JSON.parse(fs.readFileSync(configPath, 'utf8'))
+
+    // Update network contracts
+    if (!configData.networks[networkName]) {
+      console.log(`⚠️  Network ${networkName} not found in config, skipping config update`)
+      return
+    }
+
+    if (!configData.networks[networkName].contracts) {
+      configData.networks[networkName].contracts = {}
+    }
+
+    // Update contract addresses
+    Object.keys(contractAddresses).forEach(contractKey => {
+      const oldAddress = configData.networks[networkName].contracts[contractKey]
+      const newAddress = contractAddresses[contractKey]
+
+      configData.networks[networkName].contracts[contractKey] = newAddress
+
+      if (oldAddress && oldAddress !== newAddress) {
+        console.log(`🔄 Updated ${contractKey}: ${oldAddress} → ${newAddress}`)
+      } else {
+        console.log(`✅ Set ${contractKey}: ${newAddress}`)
+      }
+    })
+
+    // Write updated config
+    fs.writeFileSync(configPath, JSON.stringify(configData, null, 2))
+    console.log(`💾 Updated config/networks.json for ${networkName}`)
+
+  } catch (error) {
+    console.log(`❌ Error updating networks config: ${(error as Error).message}`)
+  }
+}
+
+// Helper function to read networks configuration
+export function getNetworksConfig() {
+  try {
+    const configPath = path.join(__dirname, '..', 'config', 'networks.json')
+    return JSON.parse(fs.readFileSync(configPath, 'utf8'))
+  } catch (error) {
+    console.error(`❌ Error reading networks config: ${(error as Error).message}`)
+    return null
+  }
 }
 
