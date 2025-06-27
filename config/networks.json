@@ -1,0 +1,141 @@
+{
+  "networks": {
+    "hardhat": {
+      "chainId": 1337,
+      "description": "Local Hardhat development network"
+    },
+    "mainnet": {
+      "chainId": 1,
+      "rpcUrl": "https://eth-mainnet.g.alchemy.com/v2/{ALCHEMY_API_KEY}",
+      "gasPrice": 3200000000,
+      "description": "Ethereum Mainnet",
+      "explorer": "https://etherscan.io",
+      "contracts": {
+        "yusdAddress": "",
+        "adminAddress": "",
+        "timelockAddress": ""
+      }
+    },
+    "bnbMainnet": {
+      "chainId": 56,
+      "rpcUrl": "https://bnb-mainnet.g.alchemy.com/v2/{ALCHEMY_API_KEY}",
+      "gasPrice": 500000000,
+      "description": "BNB Smart Chain Mainnet",
+      "explorer": "https://bscscan.com",
+      "contracts": {
+        "yusdAddress": "",
+        "adminAddress": "",
+        "timelockAddress": ""
+      }
+    },
+    "bnbTestnet": {
+      "chainId": 97,
+      "rpcUrl": "https://bsc-testnet.drpc.org",
+      "gasPrice": 10000000000,
+      "endpointId": 40102,
+      "description": "BNB Smart Chain Testnet",
+      "explorer": "https://testnet.bscscan.com",
+      "contracts": {
+        "yusdAddress": "0x898AbBb3d44014dFbfa82E4ace3821304218acE1",
+        "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
+        "adminAddress": "0x7E95D72996E7a0b1D95561F9DFA26E11a80cf8f4",
+        "elevatedMinterBurner": "0x38a5B9165977bAfA20c4825592c20D1eaC8468C4",
+        "oftAdapterAddress": "0xc902A920D05732D98Ab922c6D2b2A7D42cbAe56e",
+        "aegisConfigAddress": "0xB623436B60ADF5106E6aA92a80618DC248992c87",
+        "aegisOracleAddress": "0x3a92939Ef3aD90C12CCd8a7E6C6F58C74C15fAe7",
+        "aegisRewardsAddress": "0xCd56dC4493608Cdc7bDB2D3BB3Ea4f5dd0f17394",
+        "aegisMintingAddress": "0xf7b97872A9Ce774E6B68486afF5222b188e4Ce6c",
+        "minterBurnerAddress": "0x7E95D72996E7a0b1D95561F9DFA26E11a80cf8f4",
+        "yusdMintBurnOFTAdapter": "0xc84E8dEEcDb69326C289A295cF252fEa491C5758"
+      },
+      "layerzero": {
+        "targetEid": 40161,
+        "targetNetworkName": "sepolia"
+      },
+      "deployment": {
+        "initialOwner": "0x7E95D72996E7a0b1D95561F9DFA26E11a80cf8f4",
+        "trustedSignerAddress": "0x7E95D72996E7a0b1D95561F9DFA26E11a80cf8f4",
+        "insuranceFundAddress": "0x7E95D72996E7a0b1D95561F9DFA26E11a80cf8f4",
+        "assetAddresses": [
+          "0xeD24FC36d5Ee211Ea25A80239Fb8C4Cfd80f12Ee"
+        ],
+        "lockupPeriods": [
+          86400
+        ],
+        "custodianAddresses": [
+          "0x7E95D72996E7a0b1D95561F9DFA26E11a80cf8f4"
+        ]
+      }
+    },
+    "sepolia": {
+      "chainId": 11155111,
+      "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+      "gasPrice": 20000000000,
+      "endpointId": 40161,
+      "description": "Ethereum Sepolia Testnet",
+      "explorer": "https://sepolia.etherscan.io",
+      "contracts": {
+        "yusdAddress": "0x0847841d8829C685F6fdA9078658723e844552E5",
+        "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
+        "adminAddress": "0x7E95D72996E7a0b1D95561F9DFA26E11a80cf8f4",
+        "oftAdapterAddress": "0xCB3fF00b07C118900156c2409dcDe8227250C89a",
+        "aegisConfigAddress": "0x522E79d7D116b6e2cfA61430E615aAD388765b42",
+        "aegisOracleAddress": "0xA0ABea43bBDd3630D6b08143cca7dd96c8Ef092d",
+        "aegisRewardsAddress": "0xe9C06D860b149D0503529b8eF4555663b2BD5CAe",
+        "aegisMintingAddress": "0x898AbBb3d44014dFbfa82E4ace3821304218acE1",
+        "sYUSDAddress": "0xf7b97872A9Ce774E6B68486afF5222b188e4Ce6c",
+        "sYUSDSiloAddress": "0xE70e53Eadfd72A8f8773286296636818196B7E79",
+        "minterBurnerAddress": "0x18800fdFb086052223bBe7C9FAB5080CEbF9DBEe",
+        "elevatedMinterBurner": "0x392Aab1b27cef93F217436df26f2dbae2647307f"
+      },
+      "layerzero": {
+        "targetEid": 40102,
+        "targetNetworkName": "bnbTestnet"
+      }
+    },
+    "avalancheFuji": {
+      "chainId": 43113,
+      "rpcUrl": "https://api.avax-test.network/ext/bc/C/rpc",
+      "gasPrice": 25000000000,
+      "endpointId": 40106,
+      "description": "Avalanche Fuji Testnet",
+      "explorer": "https://testnet.snowtrace.io",
+      "contracts": {
+        "yusdAddress": "0xB44F3f33e43CDd06C634F9955B442e79D7D463B4",
+        "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
+        "adminAddress": "0x7E95D72996E7a0b1D95561F9DFA26E11a80cf8f4",
+        "oftAdapterAddress": "0xE474044Ab42f38862d212D5A1fC522a24d933c00",
+        "elevatedMinterBurner": "0x347009174F9dBED8b5f41803305A37b56A65fAB8",
+        "aegisConfigAddress": "0x20683BFF82583D795820b10f7f4901Ed5477E83d",
+        "aegisOracleAddress": "0xE13A726435C3018e4066a335E6938b88741CFB77",
+        "aegisRewardsAddress": "0x392Aab1b27cef93F217436df26f2dbae2647307f",
+        "aegisMintingAddress": "0xCB3fF00b07C118900156c2409dcDe8227250C89a"
+      },
+      "layerzero": {
+        "targetEid": 40102,
+        "targetNetworkName": "bnbTestnet"
+      }
+    }
+  },
+  "common": {
+    "solidity": {
+      "version": "0.8.26",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      }
+    },
+    "deployment": {
+      "operators": [],
+      "lockupPeriods": [
+        86400,
+        604800
+      ],
+      "assetAddresses": [
+        "0x11fE4B6AE13d2a6055C8D9cF65c55bac32B5d844",
+        "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984"
+      ],
+      "custodianAddresses": []
+    }
+  }
+}

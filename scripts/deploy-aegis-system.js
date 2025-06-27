@@ -1,5 +1,6 @@
 // scripts/deploy-aegis-system.js
 const { ethers } = require('hardhat')
+const { updateNetworksConfig } = require('../test/helpers')
 
 async function main() {
   const [deployer] = await ethers.getSigners()
@@ -184,6 +185,16 @@ async function main() {
   [],
   "${initialOwner}"
 ];`)
+
+  // Update networks config
+  updateNetworksConfig(network.name, {
+    'yusdAddress': yusdAddress,
+    'aegisConfigAddress': aegisConfigAddress,
+    'aegisOracleAddress': aegisOracleAddress,
+    'aegisRewardsAddress': aegisRewardsAddress,
+    'aegisMintingAddress': aegisMintingAddress,
+    'adminAddress': initialOwner,
+  })
 }
 
 main()
