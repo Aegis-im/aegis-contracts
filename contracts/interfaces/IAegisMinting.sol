@@ -98,6 +98,15 @@ interface IAegisMintingEvents {
 
   /// @dev Event emitted when Chainlink asset feed heartbeat is changed
   event SetChainlinkAssetHeartbeat(address indexed asset, uint32 chainlinkHeartbeat);
+
+  /// @dev Event emitted when YUSD is minted for cross-chain transfer
+  event CrossChainMint(address indexed to, uint256 amount);
+
+  /// @dev Event emitted when YUSD is burned for cross-chain transfer
+  event CrossChainBurn(address indexed from, uint256 amount);
+
+  /// @dev Event emitted when cross-chain operations are paused/unpaused
+  event CrossChainPauseChanged(bool paused);
 }
 
 interface IAegisMintingErrors {
@@ -117,4 +126,6 @@ interface IAegisMintingErrors {
   error NotWhitelisted();
   error PriceSlippage();
   error InvalidNonce();
+  error NotAuthorized();
+  error CrossChainPaused();
 }

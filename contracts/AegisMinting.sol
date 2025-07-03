@@ -60,6 +60,9 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   /// @dev role enabling to transfer collateral to custody wallets
   bytes32 private constant COLLATERAL_MANAGER_ROLE = keccak256("COLLATERAL_MANAGER_ROLE");
 
+  /// @dev role enabling cross-chain mint and burn operations
+  bytes32 private constant CROSS_CHAIN_OPERATOR_ROLE = keccak256("CROSS_CHAIN_OPERATOR_ROLE");
+
   /// @dev EIP712 domain
   bytes32 private constant EIP712_DOMAIN = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
@@ -92,6 +95,9 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
 
   /// @dev Redeem pause state
   bool public redeemPaused;
+
+  /// @dev Cross-chain operations pause state
+  bool public crossChainPaused;
 
   /// @dev Percent of YUSD that will be taken as a fee from mint amount
   uint16 public mintFeeBP;
@@ -161,6 +167,20 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   modifier whenRedeemUnpaused() {
     if (redeemPaused) {
       revert RedeemPaused();
+    }
+    _;
+  }
+
+  modifier onlyCrossChainOperator() {
+    if (!hasRole(CROSS_CHAIN_OPERATOR_ROLE, msg.sender)) {
+      revert NotAuthorized();
+    }
+    _;
+  }
+
+  modifier whenCrossChainUnpaused() {
+    if (crossChainPaused) {
+      revert CrossChainPaused();
     }
     _;
   }
@@ -390,6 +410,39 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   }
 
   /**
+   * @dev Mints YUSD for cross-chain transfer
+   * @param to Address to mint YUSD to
+   * @param amount Amount of YUSD to mint
+   */
+  function mintForCrossChain(address to, uint256 amount) 
+    external 
+    nonReentrant 
+    onlyCrossChainOperator 
+    whenCrossChainUnpaused 
+  {
+    yusd.mint(to, amount);
+    emit CrossChainMint(to, amount);
+  }
+
+  /**
+   * @dev Burns YUSD for cross-chain transfer
+   * @param from Address to burn YUSD from
+   * @param amount Amount of YUSD to burn
+   */
+  function burnForCrossChain(address from, uint256 amount) 
+    external 
+    nonReentrant 
+    onlyCrossChainOperator 
+    whenCrossChainUnpaused 
+  {
+    yusd.safeTransferFrom(from, address(this), amount);
+    yusd.burn(amount);
+    emit CrossChainBurn(from, amount);
+  }
+
+
+
+  /**
    * @dev Mints YUSD rewards in exchange for collateral asset income
    * @param order Struct containing order details
    * @param signature Signature of trusted signer
@@ -529,6 +582,12 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     emit RedeemPauseChanged(paused);
   }
 
+  /// @dev Switches cross-chain operations pause state
+  function setCrossChainPaused(bool paused) external onlyRole(SETTINGS_MANAGER_ROLE) {
+    crossChainPaused = paused;
+    emit CrossChainPauseChanged(paused);
+  }
+
   /// @dev Sets percent in basis points of YUSD that will be taken as a fee on mint
   function setMintFeeBP(uint16 value) external onlyRole(SETTINGS_MANAGER_ROLE) {
     // No more than 50%
@@ -599,6 +658,21 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
       revert InvalidCustodianAddress(custodian);
     }
     emit CustodianAddressRemoved(custodian);
+  }
+
+  /// @dev Grants cross-chain operator role to address
+  function addCrossChainOperator(address operator) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    grantRole(CROSS_CHAIN_OPERATOR_ROLE, operator);
+  }
+
+  /// @dev Revokes cross-chain operator role from address  
+  function removeCrossChainOperator(address operator) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    revokeRole(CROSS_CHAIN_OPERATOR_ROLE, operator);
+  }
+
+  /// @dev Checks if address has cross-chain operator role
+  function isCrossChainOperator(address operator) external view returns (bool) {
+    return hasRole(CROSS_CHAIN_OPERATOR_ROLE, operator);
   }
 
   /// @dev Freeze asset funds and prevent them from transferring to custodians or users
