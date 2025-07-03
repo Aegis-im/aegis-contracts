@@ -66,6 +66,9 @@ interface IAegisMintingEvents {
   /// @dev Event emitted when a AegisOracle address is changed
   event SetAegisOracleAddress(address indexed oracle);
 
+  /// @dev Event emitted when cross-chain operator address is changed
+  event SetCrossChainOperator(address indexed operator);
+
   /// @dev Event emitted when a fee percent of income minted YUSD is changed
   event SetIncomeFeeBP(uint16 percentPB);
 

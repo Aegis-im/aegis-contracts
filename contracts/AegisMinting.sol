@@ -60,9 +60,6 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   /// @dev role enabling to transfer collateral to custody wallets
   bytes32 private constant COLLATERAL_MANAGER_ROLE = keccak256("COLLATERAL_MANAGER_ROLE");
 
-  /// @dev role enabling cross-chain mint and burn operations
-  bytes32 private constant CROSS_CHAIN_OPERATOR_ROLE = keccak256("CROSS_CHAIN_OPERATOR_ROLE");
-
   /// @dev EIP712 domain
   bytes32 private constant EIP712_DOMAIN = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
@@ -143,6 +140,9 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   /// @dev user order deduplication
   mapping(address => mapping(uint256 => uint256)) private _orderBitmaps;
 
+  /// @dev Single cross-chain operator address
+  address private _crossChainOperatorAddress;
+
   modifier onlyWhitelisted(address sender) {
     if (!aegisConfig.isWhitelisted(sender)) {
       revert NotWhitelisted();
@@ -172,7 +172,7 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   }
 
   modifier onlyCrossChainOperator() {
-    if (!hasRole(CROSS_CHAIN_OPERATOR_ROLE, msg.sender)) {
+    if (msg.sender != _crossChainOperatorAddress) {
       revert NotAuthorized();
     }
     _;
@@ -435,8 +435,7 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     onlyCrossChainOperator 
     whenCrossChainUnpaused 
   {
-    yusd.safeTransferFrom(from, address(this), amount);
-    yusd.burn(amount);
+    yusd.burnFrom(from, amount);
     emit CrossChainBurn(from, amount);
   }
 
@@ -560,6 +559,11 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     _setAegisOracleAddress(_aegisOracle);
   }
 
+  /// @dev Sets cross-chain operator address
+  function setCrossChainOperator(address _operator) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    _setCrossChainOperator(_operator);
+  }
+
   /// @dev Sets percent in basis points of YUSD that will be taken as a fee on depositIncome
   function setIncomeFeeBP(uint16 value) external onlyRole(SETTINGS_MANAGER_ROLE) {
     // No more than 50%
@@ -660,20 +664,7 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     emit CustodianAddressRemoved(custodian);
   }
 
-  /// @dev Grants cross-chain operator role to address
-  function addCrossChainOperator(address operator) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    grantRole(CROSS_CHAIN_OPERATOR_ROLE, operator);
-  }
 
-  /// @dev Revokes cross-chain operator role from address  
-  function removeCrossChainOperator(address operator) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    revokeRole(CROSS_CHAIN_OPERATOR_ROLE, operator);
-  }
-
-  /// @dev Checks if address has cross-chain operator role
-  function isCrossChainOperator(address operator) external view returns (bool) {
-    return hasRole(CROSS_CHAIN_OPERATOR_ROLE, operator);
-  }
 
   /// @dev Freeze asset funds and prevent them from transferring to custodians or users
   function freezeFunds(address asset, uint256 amount) external onlyRole(FUNDS_MANAGER_ROLE) onlySupportedAsset(asset) {
@@ -736,6 +727,11 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
       revert InvalidCustodianAddress(custodian);
     }
     emit CustodianAddressAdded(custodian);
+  }
+
+  function _setCrossChainOperator(address _operator) internal {
+    _crossChainOperatorAddress = _operator;
+    emit SetCrossChainOperator(_crossChainOperatorAddress);
   }
 
   function _setInsuranceFundAddress(address _insuranceFundAddress) internal {

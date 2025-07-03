@@ -55,11 +55,11 @@ async function main() {
   // Connect to AegisMinting contract
   const AegisMinting = await ethers.getContractAt('AegisMinting', contracts.aegisMintingAddress)
 
-  // Add OFTAdapter as cross-chain operator (only 1 step needed!)
+  // Set OFTAdapter as THE cross-chain operator (only 1 operator allowed!)
   console.log('Setting OFTAdapter as cross-chain operator...')
-  const addOperatorTx = await AegisMinting.addCrossChainOperator(oftAdapterAddress)
-  await addOperatorTx.wait()
-  console.log('✅ Added OFTAdapter as cross-chain operator')
+  const setOperatorTx = await AegisMinting.setCrossChainOperator(oftAdapterAddress)
+  await setOperatorTx.wait()
+  console.log('✅ Set OFTAdapter as cross-chain operator')
 
   // Update networks.json
   updateNetworksConfig(networkName, {
@@ -81,19 +81,14 @@ async function main() {
   try {
     // Verify adapter
     const aegisMintingAddr = await oftAdapter.getAegisMinting()
-    const isOperator = await AegisMinting.isCrossChainOperator(oftAdapterAddress)
     const tokenAddr = await oftAdapter.token()
 
     console.log(`  ✅ OFTAdapter.aegisMinting: ${aegisMintingAddr}`)
-    console.log(`  ✅ Is cross-chain operator: ${isOperator}`)
     console.log(`  ✅ OFTAdapter.token: ${tokenAddr}`)
 
     // Validate configurations
     if (aegisMintingAddr.toLowerCase() !== contracts.aegisMintingAddress.toLowerCase()) {
       throw new Error('❌ OFTAdapter AegisMinting address mismatch')
-    }
-    if (!isOperator) {
-      throw new Error('❌ OFTAdapter is not a cross-chain operator')
     }
     if (tokenAddr.toLowerCase() !== contracts.yusdAddress.toLowerCase()) {
       throw new Error('❌ OFTAdapter token address mismatch')
