@@ -66,6 +66,9 @@ interface IAegisMintingEvents {
   /// @dev Event emitted when a AegisOracle address is changed
   event SetAegisOracleAddress(address indexed oracle);
 
+  /// @dev Event emitted when cross-chain operator address is changed
+  event SetCrossChainOperator(address indexed operator);
+
   /// @dev Event emitted when a fee percent of income minted YUSD is changed
   event SetIncomeFeeBP(uint16 percentPB);
 
@@ -98,6 +101,15 @@ interface IAegisMintingEvents {
 
   /// @dev Event emitted when Chainlink asset feed heartbeat is changed
   event SetChainlinkAssetHeartbeat(address indexed asset, uint32 chainlinkHeartbeat);
+
+  /// @dev Event emitted when YUSD is minted for cross-chain transfer
+  event CrossChainMint(address indexed to, uint256 amount);
+
+  /// @dev Event emitted when YUSD is burned for cross-chain transfer
+  event CrossChainBurn(address indexed from, uint256 amount);
+
+  /// @dev Event emitted when cross-chain operations are paused/unpaused
+  event CrossChainPauseChanged(bool paused);
 }
 
 interface IAegisMintingErrors {
@@ -117,4 +129,6 @@ interface IAegisMintingErrors {
   error NotWhitelisted();
   error PriceSlippage();
   error InvalidNonce();
+  error NotAuthorized();
+  error CrossChainPaused();
 }
