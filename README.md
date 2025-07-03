@@ -116,6 +116,12 @@ The test directory contains the following test files:
 - `9_aegis_config.spec.ts` - Tests for the AegisConfig contract
 - `StYUSD.test.js` - Tests for the sYUSD (Staked YUSD) token
 
+## Cross-Chain Deployment & Testing
+
+For detailed information about deploying and testing cross-chain YUSD transfers using LayerZero, see:
+
+📖 **[Cross-Chain Deployment Guide](docs/cross-chain-deployment.md)**
+
 ## Troubleshooting
 
 If you encounter issues running tests:

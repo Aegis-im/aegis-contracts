@@ -14,7 +14,7 @@ import {
   SETTINGS_MANAGER_ROLE,
   RedeemRequestStatus,
   USD_FEED_ADDRESS,
-} from './helpers'
+} from '../utils/helpers'
 
 describe('AegisMinting', () => {
   describe('#requestRedeem', () => {

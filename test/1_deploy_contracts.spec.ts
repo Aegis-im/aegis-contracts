@@ -1,6 +1,6 @@
 import { ethers } from 'hardhat'
 import { expect } from 'chai'
-import { trustedSignerAccount } from './helpers'
+import { trustedSignerAccount } from '../utils/helpers'
 
 describe('deployContracts', () => {
   describe('YUSD', () => {

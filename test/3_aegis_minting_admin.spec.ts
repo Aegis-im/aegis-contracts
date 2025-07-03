@@ -9,7 +9,7 @@ import {
   deployFixture,
   FUNDS_MANAGER_ROLE,
   trustedSignerAccount,
-} from './helpers'
+} from '../utils/helpers'
 
 describe('AegisMinting', () => {
   describe('#setAegisRewardsAddress', () => {
