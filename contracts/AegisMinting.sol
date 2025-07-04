@@ -93,6 +93,9 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   /// @dev Redeem pause state
   bool public redeemPaused;
 
+  /// @dev Cross-chain operations pause state
+  bool public crossChainPaused;
+
   /// @dev Percent of YUSD that will be taken as a fee from mint amount
   uint16 public mintFeeBP;
 
@@ -137,6 +140,9 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   /// @dev user order deduplication
   mapping(address => mapping(uint256 => uint256)) private _orderBitmaps;
 
+  /// @dev Single cross-chain operator address
+  address private _crossChainOperatorAddress;
+
   modifier onlyWhitelisted(address sender) {
     if (!aegisConfig.isWhitelisted(sender)) {
       revert NotWhitelisted();
@@ -161,6 +167,20 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   modifier whenRedeemUnpaused() {
     if (redeemPaused) {
       revert RedeemPaused();
+    }
+    _;
+  }
+
+  modifier onlyCrossChainOperator() {
+    if (msg.sender != _crossChainOperatorAddress) {
+      revert NotAuthorized();
+    }
+    _;
+  }
+
+  modifier whenCrossChainUnpaused() {
+    if (crossChainPaused) {
+      revert CrossChainPaused();
     }
     _;
   }
@@ -390,6 +410,38 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   }
 
   /**
+   * @dev Mints YUSD for cross-chain transfer
+   * @param to Address to mint YUSD to
+   * @param amount Amount of YUSD to mint
+   */
+  function mintForCrossChain(address to, uint256 amount) 
+    external 
+    nonReentrant 
+    onlyCrossChainOperator 
+    whenCrossChainUnpaused 
+  {
+    yusd.mint(to, amount);
+    emit CrossChainMint(to, amount);
+  }
+
+  /**
+   * @dev Burns YUSD for cross-chain transfer
+   * @param from Address to burn YUSD from
+   * @param amount Amount of YUSD to burn
+   */
+  function burnForCrossChain(address from, uint256 amount) 
+    external 
+    nonReentrant 
+    onlyCrossChainOperator 
+    whenCrossChainUnpaused 
+  {
+    yusd.burnFrom(from, amount);
+    emit CrossChainBurn(from, amount);
+  }
+
+
+
+  /**
    * @dev Mints YUSD rewards in exchange for collateral asset income
    * @param order Struct containing order details
    * @param signature Signature of trusted signer
@@ -507,6 +559,11 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     _setAegisOracleAddress(_aegisOracle);
   }
 
+  /// @dev Sets cross-chain operator address
+  function setCrossChainOperator(address _operator) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    _setCrossChainOperator(_operator);
+  }
+
   /// @dev Sets percent in basis points of YUSD that will be taken as a fee on depositIncome
   function setIncomeFeeBP(uint16 value) external onlyRole(SETTINGS_MANAGER_ROLE) {
     // No more than 50%
@@ -527,6 +584,12 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   function setRedeemPaused(bool paused) external onlyRole(SETTINGS_MANAGER_ROLE) {
     redeemPaused = paused;
     emit RedeemPauseChanged(paused);
+  }
+
+  /// @dev Switches cross-chain operations pause state
+  function setCrossChainPaused(bool paused) external onlyRole(SETTINGS_MANAGER_ROLE) {
+    crossChainPaused = paused;
+    emit CrossChainPauseChanged(paused);
   }
 
   /// @dev Sets percent in basis points of YUSD that will be taken as a fee on mint
@@ -601,6 +664,8 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     emit CustodianAddressRemoved(custodian);
   }
 
+
+
   /// @dev Freeze asset funds and prevent them from transferring to custodians or users
   function freezeFunds(address asset, uint256 amount) external onlyRole(FUNDS_MANAGER_ROLE) onlySupportedAsset(asset) {
     if (assetFrozenFunds[asset] + amount > IERC20(asset).balanceOf(address(this))) {
@@ -662,6 +727,11 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
       revert InvalidCustodianAddress(custodian);
     }
     emit CustodianAddressAdded(custodian);
+  }
+
+  function _setCrossChainOperator(address _operator) internal {
+    _crossChainOperatorAddress = _operator;
+    emit SetCrossChainOperator(_crossChainOperatorAddress);
   }
 
   function _setInsuranceFundAddress(address _insuranceFundAddress) internal {
