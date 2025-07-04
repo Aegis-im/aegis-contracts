@@ -12,7 +12,7 @@ import {
   signOrder,
   FUNDS_MANAGER_ROLE,
   SETTINGS_MANAGER_ROLE,
-} from './helpers'
+} from '../utils/helpers'
 
 describe('AegisRewards', () => {
   describe('#depositRewards', () => {

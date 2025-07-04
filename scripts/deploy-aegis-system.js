@@ -1,5 +1,6 @@
 // scripts/deploy-aegis-system.js
 const { ethers } = require('hardhat')
+const { updateNetworksConfig } = require('../utils/helpers')
 
 async function main() {
   const [deployer] = await ethers.getSigners()
@@ -40,7 +41,7 @@ async function main() {
     throw new Error('Please provide at least one asset address in ASSET_ADDRESSES environment variable')
   }
 
-  const lockupPeriods = process.env.LOCKUP_PERIODS ? process.env.LOCKUP_PERIODS.split(',').map(period => Number(period)) : assetAddresses.map(() => 300) // Default 1 day
+  const lockupPeriods = process.env.LOCKUP_PERIODS ? process.env.LOCKUP_PERIODS.split(',').map(period => Number(period)) : assetAddresses.map(() => 86400) // Default 1 day
   const custodianAddresses = process.env.CUSTODIAN_ADDRESSES ? process.env.CUSTODIAN_ADDRESSES.split(',') : assetAddresses.map(() => process.env.CUSTODIAN_ADDRESS || deployer.address)
 
   if (assetAddresses.length !== lockupPeriods.length || assetAddresses.length !== custodianAddresses.length) {
@@ -184,6 +185,16 @@ async function main() {
   [],
   "${initialOwner}"
 ];`)
+
+  // Update networks config
+  updateNetworksConfig(network.name, {
+    'yusdAddress': yusdAddress,
+    'aegisConfigAddress': aegisConfigAddress,
+    'aegisOracleAddress': aegisOracleAddress,
+    'aegisRewardsAddress': aegisRewardsAddress,
+    'aegisMintingAddress': aegisMintingAddress,
+    'adminAddress': initialOwner,
+  })
 }
 
 main()

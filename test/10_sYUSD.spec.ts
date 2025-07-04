@@ -1,7 +1,7 @@
 import { expect } from 'chai'
 import { ethers } from 'hardhat'
 import { YUSD, sYUSD, sYUSDSilo } from '../typechain-types'
-import { DEFAULT_ADMIN_ROLE } from './helpers'
+import { DEFAULT_ADMIN_ROLE } from '../utils/helpers'
 
 describe('sYUSD', () => {
   let yusdContract: YUSD

@@ -12,7 +12,7 @@ import {
   encodeString,
   SETTINGS_MANAGER_ROLE,
   USD_FEED_ADDRESS,
-} from './helpers'
+} from '../utils/helpers'
 
 describe('AegisMinting', () => {
   describe('#mint', () => {
