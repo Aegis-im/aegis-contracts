@@ -1,6 +1,32 @@
 const { ethers, network } = require('hardhat')
 const { getNetworksConfig } = require('../utils/helpers')
 
+// Function to decode custom errors
+function decodeCustomError(errorData) {
+  if (!errorData || errorData === '0x') return null
+
+  const errorSignatures = {
+    '0xffa4e618': 'Blacklisted(address)',
+    '0x4e487b71': 'Panic(uint256)',
+    '0x08c379a0': 'Error(string)',
+  }
+
+  const selector = errorData.slice(0, 10)
+  const signature = errorSignatures[selector]
+
+  if (signature) {
+    try {
+      const iface = new ethers.Interface([`error ${signature}`])
+      const decoded = iface.parseError(errorData)
+      return { signature, decoded }
+    } catch (e) {
+      return { signature, raw: errorData }
+    }
+  }
+
+  return { signature: 'Unknown error', raw: errorData }
+}
+
 // Network configurations with LayerZero endpoints
 const SUPPORTED_NETWORKS = {
   sepolia: {
@@ -132,39 +158,56 @@ async function main() {
 
   // Estimate gas
   console.log('⛽ Estimating gas...')
-  const gasEstimate = await oftAdapter.send.estimateGas(
-    sendParam,
-    { nativeFee: quote.nativeFee, lzTokenFee: quote.lzTokenFee },
-    signer.address,
-    { value: quote.nativeFee },
-  )
-  console.log(`⛽ Gas Estimate: ${gasEstimate.toString()}`)
+  try {
+    const gasEstimate = await oftAdapter.send.estimateGas(
+      sendParam,
+      { nativeFee: quote.nativeFee, lzTokenFee: quote.lzTokenFee },
+      signer.address,
+      { value: quote.nativeFee },
+    )
+    console.log(`⛽ Gas Estimate: ${gasEstimate.toString()}`)
+    // Execute transfer
+    console.log('🔄 Executing transfer...')
+    const refundAddress = signer.address
+    const tx = await oftAdapter.send(
+      sendParam,
+      { nativeFee: quote.nativeFee, lzTokenFee: quote.lzTokenFee },
+      refundAddress,
+      {
+        value: quote.nativeFee,
+        gasLimit: (gasEstimate * 120n) / 100n, // 20% buffer
+      },
+    )
 
-  // Execute transfer
-  console.log('🔄 Executing transfer...')
-  const refundAddress = signer.address
-  const tx = await oftAdapter.send(
-    sendParam,
-    { nativeFee: quote.nativeFee, lzTokenFee: quote.lzTokenFee },
-    refundAddress,
-    {
-      value: quote.nativeFee,
-      gasLimit: (gasEstimate * 120n) / 100n, // 20% buffer
-    },
-  )
+    console.log(`✅ Transaction: ${tx.hash}`)
+    console.log('LayerZero Scan:', `https://testnet.layerzeroscan.com/tx/${tx.hash}`)
+    if (currentNetworkInfo?.explorer) {
+      console.log(`${currentNetworkInfo.name} Explorer: ${currentNetworkInfo.explorer}/tx/${tx.hash}`)
+    }
+    await tx.wait()
+    console.log('🎉 Transfer completed!')
 
-  console.log(`✅ Transaction: ${tx.hash}`)
-  console.log('LayerZero Scan:', `https://testnet.layerzeroscan.com/tx/${tx.hash}`)
-  if (currentNetworkInfo?.explorer) {
-    console.log(`${currentNetworkInfo.name} Explorer: ${currentNetworkInfo.explorer}/tx/${tx.hash}`)
+    // Check final balance
+    const finalBalance = await yusd.balanceOf(signer.address)
+    console.log(`💰 Final Balance: ${ethers.formatEther(finalBalance)}`)
+    console.log(`💰 YUSD Transferred: ${ethers.formatEther(balance - finalBalance)}`)
+  } catch (error) {
+    console.log('❌ Gas estimation failed')
+    if (error.message.includes('execution reverted')) {
+      // Try to decode error data if available
+      if (error.data) {
+        console.log(`🔍 Error data: ${error.data}`)
+        const decodedError = decodeCustomError(error.data)
+        if (decodedError) {
+          console.log(`🔍 Decoded error: ${decodedError.signature}`)
+          if (decodedError.decoded) {
+            console.log(`🔍 Error details: ${decodedError.decoded.args}`)
+          }
+        }
+      }
+    }
+    console.log(`📄 Error details: ${error.message}`)
   }
-  await tx.wait()
-  console.log('🎉 Transfer completed!')
-
-  // Check final balance
-  const finalBalance = await yusd.balanceOf(signer.address)
-  console.log(`💰 Final Balance: ${ethers.formatEther(finalBalance)}`)
-  console.log(`💰 YUSD Transferred: ${ethers.formatEther(balance - finalBalance)}`)
 }
 
 main().catch(console.error)

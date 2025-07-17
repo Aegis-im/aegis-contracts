@@ -149,7 +149,7 @@
       "contracts": {
         "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
         "adminAddress": "0x7E95D72996E7a0b1D95561F9DFA26E11a80cf8f4",
-        "yusdOftAddress": "0xCd56dC4493608Cdc7bDB2D3BB3Ea4f5dd0f17394"
+        "yusdOftAddress": "0xFA658332Cc24237169bef3dCE4a409179B865f53"
       },
       "deployment": {
         "initialOwner": "{DEPLOYER_ADDRESS}"

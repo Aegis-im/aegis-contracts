@@ -37,8 +37,6 @@ async function main() {
   console.log('\n1️⃣ Deploying YUSDOFT...')
   const YUSDOFT = await ethers.getContractFactory('YUSDOFT')
   const yusdOft = await YUSDOFT.deploy(
-    'YUSD', // name (from YUSD.sol)
-    'YUSD', // symbol (from YUSD.sol)
     contracts.lzEndpoint, // LayerZero endpoint
     contracts.adminAddress, // delegate/owner
   )
