@@ -144,7 +144,7 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   address private _crossChainOperatorAddress;
 
   modifier onlyWhitelisted(address sender) {
-    if (!aegisConfig.isWhitelisted(sender)) {
+    if (address(aegisConfig) == address(0) || !aegisConfig.isWhitelisted(sender)) {
       revert NotWhitelisted();
     }
     _;
@@ -282,11 +282,15 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
       yusd.mint(insuranceFundAddress, fee);
     }
 
+    uint256 balanceBefore = IERC20(order.collateralAsset).balanceOf(address(this));
     IERC20(order.collateralAsset).safeTransferFrom(order.userWallet, address(this), order.collateralAmount);
-    yusd.mint(order.userWallet, mintAmount);
-    _custodyTransferrableAssetFunds[order.collateralAsset] += order.collateralAmount;
+    uint256 balanceAfter = IERC20(order.collateralAsset).balanceOf(address(this));
+    uint256 received = balanceAfter - balanceBefore;
 
-    emit Mint(_msgSender(), order.collateralAsset, order.collateralAmount, mintAmount, fee);
+    yusd.mint(order.userWallet, mintAmount);
+    _custodyTransferrableAssetFunds[order.collateralAsset] += received;
+
+    emit Mint(_msgSender(), order.collateralAsset, received, mintAmount, fee);
   }
 
   /**
@@ -341,7 +345,14 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
       revert InvalidAmount();
     }
 
-    uint256 collateralAmount = _calculateRedeemMinCollateralAmount(request.order.collateralAsset, amount, request.order.yusdAmount);
+    // Take a fee, if it's applicable
+    (uint256 burnAmount, uint256 fee) = _calculateInsuranceFundFeeFromAmount(request.order.yusdAmount, redeemFeeBP);
+    if (fee > 0) {
+      yusd.safeTransfer(insuranceFundAddress, fee);
+    }
+
+    uint256 collateralAmount = _calculateRedeemMinCollateralAmount(request.order.collateralAsset, amount, burnAmount);
+
     /*
      * Reject if:
      * - asset is no longer supported
@@ -360,12 +371,6 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     uint256 availableAssetFunds = _untrackedAvailableAssetBalance(request.order.collateralAsset);
     if (availableAssetFunds < collateralAmount) {
       revert NotEnoughFunds();
-    }
-
-    // Take a fee, if it's applicable
-    (uint256 burnAmount, uint256 fee) = _calculateInsuranceFundFeeFromAmount(request.order.yusdAmount, redeemFeeBP);
-    if (fee > 0) {
-      yusd.safeTransfer(insuranceFundAddress, fee);
     }
 
     request.status = RedeemRequestStatus.APPROVED;
@@ -890,7 +895,7 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     }
 
     int256 yusdUSDPrice = aegisOracle.yusdUSDPrice();
-    if (yusdUSDPrice == 0) {
+    if (yusdUSDPrice <= 0) {
       return (0, 0);
     }
     uint8 yusdUSDPriceDecimals = aegisOracle.decimals();
