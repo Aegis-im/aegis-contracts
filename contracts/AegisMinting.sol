@@ -271,7 +271,12 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     order.verify(getDomainSeparator(), aegisConfig.trustedSigner(), signature);
     _deduplicateOrder(order.userWallet, order.nonce);
 
-    uint256 yusdAmount = _calculateMinYUSDAmount(order.collateralAsset, order.collateralAmount, order.yusdAmount);
+    uint256 balanceBefore = IERC20(order.collateralAsset).balanceOf(address(this));
+    IERC20(order.collateralAsset).safeTransferFrom(order.userWallet, address(this), order.collateralAmount);
+    uint256 balanceAfter = IERC20(order.collateralAsset).balanceOf(address(this));
+    uint256 received = balanceAfter - balanceBefore;
+
+    uint256 yusdAmount = _calculateMinYUSDAmount(order.collateralAsset, received, order.yusdAmount);
     if (yusdAmount < order.slippageAdjustedAmount) {
       revert PriceSlippage();
     }
@@ -281,11 +286,6 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     if (fee > 0) {
       yusd.mint(insuranceFundAddress, fee);
     }
-
-    uint256 balanceBefore = IERC20(order.collateralAsset).balanceOf(address(this));
-    IERC20(order.collateralAsset).safeTransferFrom(order.userWallet, address(this), order.collateralAmount);
-    uint256 balanceAfter = IERC20(order.collateralAsset).balanceOf(address(this));
-    uint256 received = balanceAfter - balanceBefore;
 
     yusd.mint(order.userWallet, mintAmount);
     _custodyTransferrableAssetFunds[order.collateralAsset] += received;
