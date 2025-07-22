@@ -102,7 +102,7 @@ async function main() {
   // Read addresses from configuration
   // IF the network is satelite, use the yusdOftAddress for both YUSD_ADDRESS and OFT_ADAPTER_ADDRESS
   const YUSD_ADDRESS = sourceConfig.contracts.yusdAddress || sourceConfig.contracts.yusdOftAddress
-  const OFT_ADAPTER_ADDRESS = sourceConfig.contracts.directOftAdapterAddress || sourceConfig.contracts.yusdOftAddress
+  const OFT_ADAPTER_ADDRESS = sourceConfig.contracts.oftAdapterAddress || sourceConfig.contracts.yusdOftAddress
 
   if (!YUSD_ADDRESS || !OFT_ADAPTER_ADDRESS) {
     throw new Error(`Missing contract addresses in configuration for ${network.name}`)

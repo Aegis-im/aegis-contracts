@@ -38,7 +38,7 @@ async function main() {
   const AEGIS_CONFIG_ADDRESS = contracts.aegisConfigAddress
   const AEGIS_REWARDS_ADDRESS = contracts.aegisRewardsAddress
   const AEGIS_ORACLE_ADDRESS = contracts.aegisOracleAddress
-  const ADMIN_ADDRESS = contracts.adminAddress || deployment.initialOwner?.replace('{DEPLOYER_ADDRESS}', '')
+  const ADMIN_ADDRESS = contracts.adminAddress || deployment.initialOwner?.replace('{DEPLOYER_ADDRESS}', '') || deployer.address
   const INSURANCE_FUND_ADDRESS =
     deployment.insuranceFundAddress?.replace('{DEPLOYER_ADDRESS}', '') || contracts.adminAddress
   const FEED_REGISTRY_ADDRESS = contracts.feedRegistryAddress
@@ -53,7 +53,7 @@ async function main() {
   console.log(`👤 Deploying with account: ${deployer.address}`)
 
   // Replace placeholder addresses with deployer address
-  const finalAdminAddress = ADMIN_ADDRESS || deployer.address
+  const finalAdminAddress = ADMIN_ADDRESS
   const finalInsuranceFundAddress = INSURANCE_FUND_ADDRESS || deployer.address
   const finalCustodians = CUSTODIANS.map((addr) => addr || deployer.address)
 

@@ -68,70 +68,12 @@ export function setLegacyEnvironmentVariables(networksConfig: any) {
     process.env.YUSD_ADDRESS = contracts.yusdAddress // DEPRECATED: Use config/networks.json instead
   }
 
-  if (contracts.lzEndpoint && !process.env.LZ_ENDPOINT) {
-    process.env.LZ_ENDPOINT = contracts.lzEndpoint // DEPRECATED: Use config/networks.json instead
-  }
-
   if (contracts.adminAddress && !process.env.ADMIN_ADDRESS) {
     process.env.ADMIN_ADDRESS = contracts.adminAddress // DEPRECATED: Use config/networks.json instead
   }
 
-  if (contracts.oftAdapterAddress && !process.env.OFT_ADAPTER_ADDRESS) {
-    process.env.OFT_ADAPTER_ADDRESS = contracts.oftAdapterAddress // DEPRECATED: Use config/networks.json instead
-  }
-
   if (contracts.timelockAddress && !process.env.TIMELOCK_ADDRESS) {
     process.env.TIMELOCK_ADDRESS = contracts.timelockAddress // DEPRECATED: Use config/networks.json instead
-  }
-
-  // Additional Aegis contract addresses
-  if (contracts.aegisConfigAddress && !process.env.AEGIS_CONFIG_ADDRESS) {
-    process.env.AEGIS_CONFIG_ADDRESS = contracts.aegisConfigAddress // DEPRECATED: Use config/networks.json instead
-  }
-
-  if (contracts.aegisOracleAddress && !process.env.AEGIS_ORACLE_ADDRESS) {
-    process.env.AEGIS_ORACLE_ADDRESS = contracts.aegisOracleAddress // DEPRECATED: Use config/networks.json instead
-  }
-
-  if (contracts.aegisRewardsAddress && !process.env.AEGIS_REWARDS_ADDRESS) {
-    process.env.AEGIS_REWARDS_ADDRESS = contracts.aegisRewardsAddress // DEPRECATED: Use config/networks.json instead
-  }
-
-  if (contracts.aegisMintingAddress && !process.env.AEGIS_MINTING_ADDRESS) {
-    process.env.AEGIS_MINTING_ADDRESS = contracts.aegisMintingAddress // DEPRECATED: Use config/networks.json instead
-  }
-
-  // sYUSD contract addresses
-  if (contracts.sYUSDAddress && !process.env.sYUSD_ADDRESS) {
-    process.env.sYUSD_ADDRESS = contracts.sYUSDAddress // DEPRECATED: Use config/networks.json instead
-  }
-
-  if (contracts.sYUSDSiloAddress && !process.env.sYUSD_SILO_ADDRESS) {
-    process.env.sYUSD_SILO_ADDRESS = contracts.sYUSDSiloAddress // DEPRECATED: Use config/networks.json instead
-  }
-
-  if (contracts.minterBurnerAddress && !process.env.MINTER_BURNER_ADDRESS) {
-    process.env.MINTER_BURNER_ADDRESS = contracts.minterBurnerAddress // DEPRECATED: Use config/networks.json instead
-  }
-
-  if (contracts.yusdMintBurnOFTAdapter && !process.env.YUSD_MINT_BURN_OFT_ADAPTER) {
-    process.env.YUSD_MINT_BURN_OFT_ADAPTER = contracts.yusdMintBurnOFTAdapter // DEPRECATED: Use config/networks.json instead
-  }
-
-  // Set LayerZero configuration
-  if (networkConfig.layerzero) {
-    if (networkConfig.layerzero.targetEid && !process.env.TARGET_EID) {
-      process.env.TARGET_EID = networkConfig.layerzero.targetEid.toString() // DEPRECATED: Use config/networks.json instead
-    }
-
-    if (networkConfig.layerzero.targetNetworkName && !process.env.TARGET_NETWORK_NAME) {
-      process.env.TARGET_NETWORK_NAME = networkConfig.layerzero.targetNetworkName // DEPRECATED: Use config/networks.json instead
-    }
-  }
-
-  // Set network explorer
-  if (networkConfig.explorer && !process.env.NETWORK_EXPLORER) {
-    process.env.NETWORK_EXPLORER = networkConfig.explorer // DEPRECATED: Use config/networks.json instead
   }
 
   // Set network-specific deployment configuration (if exists)

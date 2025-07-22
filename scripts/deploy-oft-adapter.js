@@ -35,6 +35,8 @@ async function main() {
   const [deployer] = await ethers.getSigners()
   console.log(`👤 Deploying with account: ${deployer.address}`)
 
+  const adminAddress = contracts.adminAddress || deployer.address
+
   // Deploy YUSDMintBurnOFTAdapter (modified to work directly with AegisMinting)
   console.log('\n1️⃣ Deploying YUSDMintBurnOFTAdapter...')
   const YUSDMintBurnOFTAdapter = await ethers.getContractFactory('YUSDMintBurnOFTAdapter')
@@ -42,7 +44,7 @@ async function main() {
     contracts.yusdAddress, // YUSD token
     contracts.aegisMintingAddress, // AegisMinting contract (directly!)
     contracts.lzEndpoint, // LayerZero endpoint
-    contracts.adminAddress, // Owner
+    adminAddress, // Owner
   )
 
   await oftAdapter.waitForDeployment()
@@ -63,7 +65,7 @@ async function main() {
 
   // Update networks.json
   updateNetworksConfig(networkName, {
-    directOftAdapterAddress: oftAdapterAddress,
+    oftAdapterAddress,
   })
 
   // Create deployment files (always create new to ensure correct args)
@@ -71,7 +73,7 @@ async function main() {
     YUSDMintBurnOFTAdapter: {
       address: oftAdapterAddress,
       contract: oftAdapter,
-      args: [contracts.yusdAddress, contracts.aegisMintingAddress, contracts.lzEndpoint, contracts.adminAddress],
+      args: [contracts.yusdAddress, contracts.aegisMintingAddress, contracts.lzEndpoint, adminAddress],
     },
   }, { createNew: true })
 
@@ -107,7 +109,7 @@ async function main() {
 
   console.log('\n📝 Contract verification command:')
   console.log(
-    `npx hardhat verify --network ${networkName} ${oftAdapterAddress} "${contracts.yusdAddress}" "${contracts.aegisMintingAddress}" "${contracts.lzEndpoint}" "${contracts.adminAddress}"`,
+    `npx hardhat verify --network ${networkName} ${oftAdapterAddress} "${contracts.yusdAddress}" "${contracts.aegisMintingAddress}" "${contracts.lzEndpoint}" "${adminAddress}"`,
   )
 }
 
