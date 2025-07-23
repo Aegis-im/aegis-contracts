@@ -1,5 +1,6 @@
 const { ethers, network } = require('hardhat')
 const { getNetworksConfig, updateNetworksConfig, cleanOldDeploymentFile } = require('../utils/helpers')
+const fs = require('fs')
 
 async function main() {
   const networkName = network.name
@@ -54,8 +55,8 @@ async function main() {
 
   // Replace placeholder addresses with deployer address
   const finalAdminAddress = ADMIN_ADDRESS
-  const finalInsuranceFundAddress = INSURANCE_FUND_ADDRESS || deployer.address
-  const finalCustodians = CUSTODIANS.map((addr) => addr || deployer.address)
+  const finalInsuranceFundAddress = INSURANCE_FUND_ADDRESS || ADMIN_ADDRESS
+  const finalCustodians = CUSTODIANS.map((addr) => addr || ADMIN_ADDRESS)
 
   console.log('📋 Using addresses from config:')
   console.log(`  - YUSD: ${YUSD_ADDRESS}`)
@@ -91,29 +92,29 @@ async function main() {
   // Setup permissions and connections
   console.log('\n2️⃣ Setting up connections...')
 
-  // Set new AegisMinting as YUSD minter
-  console.log('Setting new AegisMinting as YUSD minter...')
-  try {
-    const yusdContract = await ethers.getContractAt('YUSD', YUSD_ADDRESS)
-    const setMinterTx = await yusdContract.setMinter(aegisMintingAddress)
-    await setMinterTx.wait()
-    console.log('✅ AegisMinting set as YUSD minter')
-  } catch (error) {
-    console.error(`❌ Error setting minter: ${error.message}`)
-    console.log('Please set the minter manually using the YUSD contract owner')
-  }
+  // // Set new AegisMinting as YUSD minter
+  // console.log('Setting new AegisMinting as YUSD minter...')
+  // try {
+  //   const yusdContract = await ethers.getContractAt('YUSD', YUSD_ADDRESS)
+  //   const setMinterTx = await yusdContract.setMinter(aegisMintingAddress)
+  //   await setMinterTx.wait()
+  //   console.log('✅ AegisMinting set as YUSD minter')
+  // } catch (error) {
+  //   console.error(`❌ Error setting minter: ${error.message}`)
+  //   console.log('Please set the minter manually using the YUSD contract owner')
+  // }
 
   // Update AegisRewards if needed
-  console.log('Updating AegisRewards contract...')
-  try {
-    const aegisRewardsContract = await ethers.getContractAt('AegisRewards', AEGIS_REWARDS_ADDRESS)
-    const setAegisMintingTx = await aegisRewardsContract.setAegisMintingAddress(aegisMintingAddress)
-    await setAegisMintingTx.wait()
-    console.log('✅ AegisRewards updated with new AegisMinting address')
-  } catch (error) {
-    console.error(`❌ Error updating AegisRewards: ${error.message}`)
-    console.log('Please update AegisRewards manually using the contract owner')
-  }
+  // console.log('Updating AegisRewards contract...')
+  // try {
+  //   const aegisRewardsContract = await ethers.getContractAt('AegisRewards', AEGIS_REWARDS_ADDRESS)
+  //   const setAegisMintingTx = await aegisRewardsContract.setAegisMintingAddress(aegisMintingAddress)
+  //   await setAegisMintingTx.wait()
+  //   console.log('✅ AegisRewards updated with new AegisMinting address')
+  // } catch (error) {
+  //   console.error(`❌ Error updating AegisRewards: ${error.message}`)
+  //   console.log('Please update AegisRewards manually using the contract owner')
+  // }
 
   // Update networks.json with new AegisMinting address
   updateNetworksConfig(networkName, {
@@ -153,9 +154,27 @@ async function main() {
   console.log('📋 Updated contracts:')
   console.log(`  - NEW AegisMinting: ${aegisMintingAddress}`)
 
+  // Create verification arguments file
+  const verifyArgsContent = `module.exports = [
+  "${YUSD_ADDRESS}",
+  "${AEGIS_CONFIG_ADDRESS}",
+  "${AEGIS_REWARDS_ADDRESS}",
+  "${AEGIS_ORACLE_ADDRESS}"
+  "${FEED_REGISTRY_ADDRESS}",
+  "${finalInsuranceFundAddress}",
+  [${ASSET_ADDRESSES.map(addr => `"${addr}"`).join(', ')}],
+  [${CHAINLINK_HEARTBEATS.join(', ')}],
+  [${finalCustodians.map(addr => `"${addr}"`).join(', ')}],
+  "${finalAdminAddress}"
+];`
+
+  const verifyArgsPath = `verify-args-${networkName}.js`
+  fs.writeFileSync(verifyArgsPath, verifyArgsContent)
+
+  console.log(`\n📝 Created verification arguments file: ${verifyArgsPath}`)
   console.log('\n📝 Contract verification command:')
   console.log(
-    `npx hardhat verify --network ${networkName} ${aegisMintingAddress} --constructor-args-path deploy-args.js`,
+    `npx hardhat verify --network ${networkName} ${aegisMintingAddress} --constructor-args ${verifyArgsPath}`,
   )
 }
 
