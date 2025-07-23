@@ -21,6 +21,20 @@ setLegacyEnvironmentVariables(networksConfig)
 const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
   networks: {
+    mainnet: {
+      eid: EndpointId.ETHEREUM_V2_MAINNET,
+      url: process.env.MAINNET_RPC_URL || networksConfig.networks.mainnet.rpcUrl,
+      chainId: networksConfig.networks.mainnet.chainId,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.mainnet.gasPrice,
+    },
+    bnbMainnet: {
+      eid: EndpointId.BSC_V2_MAINNET,
+      url: process.env.BSC_MAINNET_RPC_URL || networksConfig.networks.bnbMainnet.rpcUrl,
+      chainId: networksConfig.networks.bnbMainnet.chainId,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.bnbMainnet.gasPrice,
+    },
     sepolia: {
       eid: EndpointId.SEPOLIA_V2_TESTNET,
       url: process.env.SEPOLIA_RPC_URL || networksConfig.networks.sepolia.rpcUrl,
