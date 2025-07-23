@@ -20,6 +20,15 @@
         "aegisRewardsAddress": "0x8aDCFAf1B64Cc514524B80565bCc732273dDEafD",
         "aegisMintingAddress": "0xA30644CA67E0A93805c443Df4A6E1856d8Bd815B",
         "feedRegistryAddress": "0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf"
+      },
+      "layerzero": {
+        "targetEid": 30101,
+        "targetNetworkName": "mainnet"
+      },
+      "deployment": {
+        "initialOwner": "{DEPLOYER_ADDRESS}",
+        "trustedSignerAddress": "{DEPLOYER_ADDRESS}",
+        "insuranceFundAddress": "{DEPLOYER_ADDRESS}"
       }
     },
     "bnbMainnet": {
@@ -38,6 +47,15 @@
         "aegisRewardsAddress": "0x93eFAA2d2f6c3600d794233ed7E751d086E5B75E",
         "aegisMintingAddress": "0x39dF2D423df0BDDBA28f23C15c65a86554A2e141",
         "feedRegistryAddress": "0xf671F60bCC964B309D22424886FF202807381B32"
+      },
+      "layerzero": {
+        "targetEid": 30102,
+        "targetNetworkName": "bnbMainnet"
+      },
+      "deployment": {
+        "initialOwner": "{DEPLOYER_ADDRESS}",
+        "trustedSignerAddress": "{DEPLOYER_ADDRESS}",
+        "insuranceFundAddress": "{DEPLOYER_ADDRESS}"
       }
     },
     "bnbTestnet": {
