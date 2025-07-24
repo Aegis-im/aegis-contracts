@@ -35,11 +35,12 @@ async function main() {
   const [deployer] = await ethers.getSigners()
   console.log(`👤 Deploying with account: ${deployer.address}`)
 
-  const adminAddress = contracts.adminAddress || deployer.address
+  const adminAddress = deployer.address
 
   // Deploy YUSDMintBurnOFTAdapter (modified to work directly with AegisMinting)
   console.log('\n1️⃣ Deploying YUSDMintBurnOFTAdapter...')
   const YUSDMintBurnOFTAdapter = await ethers.getContractFactory('YUSDMintBurnOFTAdapter')
+  // throw new Error('test')
   const oftAdapter = await YUSDMintBurnOFTAdapter.deploy(
     contracts.yusdAddress, // YUSD token
     contracts.aegisMintingAddress, // AegisMinting contract (directly!)
@@ -47,6 +48,7 @@ async function main() {
     adminAddress, // Owner
   )
 
+  await new Promise((resolve) => setTimeout(resolve, 10000))
   await oftAdapter.waitForDeployment()
   const oftAdapterAddress = await oftAdapter.getAddress()
   console.log(`✅ YUSDMintBurnOFTAdapter deployed to: ${oftAdapterAddress}`)
@@ -55,13 +57,13 @@ async function main() {
   console.log('\n2️⃣ Setting up permissions...')
 
   // Connect to AegisMinting contract
-  const AegisMinting = await ethers.getContractAt('AegisMinting', contracts.aegisMintingAddress)
+  // const AegisMinting = await ethers.getContractAt('AegisMinting', contracts.aegisMintingAddress)
 
   // Set OFTAdapter as THE cross-chain operator (only 1 operator allowed!)
-  console.log('Setting OFTAdapter as cross-chain operator...')
-  const setOperatorTx = await AegisMinting.setCrossChainOperator(oftAdapterAddress)
-  await setOperatorTx.wait()
-  console.log('✅ Set OFTAdapter as cross-chain operator')
+  // console.log('Setting OFTAdapter as cross-chain operator...')
+  // const setOperatorTx = await AegisMinting.setCrossChainOperator(oftAdapterAddress)
+  // await setOperatorTx.wait()
+  // console.log('✅ Set OFTAdapter as cross-chain operator')
 
   // Update networks.json
   updateNetworksConfig(networkName, {

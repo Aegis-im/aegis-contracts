@@ -6,23 +6,23 @@
     },
     "mainnet": {
       "chainId": 1,
-      "rpcUrl": "https://eth-mainnet.g.alchemy.com/v2/{ALCHEMY_API_KEY}",
-      "gasPrice": 3200000000,
+      "rpcUrl": "https://mainnet.gateway.tenderly.co",
+      "gasPrice": 610000000,
       "description": "Ethereum Mainnet",
       "explorer": "https://etherscan.io",
       "contracts": {
         "yusdAddress": "0x4274cD7277C7bb0806Bd5FE84b9aDAE466a8DA0a",
         "lzEndpoint": "0x1a44076050125825900e736c501f859c50fE728c",
         "adminAddress": "0x4Fe78eF65BD8EDDED480efaB030BA680646503c8",
-        "oftAdapterAddress": "",
+        "oftAdapterAddress": "0xAF12b0Ae5A72D7b8A8eC675f3E76E2Db56143565",
         "aegisConfigAddress": "0x90cCF2C4b3DEe7aeac9AF5950a7C60f89AF1db00",
         "aegisOracleAddress": "0x2B4Ad1d479561064cd1C311004Aca93d15041aEc",
         "aegisRewardsAddress": "0x8aDCFAf1B64Cc514524B80565bCc732273dDEafD",
-        "aegisMintingAddress": "0xA30644CA67E0A93805c443Df4A6E1856d8Bd815B",
+        "aegisMintingAddress": "0xc4df68e592245ca5202fe8b7c438d2b799820fc2",
         "feedRegistryAddress": "0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf"
       },
       "layerzero": {
-        "targetEid": 1,
+        "targetEid": 30101,
         "targetNetworkName": "mainnet"
       },
       "deployment": {
@@ -46,20 +46,20 @@
     },
     "bnbMainnet": {
       "chainId": 56,
-      "rpcUrl": "https://bnb-mainnet.g.alchemy.com/v2/{ALCHEMY_API_KEY}",
-      "gasPrice": 500000000,
+      "rpcUrl": "https://bnb.rpc.subquery.network/public",
+      "gasPrice": 1000000000,
       "description": "BNB Smart Chain Mainnet",
       "explorer": "https://bscscan.com",
       "contracts": {
         "yusdAddress": "0xAB3dBcD9B096C3fF76275038bf58eAC10D22C61f",
         "lzEndpoint": "0x1a44076050125825900e736c501f859c50fE728c",
         "adminAddress": "0x4Fe78eF65BD8EDDED480efaB030BA680646503c8",
-        "oftAdapterAddress": "",
+        "oftAdapterAddress": "0x539e46827c37A3ef11c7cE521CC56B4d59E602e3",
         "aegisConfigAddress": "0xB9f1E8417ABaedF6Fd838212267cA8260c4ca9da",
         "aegisOracleAddress": "0x588FD039cAdc77ec85d25a072582624CA8d8cF15",
         "aegisRewardsAddress": "0x93eFAA2d2f6c3600d794233ed7E751d086E5B75E",
-        "aegisMintingAddress": "0x39dF2D423df0BDDBA28f23C15c65a86554A2e141",
-        "feedRegistryAddress": "0xf671F60bCC964B309D22424886FF202807381B32"
+        "aegisMintingAddress": "0x02bf8f0e046F471709E578b1E633077096ce65CF",
+        "feedRegistryAddress": "0x4274cD7277C7bb0806Bd5FE84b9aDAE466a8DA0a"
       },
       "layerzero": {
         "targetEid": 56,
@@ -97,7 +97,7 @@
         "aegisConfigAddress": "0xfC94AFFC17Eff5F0d75e11eE27F42555720c0AAb",
         "aegisOracleAddress": "0xF7B8145F49478361B30D51f9A4c5E101fB2B7948",
         "aegisRewardsAddress": "0x1775655D08a651A8042Ff98AFC44fc19C62abB74",
-        "aegisMintingAddress": "0x9061152610a2Ea46F49101Fe4c04B950fB91Fe02",
+        "aegisMintingAddress": "0x942B5454968C7B01Cecb8C8F3A7AAACd2834c8AE",
         "feedRegistryAddress": "0x4CE6563330166122DBe372Ad7ec175b7783a0FC0"
       },
       "layerzero": {

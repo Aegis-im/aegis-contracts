@@ -29,6 +29,20 @@ function decodeCustomError(errorData) {
 
 // Network configurations with LayerZero endpoints
 const SUPPORTED_NETWORKS = {
+  mainnet: {
+    chainId: 1,
+    name: 'Ethereum Mainnet',
+    nativeToken: 'ETH',
+    lzEndpointId: 30101,
+    explorer: 'https://etherscan.io',
+  },
+  bnbMainnet: {
+    chainId: 56,
+    name: 'BNB Smart Chain Mainnet',
+    nativeToken: 'BNB',
+    lzEndpointId: 30102,
+    explorer: 'https://bscscan.com',
+  },
   sepolia: {
     chainId: 11155111,
     name: 'Ethereum Sepolia Testnet',

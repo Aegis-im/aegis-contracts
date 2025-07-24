@@ -34,41 +34,83 @@ async function main() {
     }
   }
 
-  // Get parameters from config
+  // Get deployer
+  const [deployer] = await ethers.getSigners()
+  console.log(`👤 Deploying with account: ${deployer.address}`)
+
+  // Get parameters from config with proper placeholder replacement
   const YUSD_ADDRESS = contracts.yusdAddress
   const AEGIS_CONFIG_ADDRESS = contracts.aegisConfigAddress
   const AEGIS_REWARDS_ADDRESS = contracts.aegisRewardsAddress
   const AEGIS_ORACLE_ADDRESS = contracts.aegisOracleAddress
-  const ADMIN_ADDRESS = contracts.adminAddress || deployment.initialOwner?.replace('{DEPLOYER_ADDRESS}', '') || deployer.address
+  const ADMIN_ADDRESS = contracts.adminAddress || deployment.initialOwner?.replace('{DEPLOYER_ADDRESS}', deployer.address) || deployer.address
   const INSURANCE_FUND_ADDRESS =
-    deployment.insuranceFundAddress?.replace('{DEPLOYER_ADDRESS}', '') || contracts.adminAddress
+    deployment.insuranceFundAddress?.replace('{DEPLOYER_ADDRESS}', deployer.address) || contracts.adminAddress
   const FEED_REGISTRY_ADDRESS = contracts.feedRegistryAddress
 
   // Get assets from deployment config or use defaults
   const ASSET_ADDRESSES = deployment.assetAddresses || ['0x84b9B910527Ad5C03A9Ca831909E21e236EA7b06']
   const CHAINLINK_HEARTBEATS = deployment.lockupPeriods || ASSET_ADDRESSES.map(() => 86400)
-  const CUSTODIANS = deployment.custodianAddresses?.map((addr) => addr.replace('{DEPLOYER_ADDRESS}', '')) || []
-
-  // Get deployer
-  const [deployer] = await ethers.getSigners()
-  console.log(`👤 Deploying with account: ${deployer.address}`)
+  const CUSTODIANS = deployment.custodianAddresses?.map((addr) => addr.replace('{DEPLOYER_ADDRESS}', deployer.address)) || []
 
   // Replace placeholder addresses with deployer address
   const finalAdminAddress = ADMIN_ADDRESS
   const finalInsuranceFundAddress = INSURANCE_FUND_ADDRESS || ADMIN_ADDRESS
   const finalCustodians = CUSTODIANS.map((addr) => addr || ADMIN_ADDRESS)
 
-  console.log('📋 Using addresses from config:')
-  console.log(`  - YUSD: ${YUSD_ADDRESS}`)
-  console.log(`  - AegisConfig: ${AEGIS_CONFIG_ADDRESS}`)
-  console.log(`  - AegisRewards: ${AEGIS_REWARDS_ADDRESS}`)
-  console.log(`  - AegisOracle: ${AEGIS_ORACLE_ADDRESS}`)
-  console.log(`  - Feed Registry: ${FEED_REGISTRY_ADDRESS}`)
-  console.log(`  - Admin: ${finalAdminAddress}`)
-  console.log(`  - Insurance Fund: ${finalInsuranceFundAddress}`)
-  console.log(`  - Assets: ${ASSET_ADDRESSES}`)
-  console.log(`  - Custodians: ${finalCustodians}`)
+  // console.log('📋 Using addresses from config:')
+  // console.log(`  - YUSD: ${YUSD_ADDRESS}`)
+  // console.log(`  - AegisConfig: ${AEGIS_CONFIG_ADDRESS}`)
+  // console.log(`  - AegisRewards: ${AEGIS_REWARDS_ADDRESS}`)
+  // console.log(`  - AegisOracle: ${AEGIS_ORACLE_ADDRESS}`)
+  // console.log(`  - Feed Registry: ${FEED_REGISTRY_ADDRESS}`)
+  // console.log(`  - Insurance Fund: ${finalInsuranceFundAddress}`)
+  // console.log(`  - Assets: ${ASSET_ADDRESSES}`)
+  // console.log(`  - Chainlink Heartbeats: ${CHAINLINK_HEARTBEATS}`)
+  // console.log(`  - Custodians: ${finalCustodians}`)
+  // console.log(`  - finalAdminAddress: ${finalAdminAddress}`)
 
+  console.log({YUSD_ADDRESS,
+    AEGIS_CONFIG_ADDRESS,
+    AEGIS_REWARDS_ADDRESS,
+    AEGIS_ORACLE_ADDRESS,
+    FEED_REGISTRY_ADDRESS,
+    finalInsuranceFundAddress,
+    ASSET_ADDRESSES,
+    CHAINLINK_HEARTBEATS,
+    finalCustodians,
+    finalAdminAddress})
+
+  // Validate all addresses before deployment
+  const addresses = [
+    YUSD_ADDRESS,
+    AEGIS_CONFIG_ADDRESS,
+    AEGIS_REWARDS_ADDRESS,
+    AEGIS_ORACLE_ADDRESS,
+    FEED_REGISTRY_ADDRESS,
+    finalInsuranceFundAddress,
+    finalAdminAddress,
+  ]
+
+  for (const addr of addresses) {
+    if (!addr || addr === '' || !ethers.isAddress(addr)) {
+      throw new Error(`Invalid address found: ${addr}`)
+    }
+  }
+
+  for (const addr of ASSET_ADDRESSES) {
+    if (!addr || addr === '' || !ethers.isAddress(addr)) {
+      throw new Error(`Invalid asset address found: ${addr}`)
+    }
+  }
+
+  for (const addr of finalCustodians) {
+    if (!addr || addr === '' || !ethers.isAddress(addr)) {
+      throw new Error(`Invalid custodian address found: ${addr}`)
+    }
+  }
+
+  // throw new Error('test')
   // Deploy new AegisMinting contract
   console.log('\n1️⃣ Deploying new AegisMinting...')
   const AegisMinting = await ethers.getContractFactory('AegisMinting')
@@ -159,7 +201,7 @@ async function main() {
   "${YUSD_ADDRESS}",
   "${AEGIS_CONFIG_ADDRESS}",
   "${AEGIS_REWARDS_ADDRESS}",
-  "${AEGIS_ORACLE_ADDRESS}"
+  "${AEGIS_ORACLE_ADDRESS}",
   "${FEED_REGISTRY_ADDRESS}",
   "${finalInsuranceFundAddress}",
   [${ASSET_ADDRESSES.map(addr => `"${addr}"`).join(', ')}],
