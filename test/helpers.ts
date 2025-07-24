@@ -49,6 +49,13 @@ export async function deployFixture() {
     aegisConfig,
     owner,
   ])
+
+  const aegisRewardsManualContract = await ethers.deployContract('AegisRewardsManual', [
+    yusdAddress,
+    aegisConfig,
+    owner,
+  ])
+
   const aegisRewardsAddress = await aegisRewardsContract.getAddress()
 
   const aegisMintingContract = await ethers.deployContract('AegisMinting', [
@@ -78,6 +85,7 @@ export async function deployFixture() {
     yusdContract,
     yusdAddress,
     aegisRewardsContract,
+    aegisRewardsManualContract,
     aegisRewardsAddress,
     aegisMintingContract,
     aegisMintingAddress,
@@ -138,6 +146,29 @@ export async function signClaimRequestByWallet(request: ClaimRewardsLib.ClaimReq
 
 export async function signClaimRequest(request: ClaimRewardsLib.ClaimRequestStruct, contractAddress: string) {
   return signClaimRequestByWallet(request, contractAddress, trustedSignerAccount)
+}
+
+export async function signClaimRequestManualByWallet(request: ClaimRewardsLib.ClaimRequestStruct, contractAddress: string, wallet: HDNodeWallet) {
+  return wallet.signTypedData(
+    {
+      name: 'AegisRewardsManual',
+      version: '1',
+      chainId: 1337n,
+      verifyingContract: contractAddress,
+    },
+    {
+      ClaimRequest: [
+        {name: 'claimer', type: 'address'},
+        {name: 'ids', type: 'bytes32[]'},
+        {name: 'amounts', type: 'uint256[]'},
+      ],
+    },
+    request,
+  )
+}
+
+export async function signClaimRequestManual(request: ClaimRewardsLib.ClaimRequestStruct, contractAddress: string) {
+  return signClaimRequestManualByWallet(request, contractAddress, trustedSignerAccount)
 }
 
 export function encodeString(str: string) {
