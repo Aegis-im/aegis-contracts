@@ -54,6 +54,9 @@ contract AegisRewardsManual is IAegisRewardsEvents, IAegisRewardsErrors, AccessC
   /// @dev Mapping of user addresses to reward ids to bool indicating if user already claimed
   mapping(address => mapping(bytes32 => bool)) private _addressClaimedRewards;
 
+  /// @dev Total amount of YUSD reserved for rewards (prevent double spending)
+  uint256 private _totalReservedRewards;
+
   /// @dev holds computable chain id
   uint256 private immutable _chainId;
 
@@ -85,6 +88,16 @@ contract AegisRewardsManual is IAegisRewardsEvents, IAegisRewardsErrors, AccessC
     return _rewards[_stringToBytes32(id)];
   }
 
+  /// @dev Returns total reserved rewards amount
+  function totalReservedRewards() public view returns (uint256) {
+    return _totalReservedRewards;
+  }
+
+  /// @dev Returns available balance for new deposits
+  function availableBalanceForDeposits() public view returns (uint256) {
+    return yusd.balanceOf(address(this)) - _totalReservedRewards;
+  }
+
   /// @dev Transfers rewards at ids to a caller
   function claimRewards(ClaimRewardsLib.ClaimRequest calldata claimRequest, bytes calldata signature) external nonReentrant {
     claimRequest.verify(getDomainSeparator(), aegisConfig.trustedSigner(), signature);
@@ -105,6 +118,7 @@ contract AegisRewardsManual is IAegisRewardsEvents, IAegisRewardsErrors, AccessC
 
       _addressClaimedRewards[_msgSender()][claimRequest.ids[i]] = true;
       _rewards[claimRequest.ids[i]].amount -= claimRequest.amounts[i];
+      _totalReservedRewards -= claimRequest.amounts[i];
       totalAmount += claimRequest.amounts[i];
       claimedIds[count] = claimRequest.ids[i];
       count++;
@@ -146,6 +160,7 @@ contract AegisRewardsManual is IAegisRewardsEvents, IAegisRewardsErrors, AccessC
 
     uint256 amount = _rewards[id].amount;
     _rewards[id].amount = 0;
+    _totalReservedRewards -= amount;
     yusd.safeTransfer(to, amount);
 
     emit WithdrawExpiredRewards(id, to, amount);
@@ -153,8 +168,15 @@ contract AegisRewardsManual is IAegisRewardsEvents, IAegisRewardsErrors, AccessC
 
   /// @dev Adds YUSD rewards from admin (alternative to depositRewards from minting contract)
   function depositRewards(string calldata requestId, uint256 amount) external onlyRole(REWARDS_MANAGER_ROLE) {
+    // Check if contract has enough YUSD balance for this deposit
+    uint256 availableBalance = yusd.balanceOf(address(this)) - _totalReservedRewards;
+    if (availableBalance < amount) {
+      revert InsufficientContractBalance();
+    }
+    
     bytes32 id = _stringToBytes32(requestId);
     _rewards[id].amount += amount;
+    _totalReservedRewards += amount;
 
     emit DepositRewards(id, amount, block.timestamp);
   }

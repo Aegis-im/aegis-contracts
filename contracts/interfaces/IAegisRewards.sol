@@ -32,4 +32,5 @@ interface IAegisRewardsErrors {
   error InvalidAddress();
   error ZeroRewards();
   error UnknownRewards();
+  error InsufficientContractBalance();
 }
