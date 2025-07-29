@@ -627,6 +627,79 @@ describe('AegisRewardsManual', () => {
     })
   })
 
+  describe('#rescueAssets', () => {
+    describe('success', () => {
+      it('should rescue ERC20 tokens to admin', async () => {
+        const [owner] = await ethers.getSigners()
+        const { aegisRewardsManualContract, yusdContract } = await loadFixture(deployFixture)
+
+        const contractAddress = await aegisRewardsManualContract.getAddress()
+        const rescueAmount = ethers.parseEther('50')
+
+        // Transfer tokens to contract
+        await yusdContract.setMinter(owner.address)
+        await yusdContract.mint(owner, rescueAmount)
+        await yusdContract.transfer(contractAddress, rescueAmount)
+
+        const balanceBefore = await yusdContract.balanceOf(owner.address)
+        const contractBalanceBefore = await yusdContract.balanceOf(contractAddress)
+
+        await expect(aegisRewardsManualContract.rescueAssets(yusdContract))
+          .to.emit(aegisRewardsManualContract, 'RescueAssets')
+          .withArgs(await yusdContract.getAddress(), owner.address, rescueAmount)
+
+        expect(await yusdContract.balanceOf(owner.address)).to.equal(balanceBefore + rescueAmount)
+        expect(await yusdContract.balanceOf(contractAddress)).to.equal(contractBalanceBefore - rescueAmount)
+      })
+
+      it('should rescue YUSD tokens to admin', async () => {
+        const [owner] = await ethers.getSigners()
+        const { aegisRewardsManualContract, yusdContract } = await loadFixture(deployFixture)
+
+        const contractAddress = await aegisRewardsManualContract.getAddress()
+        const rescueAmount = ethers.parseEther('100')
+
+        // Transfer tokens to contract
+        await yusdContract.setMinter(owner.address)
+        await yusdContract.mint(owner, rescueAmount)
+        await yusdContract.transfer(contractAddress, rescueAmount)
+
+        const balanceBefore = await yusdContract.balanceOf(owner.address)
+        const contractBalanceBefore = await yusdContract.balanceOf(contractAddress)
+
+        await expect(aegisRewardsManualContract.rescueAssets(yusdContract))
+          .to.emit(aegisRewardsManualContract, 'RescueAssets')
+          .withArgs(await yusdContract.getAddress(), owner.address, rescueAmount)
+
+        expect(await yusdContract.balanceOf(owner.address)).to.equal(balanceBefore + rescueAmount)
+        expect(await yusdContract.balanceOf(contractAddress)).to.equal(contractBalanceBefore - rescueAmount)
+      })
+    })
+
+    describe('error', () => {
+      it('should revert when caller is not admin', async () => {
+        const [, user] = await ethers.getSigners()
+        const { aegisRewardsManualContract, yusdContract } = await loadFixture(deployFixture)
+
+        await expect(
+          aegisRewardsManualContract.connect(user).rescueAssets(yusdContract),
+        ).to.be.revertedWithCustomError(aegisRewardsManualContract, 'AccessControlUnauthorizedAccount')
+      })
+
+      it('should revert when no tokens to rescue', async () => {
+        const { aegisRewardsManualContract, yusdContract } = await loadFixture(deployFixture)
+
+        // Contract has no YUSD balance
+        const contractBalance = await yusdContract.balanceOf(await aegisRewardsManualContract.getAddress())
+        expect(contractBalance).to.equal(0)
+
+        await expect(
+          aegisRewardsManualContract.rescueAssets(yusdContract),
+        ).to.be.revertedWithCustomError(aegisRewardsManualContract, 'NoTokensToRescue')
+      })
+    })
+  })
+
   describe('#getDomainSeparator', () => {
     describe('success', () => {
       it('should return correct domain separator', async () => {

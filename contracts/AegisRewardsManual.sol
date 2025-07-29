@@ -5,6 +5,7 @@ import { Context } from "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC165, ERC165 } from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -184,6 +185,17 @@ contract AegisRewardsManual is IAegisRewardsEvents, IAegisRewardsErrors, AccessC
   /// @dev Sets new AegisConfig address
   function setAegisConfigAddress(IAegisConfig _aegisConfig) external onlyRole(DEFAULT_ADMIN_ROLE) {
     _setAegisConfigAddress(_aegisConfig);
+  }
+
+  /// @dev Rescue ERC20 tokens from contract balance
+  function rescueAssets(IERC20 token) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    address admin = msg.sender;
+    
+    uint256 balance = token.balanceOf(address(this));
+    if (balance == 0) revert NoTokensToRescue();
+    
+    SafeERC20.safeTransfer(token, admin, balance);
+    emit RescueAssets(address(token), admin, balance);
   }
 
   function _setAegisConfigAddress(IAegisConfig _aegisConfig) internal {
