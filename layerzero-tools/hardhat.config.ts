@@ -64,7 +64,6 @@ const config: HardhatUserConfig = {
       gasPrice: networksConfig.networks.optimismSepolia.gasPrice,
     },
   },
-  // Указываем путь к контрактам в родительском проекте
   paths: {
     sources: '../contracts',
     artifacts: '../artifacts',
