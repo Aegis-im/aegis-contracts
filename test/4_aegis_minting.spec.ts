@@ -15,7 +15,7 @@ import {
   signOrderByWallet,
   encodeString,
   SETTINGS_MANAGER_ROLE,
-} from './helpers'
+} from '../utils/helpers'
 
 describe('AegisMinting', () => {
   describe('#transferToCustody', () => {
