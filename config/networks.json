@@ -98,7 +98,8 @@
         "aegisOracleAddress": "0xF7B8145F49478361B30D51f9A4c5E101fB2B7948",
         "aegisRewardsAddress": "0x1775655D08a651A8042Ff98AFC44fc19C62abB74",
         "aegisMintingAddress": "0x942B5454968C7B01Cecb8C8F3A7AAACd2834c8AE",
-        "feedRegistryAddress": "0x4CE6563330166122DBe372Ad7ec175b7783a0FC0"
+        "feedRegistryAddress": "0x4CE6563330166122DBe372Ad7ec175b7783a0FC0",
+        "aegisRewardsManualAddress": "0x094D11022709817051e73EfEcb459dA4AA418871"
       },
       "layerzero": {
         "targetEid": 40161,

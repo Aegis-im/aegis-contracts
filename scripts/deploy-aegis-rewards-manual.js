@@ -1,34 +1,45 @@
 // scripts/deploy-aegis-rewards-manual.js
 const { ethers } = require('hardhat')
+const { getNetworksConfig, updateNetworksConfig } = require('../utils/helpers')
+
+
 
 async function main() {
   const [deployer] = await ethers.getSigners()
-  console.log('Deploying AegisRewardsManual with the account:', deployer.address)
-
   // Get network
   const network = await ethers.provider.getNetwork()
-  console.log('Network:', network.name)
+  const networkName = network.name
+  console.log(`🚀 Deploying NEW AegisRewardsManual on ${networkName}...`)
+  console.log('Deploying AegisRewardsManual with the account:', deployer.address)
 
-  // Get parameters from environment variables or use defaults
+  // Get parameters from networks.json
   // --------------------------------------------------------------------
-
-  // 1. YUSD parameters
-  const yusdAddress = process.env.YUSD_ADDRESS
-  if (!yusdAddress) {
-    throw new Error('Please provide YUSD_ADDRESS environment variable')
+  const networksConfig = getNetworksConfig()
+  if (!networksConfig || !networksConfig.networks[networkName]) {
+    throw new Error(`Network ${networkName} not found in config/networks.json`)
   }
-  console.log('YUSD Address:', yusdAddress)
 
-  // 2. AegisConfig parameters
-  const aegisConfigAddress = process.env.AEGIS_CONFIG_ADDRESS
-  if (!aegisConfigAddress) {
-    throw new Error('Please provide AEGIS_CONFIG_ADDRESS environment variable')
+  const networkConfig = networksConfig.networks[networkName]
+
+  // Get contract addresses from config
+  const contracts = networkConfig.contracts || {}
+
+  // Validate required addresses
+  if (!contracts.yusdAddress) {
+    throw new Error(`YUSD address not found in config for network ${networkName}`)
   }
-  console.log('AegisConfig Address:', aegisConfigAddress)
+  if (!contracts.aegisConfigAddress) {
+    throw new Error(`AegisConfig address not found in config for network ${networkName}`)
+  }
 
-  // 3. Admin parameters
-  const admin = process.env.ADMIN_ADDRESS || deployer.address
-  console.log('Admin Address:', admin)
+  const yusdAddress = contracts.yusdAddress
+  const aegisConfigAddress = contracts.aegisConfigAddress
+  const admin = contracts.adminAddress || deployer.address
+
+  console.log('📋 Using addresses from config:')
+  console.log(`  - YUSD: ${yusdAddress}`)
+  console.log(`  - AegisConfig: ${aegisConfigAddress}`)
+  console.log(`  - Admin: ${admin}`)
 
   // --------------------------------------------------------------------
   // DEPLOYMENT
@@ -41,6 +52,11 @@ async function main() {
   await aegisRewardsManualContract.waitForDeployment()
   const aegisRewardsManualAddress = await aegisRewardsManualContract.getAddress()
   console.log('AegisRewardsManual deployed to:', aegisRewardsManualAddress)
+
+  // Update networks.json with new AegisMinting address
+  updateNetworksConfig(networkName, {
+    aegisRewardsManualAddress: aegisRewardsManualAddress,
+  })
 
   // --------------------------------------------------------------------
   // VERIFICATION INFO
