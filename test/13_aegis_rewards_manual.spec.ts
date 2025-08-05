@@ -2,7 +2,7 @@ import { ethers } from 'hardhat'
 import { loadFixture, time } from '@nomicfoundation/hardhat-network-helpers'
 import { expect } from 'chai'
 
-import { REWARDS_MANAGER_ROLE, deployFixture, signClaimRequestManual, signClaimRequestManualByWallet } from './helpers'
+import { REWARDS_MANAGER_ROLE, deployFixture, encodeString, signClaimRequestManual, signClaimRequestManualByWallet } from '../utils/helpers'
 
 describe('AegisRewardsManual', () => {
   describe('#depositRewards', () => {
@@ -22,7 +22,7 @@ describe('AegisRewardsManual', () => {
         await yusdContract.mint(owner, amount)
         await yusdContract.transfer(await aegisRewardsManualContract.getAddress(), amount)
 
-        await aegisRewardsManualContract.depositRewards(snapshotId, amount)
+        await aegisRewardsManualContract.depositRewards(encodeString(snapshotId), amount)
 
         const reward = await aegisRewardsManualContract.rewardById(snapshotId)
         expect(reward.amount).to.equal(amount)
@@ -34,7 +34,7 @@ describe('AegisRewardsManual', () => {
         const [, user] = await ethers.getSigners()
         const { aegisRewardsManualContract } = await loadFixture(deployFixture)
 
-        await expect(aegisRewardsManualContract.connect(user).depositRewards('test', ethers.parseEther('1'))).to.be
+        await expect(aegisRewardsManualContract.connect(user).depositRewards(encodeString('test'), ethers.parseEther('1'))).to.be
           .reverted
       })
     })
@@ -54,14 +54,14 @@ describe('AegisRewardsManual', () => {
         // Transfer YUSD to contract and deposit rewards
         await yusdContract.mint(owner, amount)
         await yusdContract.transfer(await aegisRewardsManualContract.getAddress(), amount)
-        await aegisRewardsManualContract.depositRewards(snapshotId, amount)
+        await aegisRewardsManualContract.depositRewards(encodeString(snapshotId), amount)
         await aegisRewardsManualContract.finalizeRewards(ethers.encodeBytes32String(snapshotId), 0)
 
         const snapshot2Id = 'test2'
         const amount2 = ethers.parseEther('2')
         await yusdContract.mint(owner, amount2)
         await yusdContract.transfer(await aegisRewardsManualContract.getAddress(), amount2)
-        await aegisRewardsManualContract.depositRewards(snapshot2Id, amount2)
+        await aegisRewardsManualContract.depositRewards(encodeString(snapshot2Id), amount2)
         await aegisRewardsManualContract.finalizeRewards(ethers.encodeBytes32String(snapshot2Id), 0)
 
         const contractAddress = await aegisRewardsManualContract.getAddress()
@@ -117,7 +117,7 @@ describe('AegisRewardsManual', () => {
         const amount = ethers.parseEther('1')
         await yusdContract.mint(owner, amount)
         await yusdContract.transfer(await aegisRewardsManualContract.getAddress(), amount)
-        await aegisRewardsManualContract.depositRewards(snapshotId, amount)
+        await aegisRewardsManualContract.depositRewards(encodeString(snapshotId), amount)
 
         const claimRequest = {
           claimer: owner.address,
@@ -143,7 +143,7 @@ describe('AegisRewardsManual', () => {
         const amount = ethers.parseEther('1')
         await yusdContract.mint(owner, amount)
         await yusdContract.transfer(await aegisRewardsManualContract.getAddress(), amount)
-        await aegisRewardsManualContract.depositRewards(snapshotId, amount)
+        await aegisRewardsManualContract.depositRewards(encodeString(snapshotId), amount)
 
         const unknownSigner = await ethers.Wallet.createRandom()
         const claimRequest = {
@@ -171,7 +171,7 @@ describe('AegisRewardsManual', () => {
         const amount = ethers.parseEther('1')
         await yusdContract.mint(owner, amount)
         await yusdContract.transfer(await aegisRewardsManualContract.getAddress(), amount)
-        await aegisRewardsManualContract.depositRewards(snapshotId, amount)
+        await aegisRewardsManualContract.depositRewards(encodeString(snapshotId), amount)
 
         const claimRequest = {
           claimer: owner.address,
@@ -198,7 +198,7 @@ describe('AegisRewardsManual', () => {
         const amount = ethers.parseEther('1')
         await yusdContract.mint(owner, amount)
         await yusdContract.transfer(await aegisRewardsManualContract.getAddress(), amount)
-        await aegisRewardsManualContract.depositRewards(snapshotId, amount)
+        await aegisRewardsManualContract.depositRewards(encodeString(snapshotId), amount)
         await aegisRewardsManualContract.finalizeRewards(ethers.encodeBytes32String(snapshotId), 0)
 
         const claimRequest = {
@@ -228,7 +228,7 @@ describe('AegisRewardsManual', () => {
         const amount = ethers.parseEther('2')
         await yusdContract.mint(owner, amount)
         await yusdContract.transfer(await aegisRewardsManualContract.getAddress(), amount)
-        await aegisRewardsManualContract.depositRewards(snapshotId, amount)
+        await aegisRewardsManualContract.depositRewards(encodeString(snapshotId), amount)
         await aegisRewardsManualContract.finalizeRewards(ethers.encodeBytes32String(snapshotId), 0)
 
         const claimRequest = {
@@ -307,7 +307,7 @@ describe('AegisRewardsManual', () => {
         const amount = ethers.parseEther('2')
         await yusdContract.mint(owner, amount)
         await yusdContract.transfer(await aegisRewardsManualContract.getAddress(), amount)
-        await aegisRewardsManualContract.depositRewards(snapshotId, amount)
+        await aegisRewardsManualContract.depositRewards(encodeString(snapshotId), amount)
         await aegisRewardsManualContract.finalizeRewards(ethers.encodeBytes32String(snapshotId), 1)
 
         await time.increase(2)
@@ -354,7 +354,7 @@ describe('AegisRewardsManual', () => {
         const amount = ethers.parseEther('2')
         await yusdContract.mint(owner, amount)
         await yusdContract.transfer(await aegisRewardsManualContract.getAddress(), amount)
-        await aegisRewardsManualContract.depositRewards(snapshotId, amount)
+        await aegisRewardsManualContract.depositRewards(encodeString(snapshotId), amount)
         await aegisRewardsManualContract.finalizeRewards(ethers.encodeBytes32String(snapshotId), 1)
 
         await time.increase(2)
@@ -379,7 +379,7 @@ describe('AegisRewardsManual', () => {
         const amount = ethers.parseEther('2')
         await yusdContract.mint(owner, amount)
         await yusdContract.transfer(await aegisRewardsManualContract.getAddress(), amount)
-        await aegisRewardsManualContract.depositRewards(snapshotId, amount)
+        await aegisRewardsManualContract.depositRewards(encodeString(snapshotId), amount)
 
         const bytes32SnapshotId = ethers.encodeBytes32String(snapshotId)
         await expect(aegisRewardsManualContract.finalizeRewards(bytes32SnapshotId, 0)).not.to.be.reverted
@@ -400,7 +400,7 @@ describe('AegisRewardsManual', () => {
         const amount = ethers.parseEther('2')
         await yusdContract.mint(owner, amount)
         await yusdContract.transfer(await aegisRewardsManualContract.getAddress(), amount)
-        await aegisRewardsManualContract.depositRewards(snapshotId, amount)
+        await aegisRewardsManualContract.depositRewards(encodeString(snapshotId), amount)
 
         const bytes32SnapshotId = ethers.encodeBytes32String(snapshotId)
         await expect(aegisRewardsManualContract.finalizeRewards(bytes32SnapshotId, 100)).not.to.be.reverted
@@ -432,7 +432,7 @@ describe('AegisRewardsManual', () => {
         // Deposit rewards
         await yusdContract.mint(owner, amount)
         await yusdContract.transfer(await aegisRewardsManualContract.getAddress(), amount)
-        await aegisRewardsManualContract.depositRewards(snapshotId, amount)
+        await aegisRewardsManualContract.depositRewards(encodeString(snapshotId), amount)
 
         // Check after deposit
         reward = await aegisRewardsManualContract.rewardById(snapshotId)
@@ -479,14 +479,14 @@ describe('AegisRewardsManual', () => {
         // First deposit
         await yusdContract.mint(owner, amount1)
         await yusdContract.transfer(await aegisRewardsManualContract.getAddress(), amount1)
-        await aegisRewardsManualContract.depositRewards('reward-1', amount1)
+        await aegisRewardsManualContract.depositRewards(encodeString('reward-1'), amount1)
 
         expect(await aegisRewardsManualContract.totalReservedRewards()).to.equal(amount1)
 
         // Second deposit
         await yusdContract.mint(owner, amount2)
         await yusdContract.transfer(await aegisRewardsManualContract.getAddress(), amount2)
-        await aegisRewardsManualContract.depositRewards('reward-2', amount2)
+        await aegisRewardsManualContract.depositRewards(encodeString('reward-2'), amount2)
 
         expect(await aegisRewardsManualContract.totalReservedRewards()).to.equal(amount1 + amount2)
       })
@@ -503,7 +503,7 @@ describe('AegisRewardsManual', () => {
         // Setup reward
         await yusdContract.mint(owner, amount)
         await yusdContract.transfer(await aegisRewardsManualContract.getAddress(), amount)
-        await aegisRewardsManualContract.depositRewards('reward-claim', amount)
+        await aegisRewardsManualContract.depositRewards(encodeString('reward-claim'), amount)
         await aegisRewardsManualContract.finalizeRewards(ethers.encodeBytes32String('reward-claim'), 0)
 
         expect(await aegisRewardsManualContract.totalReservedRewards()).to.equal(amount)
@@ -532,7 +532,7 @@ describe('AegisRewardsManual', () => {
         // Setup expired reward
         await yusdContract.mint(owner, amount)
         await yusdContract.transfer(await aegisRewardsManualContract.getAddress(), amount)
-        await aegisRewardsManualContract.depositRewards('reward-expired', amount)
+        await aegisRewardsManualContract.depositRewards(encodeString('reward-expired'), amount)
         await aegisRewardsManualContract.finalizeRewards(ethers.encodeBytes32String('reward-expired'), 1)
 
         expect(await aegisRewardsManualContract.totalReservedRewards()).to.equal(amount)
@@ -575,7 +575,7 @@ describe('AegisRewardsManual', () => {
 
         // Deposit some rewards
         const rewardAmount = ethers.parseEther('10')
-        await aegisRewardsManualContract.depositRewards('reward-balance', rewardAmount)
+        await aegisRewardsManualContract.depositRewards(encodeString('reward-balance'), rewardAmount)
 
         // Check after deposit
         expect(await aegisRewardsManualContract.availableBalanceForDeposits()).to.equal(depositAmount - rewardAmount)
@@ -598,12 +598,12 @@ describe('AegisRewardsManual', () => {
         await yusdContract.transfer(contractAddress, totalAmount)
 
         // First deposit should succeed
-        await aegisRewardsManualContract.depositRewards('reward-1', firstDeposit)
+        await aegisRewardsManualContract.depositRewards(encodeString('reward-1'), firstDeposit)
         expect(await aegisRewardsManualContract.availableBalanceForDeposits()).to.equal(totalAmount - firstDeposit)
 
         // Second deposit should fail due to insufficient available balance
         await expect(
-          aegisRewardsManualContract.depositRewards('reward-2', secondDeposit),
+          aegisRewardsManualContract.depositRewards(encodeString('reward-2'), secondDeposit),
         ).to.be.revertedWithCustomError(aegisRewardsManualContract, 'InsufficientContractBalance')
 
         // Available balance should remain unchanged
@@ -740,13 +740,13 @@ describe('AegisRewardsManual', () => {
         await yusdContract.transfer(contractAddress, depositAmount)
 
         // First deposit should succeed
-        await aegisRewardsManualContract.depositRewards('reward-exact', depositAmount)
+        await aegisRewardsManualContract.depositRewards(encodeString('reward-exact'), depositAmount)
         expect(await aegisRewardsManualContract.totalReservedRewards()).to.equal(depositAmount)
         expect(await aegisRewardsManualContract.availableBalanceForDeposits()).to.equal(0)
 
         // Second deposit should fail
         await expect(
-          aegisRewardsManualContract.depositRewards('reward-double', depositAmount),
+          aegisRewardsManualContract.depositRewards(encodeString('reward-double'), depositAmount),
         ).to.be.revertedWithCustomError(aegisRewardsManualContract, 'InsufficientContractBalance')
       })
 
@@ -768,22 +768,22 @@ describe('AegisRewardsManual', () => {
         await yusdContract.transfer(contractAddress, totalAmount)
 
         // First deposit
-        await aegisRewardsManualContract.depositRewards('reward-1', firstDeposit)
+        await aegisRewardsManualContract.depositRewards(encodeString('reward-1'), firstDeposit)
         expect(await aegisRewardsManualContract.availableBalanceForDeposits()).to.equal(totalAmount - firstDeposit)
 
         // Second deposit
-        await aegisRewardsManualContract.depositRewards('reward-2', secondDeposit)
+        await aegisRewardsManualContract.depositRewards(encodeString('reward-2'), secondDeposit)
         expect(await aegisRewardsManualContract.availableBalanceForDeposits()).to.equal(
           totalAmount - firstDeposit - secondDeposit,
         )
 
         // Third deposit
-        await aegisRewardsManualContract.depositRewards('reward-3', thirdDeposit)
+        await aegisRewardsManualContract.depositRewards(encodeString('reward-3'), thirdDeposit)
         expect(await aegisRewardsManualContract.availableBalanceForDeposits()).to.equal(0)
 
         // Fourth deposit should fail
         await expect(
-          aegisRewardsManualContract.depositRewards('reward-4', ethers.parseEther('1')),
+          aegisRewardsManualContract.depositRewards(encodeString('reward-4'), ethers.parseEther('1')),
         ).to.be.revertedWithCustomError(aegisRewardsManualContract, 'InsufficientContractBalance')
       })
 
@@ -804,8 +804,8 @@ describe('AegisRewardsManual', () => {
         await yusdContract.transfer(contractAddress, initialAmount)
 
         // Create two rewards
-        await aegisRewardsManualContract.depositRewards('reward-1', firstReward)
-        await aegisRewardsManualContract.depositRewards('reward-2', secondReward)
+        await aegisRewardsManualContract.depositRewards(encodeString('reward-1'), firstReward)
+        await aegisRewardsManualContract.depositRewards(encodeString('reward-2'), secondReward)
         await aegisRewardsManualContract.finalizeRewards(ethers.encodeBytes32String('reward-1'), 0)
         await aegisRewardsManualContract.finalizeRewards(ethers.encodeBytes32String('reward-2'), 0)
 
@@ -828,7 +828,7 @@ describe('AegisRewardsManual', () => {
 
         // Should be able to create new reward with available balance
         const newReward = ethers.parseEther('50')
-        await aegisRewardsManualContract.depositRewards('reward-3', newReward)
+        await aegisRewardsManualContract.depositRewards(encodeString('reward-3'), newReward)
         expect(await aegisRewardsManualContract.availableBalanceForDeposits()).to.equal(ethers.parseEther('10'))
       })
     })

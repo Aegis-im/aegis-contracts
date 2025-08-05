@@ -168,14 +168,14 @@ contract AegisRewardsManual is IAegisRewardsEvents, IAegisRewardsErrors, AccessC
   }
 
   /// @dev Adds YUSD rewards from admin (alternative to depositRewards from minting contract)
-  function depositRewards(string calldata requestId, uint256 amount) external onlyRole(REWARDS_MANAGER_ROLE) {
+  function depositRewards(bytes calldata requestId, uint256 amount) external onlyRole(REWARDS_MANAGER_ROLE) {
     // Check if contract has enough YUSD balance for this deposit
     uint256 availableBalance = yusd.balanceOf(address(this)) - _totalReservedRewards;
     if (availableBalance < amount) {
       revert InsufficientContractBalance();
     }
-    
-    bytes32 id = _stringToBytes32(requestId);
+
+    bytes32 id = _stringToBytes32(abi.decode(requestId, (string)));
     _rewards[id].amount += amount;
     _totalReservedRewards += amount;
 
@@ -190,10 +190,10 @@ contract AegisRewardsManual is IAegisRewardsEvents, IAegisRewardsErrors, AccessC
   /// @dev Rescue ERC20 tokens from contract balance
   function rescueAssets(IERC20 token) external onlyRole(DEFAULT_ADMIN_ROLE) {
     address admin = msg.sender;
-    
+
     uint256 balance = token.balanceOf(address(this));
     if (balance == 0) revert NoTokensToRescue();
-    
+
     SafeERC20.safeTransfer(token, admin, balance);
     emit RescueAssets(address(token), admin, balance);
   }
