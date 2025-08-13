@@ -35,6 +35,13 @@ const config: HardhatUserConfig = {
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       gasPrice: networksConfig.networks.bnbMainnet.gasPrice,
     },
+    avalanche: {
+      eid: EndpointId.AVALANCHE_V2_MAINNET,
+      url: process.env.AVALANCHE_MAINNET_RPC_URL || networksConfig.networks.avalanche.rpcUrl,
+      chainId: networksConfig.networks.avalanche.chainId,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.avalanche.gasPrice,
+    },
     sepolia: {
       eid: EndpointId.SEPOLIA_V2_TESTNET,
       url: process.env.SEPOLIA_RPC_URL || networksConfig.networks.sepolia.rpcUrl,

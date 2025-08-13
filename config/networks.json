@@ -85,6 +85,22 @@
         ]
       }
     },
+    "avalanche": {
+      "chainId": 43114,
+      "rpcUrl": "https://api.avax.network/ext/bc/C/rpc",
+      "gasPrice": 1986812204,
+      "endpointId": 30106,
+      "description": "Avalanche Mainnet",
+      "explorer": "https://snowtrace.io",
+      "contracts": {
+        "lzEndpoint": "0x1a44076050125825900e736c501f859c50fE728c",
+        "adminAddress": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+        "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7"
+      },
+      "deployment": {
+        "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      }
+    },
     "bnbTestnet": {
       "chainId": 97,
       "rpcUrl": "https://data-seed-prebsc-1-s1.binance.org:8545/",

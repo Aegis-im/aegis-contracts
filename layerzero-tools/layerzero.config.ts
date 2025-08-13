@@ -13,6 +13,11 @@ const bnbMainnetContract: OmniPointHardhat = {
   contractName: 'YUSDMintBurnOFTAdapter',
 }
 
+const avalancheContract: OmniPointHardhat = {
+  eid: EndpointId.AVALANCHE_V2_MAINNET,
+  contractName: 'YUSDOFT',
+}
+
 // UNCOMMENT FOR TESTNETS
 /*
 const sepoliaContract: OmniPointHardhat = {
@@ -36,11 +41,41 @@ const bnbTestnetContract: OmniPointHardhat = {
 }
 */
 
-const EVM_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
+// Network-specific enforced options
+const MAINNET_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
   {
     msgType: 1,
     optionType: ExecutorOptionType.LZ_RECEIVE,
-    gas: 80000,
+    gas: 100000, // Higher gas for mainnet due to higher complexity
+    value: 0,
+  },
+]
+
+const BNB_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
+  {
+    msgType: 1,
+    optionType: ExecutorOptionType.LZ_RECEIVE,
+    gas: 80000, // Standard gas for BNB
+    value: 0,
+  },
+]
+
+const AVALANCHE_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
+  {
+    msgType: 1,
+    optionType: ExecutorOptionType.LZ_RECEIVE,
+    gas: 120000, // Higher gas for Avalanche operations
+    value: 0,
+  },
+]
+
+// Testnet enforced options (lower gas limits for testing)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const TESTNET_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
+  {
+    msgType: 1,
+    optionType: ExecutorOptionType.LZ_RECEIVE,
+    gas: 60000, // Lower gas for testnets
     value: 0,
   },
 ]
@@ -54,7 +89,21 @@ export default async function () {
       bnbMainnetContract, // Chain B contract
       [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
       [15, 20], // [A to B confirmations, B to A confirmations]
-      [EVM_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+      [BNB_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      mainnetContract, // Chain A contract
+      avalancheContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [AVALANCHE_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      bnbMainnetContract, // Chain A contract
+      avalancheContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [AVALANCHE_ENFORCED_OPTIONS, BNB_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     // UNCOMMENT FOR TESTNETS
     // [
@@ -62,21 +111,21 @@ export default async function () {
     //   fujiContract, // Chain B contract
     //   [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
     //   [15, 20], // [A to B confirmations, B to A confirmations]
-    //   [EVM_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    //   [TESTNET_ENFORCED_OPTIONS, TESTNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     // ],
     // [
     //   bnbTestnetContract, // Chain A contract
     //   fujiContract, // Chain B contract
     //   [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
     //   [15, 20], // [A to B confirmations, B to A confirmations]
-    //   [EVM_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    //   [TESTNET_ENFORCED_OPTIONS, TESTNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     // ],
     // [
     //   bnbTestnetContract, // Chain A contract
     //   optimismSepoliaContract, // Chain B contract
     //   [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
     //   [15, 20], // [A to B confirmations, B to A confirmations]
-    //   [EVM_ENFORCED_OPTIONS, EVM_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    //   [TESTNET_ENFORCED_OPTIONS, TESTNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     // ],
   ])
 
@@ -88,6 +137,7 @@ export default async function () {
       // { contract: optimismSepoliaContract },
       { contract: mainnetContract },
       { contract: bnbMainnetContract },
+      { contract: avalancheContract },
     ],
     connections,
   }

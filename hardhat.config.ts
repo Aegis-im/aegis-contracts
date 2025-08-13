@@ -40,6 +40,13 @@ const config: HardhatUserConfig = {
       gasPrice: networksConfig.networks.bnbMainnet.gasPrice,
       chainId: networksConfig.networks.bnbMainnet.chainId,
     },
+    snowtrace: {
+      url: buildRpcUrl(networksConfig.networks.avalanche.rpcUrl),
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.avalanche.gasPrice,
+      chainId: networksConfig.networks.avalanche.chainId,
+      eid: networksConfig.networks.avalanche.endpointId,
+    },
     bnbTestnet: {
       url: networksConfig.networks.bnbTestnet.rpcUrl,
       chainId: networksConfig.networks.bnbTestnet.chainId,
@@ -98,6 +105,14 @@ const config: HardhatUserConfig = {
         urls: {
           apiURL: 'https://api-testnet.bscscan.com/api',
           browserURL: networksConfig.networks.bnbTestnet.explorer,
+        },
+      },
+      {
+        network: 'snowtrace',
+        chainId: 43114,
+        urls: {
+          apiURL: 'https://api.routescan.io/v2/network/mainnet/evm/43114/etherscan',
+          browserURL: 'https://avalanche.routescan.io',
         },
       },
     ],
