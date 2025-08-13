@@ -4,6 +4,7 @@
       "chainId": 1337,
       "description": "Local Hardhat development network",
       "contracts": {
+        "aegisChainlinkOracleV3Address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
         "aegisChainlinkOracleV2Address": "0x5FbDB2315678afecb367f032d93F642f64180aa3"
       }
     },
