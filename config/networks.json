@@ -2,7 +2,10 @@
   "networks": {
     "hardhat": {
       "chainId": 1337,
-      "description": "Local Hardhat development network"
+      "description": "Local Hardhat development network",
+      "contracts": {
+        "aegisChainlinkOracleV2Address": "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+      }
     },
     "mainnet": {
       "chainId": 1,
@@ -114,7 +117,8 @@
         "aegisOracleAddress": "0xF7B8145F49478361B30D51f9A4c5E101fB2B7948",
         "aegisRewardsAddress": "0x1775655D08a651A8042Ff98AFC44fc19C62abB74",
         "aegisMintingAddress": "0x942B5454968C7B01Cecb8C8F3A7AAACd2834c8AE",
-        "feedRegistryAddress": "0x4CE6563330166122DBe372Ad7ec175b7783a0FC0"
+        "feedRegistryAddress": "0x4CE6563330166122DBe372Ad7ec175b7783a0FC0",
+        "aegisChainlinkOracleV2Address": "0x50193f63e479BF3cC7C7533Aa899f5eACc873290"
       },
       "layerzero": {
         "targetEid": 40161,
@@ -144,7 +148,8 @@
         "aegisMintingAddress": "0x203D834f76f8caAE2124E22D088fA8963ad43d7f",
         "sYUSDAddress": "0xf7b97872A9Ce774E6B68486afF5222b188e4Ce6c",
         "sYUSDSiloAddress": "0xE70e53Eadfd72A8f8773286296636818196B7E79",
-        "feedRegistryAddress": "0x694AA1769357215DE4FAC081bf1f309aDC325306"
+        "feedRegistryAddress": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
+        "aegisChainlinkOracleV2Address": "0x6FFB6cAa98B90458B0446855943C6588DD480c18"
       },
       "layerzero": {
         "targetEid": 40102,
