@@ -42,6 +42,27 @@ const config: HardhatUserConfig = {
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       gasPrice: networksConfig.networks.avalanche.gasPrice,
     },
+    arbitrum: {
+      eid: EndpointId.ARBITRUM_V2_MAINNET,
+      url: process.env.ARBITRUM_MAINNET_RPC_URL || networksConfig.networks.arbitrum.rpcUrl,
+      chainId: networksConfig.networks.arbitrum.chainId,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.arbitrum.gasPrice,
+    },
+    katana: {
+      eid: EndpointId.KATANA_V2_MAINNET,
+      url: process.env.KATANA_MAINNET_RPC_URL || networksConfig.networks.katana.rpcUrl,
+      chainId: networksConfig.networks.katana.chainId,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.katana.gasPrice,
+    },
+    base: {
+      eid: EndpointId.BASE_V2_MAINNET,
+      url: process.env.BASE_MAINNET_RPC_URL || networksConfig.networks.base.rpcUrl,
+      chainId: networksConfig.networks.base.chainId,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.base.gasPrice,
+    },
     sepolia: {
       eid: EndpointId.SEPOLIA_V2_TESTNET,
       url: process.env.SEPOLIA_RPC_URL || networksConfig.networks.sepolia.rpcUrl,

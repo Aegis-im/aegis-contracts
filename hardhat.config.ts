@@ -47,6 +47,24 @@ const config: HardhatUserConfig = {
       chainId: networksConfig.networks.avalanche.chainId,
       eid: networksConfig.networks.avalanche.endpointId,
     },
+    arbitrum: {
+      url: buildRpcUrl(networksConfig.networks.arbitrum.rpcUrl),
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.arbitrum.gasPrice,
+      chainId: networksConfig.networks.arbitrum.chainId,
+    },
+    katana: {
+      url: buildRpcUrl(networksConfig.networks.katana.rpcUrl),
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.katana.gasPrice,
+      chainId: networksConfig.networks.katana.chainId,
+    },
+    base: {
+      url: buildRpcUrl(networksConfig.networks.base.rpcUrl),
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.base.gasPrice,
+      chainId: networksConfig.networks.base.chainId,
+    },
     bnbTestnet: {
       url: networksConfig.networks.bnbTestnet.rpcUrl,
       chainId: networksConfig.networks.bnbTestnet.chainId,
@@ -105,6 +123,14 @@ const config: HardhatUserConfig = {
         urls: {
           apiURL: 'https://api-testnet.bscscan.com/api',
           browserURL: networksConfig.networks.bnbTestnet.explorer,
+        },
+      },
+      {
+        network: 'katana',
+        chainId: networksConfig.networks.katana.chainId,
+        urls: {
+          apiURL: 'https://api.katanascan.com/api',
+          browserURL: networksConfig.networks.katana.explorer,
         },
       },
       {

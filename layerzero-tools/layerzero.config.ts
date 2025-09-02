@@ -18,6 +18,22 @@ const avalancheContract: OmniPointHardhat = {
   contractName: 'YUSDOFT',
 }
 
+const arbitrumContract: OmniPointHardhat = {
+  eid: EndpointId.ARBITRUM_V2_MAINNET,
+  contractName: 'YUSDOFT',
+}
+
+const katanaContract: OmniPointHardhat = {
+  eid: EndpointId.KATANA_V2_MAINNET,
+  contractName: 'YUSDOFT',
+}
+
+
+const baseContract: OmniPointHardhat = {
+  eid: EndpointId.BASE_V2_MAINNET,
+  contractName: 'YUSDOFT',
+}
+
 // UNCOMMENT FOR TESTNETS
 /*
 const sepoliaContract: OmniPointHardhat = {
@@ -69,6 +85,36 @@ const AVALANCHE_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
   },
 ]
 
+const ARBITRUM_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
+
+  {
+    msgType: 1,
+    optionType: ExecutorOptionType.LZ_RECEIVE,
+    gas: 80000,
+    value: 0,
+  },
+]
+
+const KATANA_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
+
+  {
+    msgType: 1,
+    optionType: ExecutorOptionType.LZ_RECEIVE,
+    gas: 80000,
+    value: 0,
+  },
+]
+
+const BASE_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
+
+  {
+    msgType: 1,
+    optionType: ExecutorOptionType.LZ_RECEIVE,
+    gas: 80000,
+    value: 0,
+  },
+]
+
 // Testnet enforced options (lower gas limits for testing)
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const TESTNET_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
@@ -105,6 +151,90 @@ export default async function () {
       [15, 20], // [A to B confirmations, B to A confirmations]
       [AVALANCHE_ENFORCED_OPTIONS, BNB_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
+    [
+      mainnetContract, // Chain A contract
+      arbitrumContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [ARBITRUM_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      bnbMainnetContract, // Chain A contract
+      arbitrumContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [ARBITRUM_ENFORCED_OPTIONS, BNB_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      avalancheContract, // Chain A contract
+      arbitrumContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [ARBITRUM_ENFORCED_OPTIONS, AVALANCHE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      mainnetContract, // Chain A contract
+      katanaContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [KATANA_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      bnbMainnetContract, // Chain A contract
+      katanaContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [KATANA_ENFORCED_OPTIONS, BNB_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      avalancheContract, // Chain A contract
+      katanaContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [KATANA_ENFORCED_OPTIONS, AVALANCHE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      arbitrumContract, // Chain B contract
+      katanaContract, // Chain A contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [KATANA_ENFORCED_OPTIONS, ARBITRUM_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      baseContract, // Chain A contract
+      katanaContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [KATANA_ENFORCED_OPTIONS, BASE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      mainnetContract, // Chain A contract
+      baseContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [BASE_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      bnbMainnetContract, // Chain A contract
+      baseContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [BASE_ENFORCED_OPTIONS, BNB_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      avalancheContract, // Chain A contract
+      baseContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [BASE_ENFORCED_OPTIONS, AVALANCHE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      arbitrumContract, // Chain A contract
+      baseContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [BASE_ENFORCED_OPTIONS, ARBITRUM_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
     // UNCOMMENT FOR TESTNETS
     // [
     //   sepoliaContract, // Chain A contract
@@ -138,6 +268,9 @@ export default async function () {
       { contract: mainnetContract },
       { contract: bnbMainnetContract },
       { contract: avalancheContract },
+      { contract: arbitrumContract },
+      { contract: katanaContract },
+      { contract: baseContract },
     ],
     connections,
   }
