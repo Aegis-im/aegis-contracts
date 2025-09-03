@@ -64,6 +64,13 @@ const SUPPORTED_NETWORKS = {
     lzEndpointId: 30184,
     explorer: 'https://basescan.org',
   },
+  avalanche: {
+    chainId: 43114,
+    rpcUrl: 'https://api.avax.network/ext/bc/C/rpc',
+    nativeToken: 'AVAX',
+    lzEndpointId: 30106,
+    explorer: 'https://snowtrace.io',
+  },
   sepolia: {
     chainId: 11155111,
     name: 'Ethereum Sepolia Testnet',
