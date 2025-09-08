@@ -229,7 +229,8 @@
         "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
         "feedRegistryAddress": "0x3d0b926F2F1CB1E5c41b3eD43e0a28C86DAb2e4d",
         "yusdOftAddress": "0x1dAe7eBfb0Daa9AEb8a956f38df6f297b9e32B29",
-        "aegisRewardsManualAddress": "0xE3d75197fD648FB38292D49866F4d4Bf2e5DBCC6"
+        "aegisRewardsManualAddress": "0x0f87D43279bBEdAC86606C0205102a3385e2A104",
+        "aegisConfigAddress": "0xEF300Ba83697A8D8ABf2f7E78de7536ab92d1E67"
       },
       "layerzero": {
         "targetEid": 40102,
