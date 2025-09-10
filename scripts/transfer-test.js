@@ -9,6 +9,8 @@ function decodeCustomError(errorData) {
     '0xffa4e618': 'Blacklisted(address)',
     '0x4e487b71': 'Panic(uint256)',
     '0x08c379a0': 'Error(string)',
+    '0xfb8f41b2': 'ERC20InsufficientAllowance(address,uint256,uint256)',
+    '0xea8e4eb5': 'NotAuthorized()',
   }
 
   const selector = errorData.slice(0, 10)
@@ -175,12 +177,12 @@ async function main() {
   }
 
   // Approve tokens
-  // console.log('📝 Approving tokens...')
-  // await yusd.approve(OFT_ADAPTER_ADDRESS, AMOUNT)
+  console.log('📝 Approving tokens...')
+  await yusd.approve(OFT_ADAPTER_ADDRESS, AMOUNT)
 
   // // Wait 5 seconds between transactions
-  // console.log('⏳ Waiting 5 seconds...')
-  // await new Promise((resolve) => setTimeout(resolve, 5000))
+  console.log('⏳ Waiting 5 seconds...')
+  await new Promise((resolve) => setTimeout(resolve, 5000))
 
   // Get quote
   const sendParam = {
