@@ -34,6 +34,21 @@ const baseContract: OmniPointHardhat = {
   contractName: 'YUSDOFT',
 }
 
+
+const mainnetsYUSDContract: OmniPointHardhat = {
+  eid: EndpointId.ETHEREUM_V2_MAINNET,
+  contractName: 'sYUSDOFTAdapter',
+}
+
+const katanasYUSDContract: OmniPointHardhat = {
+  eid: EndpointId.KATANA_V2_MAINNET,
+  contractName: 'sYUSDOFT',
+}
+
+const avalanchesYUSDContract: OmniPointHardhat = {
+  eid: EndpointId.AVALANCHE_V2_MAINNET,
+  contractName: 'sYUSDOFT',
+}
 // UNCOMMENT FOR TESTNETS
 /*
 const sepoliaContract: OmniPointHardhat = {
@@ -235,6 +250,27 @@ export default async function () {
       [15, 20], // [A to B confirmations, B to A confirmations]
       [BASE_ENFORCED_OPTIONS, ARBITRUM_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
+    [
+      mainnetsYUSDContract, // Chain A contract
+      katanasYUSDContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [KATANA_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      mainnetsYUSDContract, // Chain A contract
+      avalanchesYUSDContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [AVALANCHE_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      katanasYUSDContract, // Chain A contract
+      avalanchesYUSDContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [AVALANCHE_ENFORCED_OPTIONS, KATANA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
     // UNCOMMENT FOR TESTNETS
     // [
     //   sepoliaContract, // Chain A contract
@@ -271,6 +307,9 @@ export default async function () {
       { contract: arbitrumContract },
       { contract: katanaContract },
       { contract: baseContract },
+      { contract: mainnetsYUSDContract },
+      { contract: katanasYUSDContract },
+      { contract: avalanchesYUSDContract },
     ],
     connections,
   }

@@ -16,9 +16,11 @@
       "explorer": "https://etherscan.io",
       "contracts": {
         "yusdAddress": "0x4274cD7277C7bb0806Bd5FE84b9aDAE466a8DA0a",
+        "syusdAddress": "0xfE0ccc9942E98C963Fe6b4e5194EB6e3Baa4cb64",
         "lzEndpoint": "0x1a44076050125825900e736c501f859c50fE728c",
         "adminAddress": "0x4Fe78eF65BD8EDDED480efaB030BA680646503c8",
         "oftAdapterAddress": "0xAF12b0Ae5A72D7b8A8eC675f3E76E2Db56143565",
+        "syusdOftAdapterAddress": "0x1a7cde558d318052add800ca30dc7464920b41fc",
         "aegisConfigAddress": "0x90cCF2C4b3DEe7aeac9AF5950a7C60f89AF1db00",
         "aegisOracleAddress": "0x2B4Ad1d479561064cd1C311004Aca93d15041aEc",
         "aegisRewardsAddress": "0x8aDCFAf1B64Cc514524B80565bCc732273dDEafD",
@@ -96,7 +98,8 @@
       "contracts": {
         "lzEndpoint": "0x1a44076050125825900e736c501f859c50fE728c",
         "adminAddress": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
-        "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7"
+        "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7",
+        "syusdOftAddress": "0x539e46827c37A3ef11c7cE521CC56B4d59E602e3"
       },
       "deployment": {
         "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
@@ -126,7 +129,8 @@
       "contracts": {
         "lzEndpoint": "0x6F475642a6e85809B1c36Fa62763669b1b48DD5B",
         "adminAddress": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
-        "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7"
+        "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7",
+        "syusdOftAddress": "0xFCeF626dE4A0175ac962DD43EB0A002819FaAEFe"
       },
       "deployment": {
         "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
