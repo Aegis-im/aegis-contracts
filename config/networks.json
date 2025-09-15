@@ -99,7 +99,9 @@
         "lzEndpoint": "0x1a44076050125825900e736c501f859c50fE728c",
         "adminAddress": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
         "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7",
-        "syusdOftAddress": "0x539e46827c37A3ef11c7cE521CC56B4d59E602e3"
+        "syusdOftAddress": "0x539e46827c37A3ef11c7cE521CC56B4d59E602e3",
+        "syusdOracle": "0x03a346a9AE09E0E8bf38De1c49be45575393dea7",
+        "aegisChainlinkOracleV3Address": "0x03a346a9AE09E0E8bf38De1c49be45575393dea7"
       },
       "deployment": {
         "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
@@ -130,7 +132,9 @@
         "lzEndpoint": "0x6F475642a6e85809B1c36Fa62763669b1b48DD5B",
         "adminAddress": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
         "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7",
-        "syusdOftAddress": "0xFCeF626dE4A0175ac962DD43EB0A002819FaAEFe"
+        "syusdOftAddress": "0xFCeF626dE4A0175ac962DD43EB0A002819FaAEFe",
+        "syusdOracle": "0x3E82D55F05D68255a6625ea39738c1022c50C325",
+        "aegisChainlinkOracleV3Address": "0x3E82D55F05D68255a6625ea39738c1022c50C325"
       },
       "deployment": {
         "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
