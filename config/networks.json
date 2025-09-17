@@ -97,11 +97,12 @@
       "explorer": "https://snowtrace.io",
       "contracts": {
         "lzEndpoint": "0x1a44076050125825900e736c501f859c50fE728c",
-        "adminAddress": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+        "adminAddress": "0x4Fe78eF65BD8EDDED480efaB030BA680646503c8",
         "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7",
         "syusdOftAddress": "0x539e46827c37A3ef11c7cE521CC56B4d59E602e3",
         "syusdOracle": "0x03a346a9AE09E0E8bf38De1c49be45575393dea7",
-        "aegisChainlinkOracleV3Address": "0x03a346a9AE09E0E8bf38De1c49be45575393dea7"
+        "aegisChainlinkOracleV3Address": "0x03a346a9AE09E0E8bf38De1c49be45575393dea7",
+        "aegisConfigAddress": "0x773B65dfF82a5C49eC4002bb886b2FB4623071B4"
       },
       "deployment": {
         "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
