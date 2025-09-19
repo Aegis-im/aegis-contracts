@@ -172,6 +172,8 @@
         "aegisOracleAddress": "0xF7B8145F49478361B30D51f9A4c5E101fB2B7948",
         "aegisRewardsAddress": "0x1775655D08a651A8042Ff98AFC44fc19C62abB74",
         "aegisMintingAddress": "0x942B5454968C7B01Cecb8C8F3A7AAACd2834c8AE",
+        "sYUSDAddress": "0xf7b97872A9Ce774E6B68486afF5222b188e4Ce6c",
+        "sYUSDSiloAddress": "0x04B768e45581a9ca08b21B2747088488B69FFb72",
         "feedRegistryAddress": "0x4CE6563330166122DBe372Ad7ec175b7783a0FC0",
         "aegisChainlinkOracleV2Address": "0x50193f63e479BF3cC7C7533Aa899f5eACc873290"
       },

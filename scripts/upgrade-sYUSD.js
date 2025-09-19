@@ -46,9 +46,19 @@ async function main() {
   // even if the addresses look the same
   console.log('Upgrade completed successfully!')
 
+  // ⚠️  IMPORTANT: This script only upgrades the contract implementation
+  // For V2 features (instant unstaking), you need to call initializeV2() separately
+  console.log('\n⚠️  POST-UPGRADE REQUIRED:')
+  console.log('   This upgrade adds instant unstaking functionality')
+  console.log('   You MUST call initializeV2(fee, insuranceFund) to enable it')
+  console.log('   Use upgrade-sYUSD-with-init.js for automatic initialization')
+
   // For verification on block explorers like Etherscan
-  console.log('\nVerification command:')
+  console.log('\n🔍 Verification command:')
   console.log(`npx hardhat verify --network ${network.name} ${newImplAddress}`)
+  
+  console.log('\n📋 Manual initialization command:')
+  console.log('   sYUSDContract.initializeV2(50, "0x...insuranceFundAddress")')
 }
 
 main()
