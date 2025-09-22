@@ -43,6 +43,27 @@ const SUPPORTED_NETWORKS = {
     lzEndpointId: 30102,
     explorer: 'https://bscscan.com',
   },
+  arbitrum: {
+    chainId: 42161,
+    name: 'Arbitrum Mainnet',
+    nativeToken: 'ETH',
+    lzEndpointId: 30110,
+    explorer: 'https://arbiscan.io',
+  },
+  katana: {
+    chainId: 747474,
+    name: 'Katana Mainnet',
+    nativeToken: 'ETH',
+    lzEndpointId: 30375,
+    explorer: 'https://katanascan.com',
+  },
+  base: {
+    chainId: 8453,
+    name: 'Base Mainnet',
+    nativeToken: 'ETH',
+    lzEndpointId: 30184,
+    explorer: 'https://basescan.org',
+  },
   sepolia: {
     chainId: 11155111,
     name: 'Ethereum Sepolia Testnet',
@@ -147,12 +168,12 @@ async function main() {
   }
 
   // Approve tokens
-  console.log('📝 Approving tokens...')
-  await yusd.approve(OFT_ADAPTER_ADDRESS, AMOUNT)
+  // console.log('📝 Approving tokens...')
+  // await yusd.approve(OFT_ADAPTER_ADDRESS, AMOUNT)
 
-  // Wait 5 seconds between transactions
-  console.log('⏳ Waiting 5 seconds...')
-  await new Promise((resolve) => setTimeout(resolve, 5000))
+  // // Wait 5 seconds between transactions
+  // console.log('⏳ Waiting 5 seconds...')
+  // await new Promise((resolve) => setTimeout(resolve, 5000))
 
   // Get quote
   const sendParam = {
@@ -164,8 +185,8 @@ async function main() {
     composeMsg: '0x',
     oftCmd: '0x',
   }
-
   const quote = await oftAdapter.quoteSend(sendParam, false)
+  console.log(sendParam)
   const currentNetworkInfo = SUPPORTED_NETWORKS[network.name]
   const nativeToken = currentNetworkInfo?.nativeToken || 'ETH'
   console.log(`💸 Fee: ${ethers.formatEther(quote.nativeFee)} ${nativeToken}`)
@@ -208,6 +229,7 @@ async function main() {
   } catch (error) {
     console.log('❌ Gas estimation failed')
     if (error.message.includes('execution reverted')) {
+      console.log('🔍 Error data: ', error)
       // Try to decode error data if available
       if (error.data) {
         console.log(`🔍 Error data: ${error.data}`)

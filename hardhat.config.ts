@@ -41,6 +41,31 @@ const config: HardhatUserConfig = {
       gasPrice: networksConfig.networks.bnbMainnet.gasPrice,
       chainId: networksConfig.networks.bnbMainnet.chainId,
     },
+    avalanche: {
+      url: buildRpcUrl(networksConfig.networks.avalanche.rpcUrl),
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.avalanche.gasPrice,
+      chainId: networksConfig.networks.avalanche.chainId,
+      eid: networksConfig.networks.avalanche.endpointId,
+    },
+    arbitrum: {
+      url: buildRpcUrl(networksConfig.networks.arbitrum.rpcUrl),
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.arbitrum.gasPrice,
+      chainId: networksConfig.networks.arbitrum.chainId,
+    },
+    katana: {
+      url: buildRpcUrl(networksConfig.networks.katana.rpcUrl),
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.katana.gasPrice,
+      chainId: networksConfig.networks.katana.chainId,
+    },
+    base: {
+      url: buildRpcUrl(networksConfig.networks.base.rpcUrl),
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.base.gasPrice,
+      chainId: networksConfig.networks.base.chainId,
+    },
     bnbTestnet: {
       url: networksConfig.networks.bnbTestnet.rpcUrl,
       chainId: networksConfig.networks.bnbTestnet.chainId,
@@ -99,6 +124,22 @@ const config: HardhatUserConfig = {
         urls: {
           apiURL: 'https://api-testnet.bscscan.com/api',
           browserURL: networksConfig.networks.bnbTestnet.explorer,
+        },
+      },
+      {
+        network: 'katana',
+        chainId: networksConfig.networks.katana.chainId,
+        urls: {
+          apiURL: 'https://api.katanascan.com/api',
+          browserURL: networksConfig.networks.katana.explorer,
+        },
+      },
+      {
+        network: 'avalanche',
+        chainId: 43114,
+        urls: {
+          apiURL: 'https://api.routescan.io/v2/network/mainnet/evm/43114/etherscan',
+          browserURL: 'https://avalanche.routescan.io',
         },
       },
     ],

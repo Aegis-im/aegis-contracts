@@ -2,19 +2,25 @@
   "networks": {
     "hardhat": {
       "chainId": 1337,
-      "description": "Local Hardhat development network"
+      "description": "Local Hardhat development network",
+      "contracts": {
+        "aegisChainlinkOracleV3Address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+        "aegisChainlinkOracleV2Address": "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+      }
     },
     "mainnet": {
       "chainId": 1,
       "rpcUrl": "https://mainnet.gateway.tenderly.co",
-      "gasPrice": 610000000,
+      "gasPrice": 4401000000,
       "description": "Ethereum Mainnet",
       "explorer": "https://etherscan.io",
       "contracts": {
         "yusdAddress": "0x4274cD7277C7bb0806Bd5FE84b9aDAE466a8DA0a",
+        "syusdAddress": "0xfE0ccc9942E98C963Fe6b4e5194EB6e3Baa4cb64",
         "lzEndpoint": "0x1a44076050125825900e736c501f859c50fE728c",
         "adminAddress": "0x4Fe78eF65BD8EDDED480efaB030BA680646503c8",
         "oftAdapterAddress": "0xAF12b0Ae5A72D7b8A8eC675f3E76E2Db56143565",
+        "syusdOftAdapterAddress": "0x1a7cde558d318052add800ca30dc7464920b41fc",
         "aegisConfigAddress": "0x90cCF2C4b3DEe7aeac9AF5950a7C60f89AF1db00",
         "aegisOracleAddress": "0x2B4Ad1d479561064cd1C311004Aca93d15041aEc",
         "aegisRewardsAddress": "0x8aDCFAf1B64Cc514524B80565bCc732273dDEafD",
@@ -82,6 +88,75 @@
         ]
       }
     },
+    "avalanche": {
+      "chainId": 43114,
+      "rpcUrl": "https://api.avax.network/ext/bc/C/rpc",
+      "gasPrice": 1986812204,
+      "endpointId": 30106,
+      "description": "Avalanche Mainnet",
+      "explorer": "https://snowtrace.io",
+      "contracts": {
+        "lzEndpoint": "0x1a44076050125825900e736c501f859c50fE728c",
+        "adminAddress": "0x4Fe78eF65BD8EDDED480efaB030BA680646503c8",
+        "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7",
+        "syusdOftAddress": "0x539e46827c37A3ef11c7cE521CC56B4d59E602e3",
+        "syusdOracle": "0x03a346a9AE09E0E8bf38De1c49be45575393dea7",
+        "aegisChainlinkOracleV3Address": "0x03a346a9AE09E0E8bf38De1c49be45575393dea7",
+        "aegisConfigAddress": "0x773B65dfF82a5C49eC4002bb886b2FB4623071B4",
+        "aegisRewardsManualAddress": "0xB02FC8fA9fB1cA333c2e8028Ba6Eb6C0B1cDB3Af"
+      },
+      "deployment": {
+        "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      }
+    },
+    "arbitrum": {
+      "chainId": 42161,
+      "rpcUrl": "https://arb1.arbitrum.io/rpc",
+      "gasPrice": 100000000,
+      "description": "Arbitrum Mainnet",
+      "explorer": "https://arbiscan.io",
+      "contracts": {
+        "lzEndpoint": "0x1a44076050125825900e736c501f859c50fE728c",
+        "adminAddress": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+        "yusdOftAddress": "0xF07781182B47e728B040f9e35321260e359fF9f7"
+      },
+      "deployment": {
+        "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      }
+    },
+    "katana": {
+      "chainId": 747474,
+      "rpcUrl": "https://rpc.katana.network/",
+      "gasPrice": 1000,
+      "description": "Katana Mainnet",
+      "explorer": "https://katanascan.com/",
+      "contracts": {
+        "lzEndpoint": "0x6F475642a6e85809B1c36Fa62763669b1b48DD5B",
+        "adminAddress": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+        "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7",
+        "syusdOftAddress": "0xFCeF626dE4A0175ac962DD43EB0A002819FaAEFe",
+        "syusdOracle": "0x3E82D55F05D68255a6625ea39738c1022c50C325",
+        "aegisChainlinkOracleV3Address": "0x3E82D55F05D68255a6625ea39738c1022c50C325"
+      },
+      "deployment": {
+        "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      }
+    },
+    "base": {
+      "chainId": 8453,
+      "rpcUrl": "https://mainnet.base.org",
+      "gasPrice": 70000000,
+      "description": "Base Mainnet",
+      "explorer": "https://basescan.org",
+      "contracts": {
+        "lzEndpoint": "0x1a44076050125825900e736c501f859c50fE728c",
+        "adminAddress": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+        "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7"
+      },
+      "deployment": {
+        "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      }
+    },
     "bnbTestnet": {
       "chainId": 97,
       "rpcUrl": "https://data-seed-prebsc-1-s1.binance.org:8545/",
@@ -99,7 +174,8 @@
         "aegisRewardsAddress": "0x1775655D08a651A8042Ff98AFC44fc19C62abB74",
         "aegisMintingAddress": "0x942B5454968C7B01Cecb8C8F3A7AAACd2834c8AE",
         "feedRegistryAddress": "0x4CE6563330166122DBe372Ad7ec175b7783a0FC0",
-        "aegisRewardsManualAddress": "0x094D11022709817051e73EfEcb459dA4AA418871"
+        "aegisRewardsManualAddress": "0x094D11022709817051e73EfEcb459dA4AA418871",
+        "aegisChainlinkOracleV2Address": "0x50193f63e479BF3cC7C7533Aa899f5eACc873290"
       },
       "layerzero": {
         "targetEid": 40161,
@@ -129,7 +205,8 @@
         "aegisMintingAddress": "0x203D834f76f8caAE2124E22D088fA8963ad43d7f",
         "sYUSDAddress": "0xf7b97872A9Ce774E6B68486afF5222b188e4Ce6c",
         "sYUSDSiloAddress": "0xE70e53Eadfd72A8f8773286296636818196B7E79",
-        "feedRegistryAddress": "0x694AA1769357215DE4FAC081bf1f309aDC325306"
+        "feedRegistryAddress": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
+        "aegisChainlinkOracleV2Address": "0x6FFB6cAa98B90458B0446855943C6588DD480c18"
       },
       "layerzero": {
         "targetEid": 40102,
