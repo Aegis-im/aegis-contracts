@@ -74,6 +74,13 @@ contract sYUSD is
     // Mapping of user address to cooldown status
     mapping(address => Cooldown) public cooldowns;
 
+    // ===== NEW STORAGE VARIABLES (added in upgrade) =====
+    // Instant unstaking fee in basis points (0.5% = 50 bps)
+    uint16 public INSTANT_UNSTAKING_FEE;
+    
+    // Insurance fund address
+    address public INSURANCE_FUND;
+
     error InsufficientShares(uint256 requested, uint256 available);
     error CooldownNotEnded();
     error ZeroAddress(string paramName);
@@ -83,10 +90,17 @@ contract sYUSD is
     error ExpectedCooldownOff();
     error DurationExceedsMax();
     error DurationNotChanged();
+    error InvalidFee();
+    error FeeNotChanged();
+    error InsuranceFundNotSet();
+    error InsuranceFundNotChanged();
     
     event CooldownDurationUpdated(uint24 previousDuration, uint24 newDuration);
     event CooldownStarted(address indexed user, uint256 assets, uint256 shares, uint256 cooldownEnd);
     event Unstaked(address indexed user, address indexed receiver, uint256 assets);
+    event InstantUnstakingFeeUpdated(uint16 previousFee, uint16 newFee);
+    event InsuranceFundUpdated(address previousFund, address newFund);
+    event InstantUnstaking(address indexed user, address indexed receiver, uint256 assets, uint256 fee);
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -146,29 +160,92 @@ contract sYUSD is
     }
 
     /**
-     * @dev Override of withdraw to enforce cooldown when enabled
-     * @dev Can only be called directly when cooldown duration is 0
+     * @dev Allows admin to set the instant unstaking fee
+     * @param newFee New instant unstaking fee in basis points (max 10000 = 100%)
+     */
+    function setInstantUnstakingFee(uint16 newFee) external onlyRole(ADMIN_ROLE) {
+        if (newFee > 10000) revert InvalidFee(); // Max 100%
+        if (INSTANT_UNSTAKING_FEE == newFee) revert FeeNotChanged();
+        
+        uint16 previousFee = INSTANT_UNSTAKING_FEE;
+        INSTANT_UNSTAKING_FEE = newFee;
+        
+        emit InstantUnstakingFeeUpdated(previousFee, newFee);
+    }
+
+    /**
+     * @dev Allows admin to set the insurance fund address
+     * @param newInsuranceFund New insurance fund address
+     */
+    function setInsuranceFund(address newInsuranceFund) external onlyRole(ADMIN_ROLE) {
+        if (newInsuranceFund == address(0)) revert ZeroAddress("insuranceFund");
+        if (INSURANCE_FUND == newInsuranceFund) revert InsuranceFundNotChanged();
+        
+        address previousFund = INSURANCE_FUND;
+        INSURANCE_FUND = newInsuranceFund;
+        
+        emit InsuranceFundUpdated(previousFund, newInsuranceFund);
+    }
+
+    /**
+     * @dev Initialize new variables added in upgrade (call once after upgrade)
+     * @param initialFee Initial instant unstaking fee in basis points (default: 50 = 0.5%)
+     * @param initialInsuranceFund Initial insurance fund address
+     */
+    function initializeV2(uint16 initialFee, address initialInsuranceFund) external onlyRole(ADMIN_ROLE) {
+        // Only allow initialization if variables are still at default values
+        if (INSTANT_UNSTAKING_FEE != 0 || INSURANCE_FUND != address(0)) {
+            revert("Already initialized");
+        }
+        
+        if (initialFee > 10000) revert InvalidFee(); // Max 100%
+        if (initialInsuranceFund == address(0)) revert ZeroAddress("insuranceFund");
+        
+        INSTANT_UNSTAKING_FEE = initialFee;
+        INSURANCE_FUND = initialInsuranceFund;
+        
+        emit InstantUnstakingFeeUpdated(0, initialFee);
+        emit InsuranceFundUpdated(address(0), initialInsuranceFund);
+    }
+
+    /**
+     * @dev Override of withdraw with instant unstaking support
+     * @dev When cooldown is enabled, charges INSTANT_UNSTAKING_FEE and transfers fee to INSURANCE_FUND
+     * @dev When cooldown is disabled, works as normal withdrawal
      * @inheritdoc ERC4626Upgradeable
      */
     function withdraw(
         uint256 assets,
         address receiver,
         address owner
-    ) public virtual override ensureCooldownOff returns (uint256) {
-        return super.withdraw(assets, receiver, owner);
+    ) public virtual override returns (uint256) {
+        if (cooldownDuration == 0) {
+            // Normal withdrawal when cooldown is disabled
+            return super.withdraw(assets, receiver, owner);
+        } else {
+            // Instant unstaking with fee when cooldown is enabled
+            return _instantUnstakeAssets(assets, receiver, owner);
+        }
     }
 
     /**
-     * @dev Override of redeem to enforce cooldown when enabled
-     * @dev Can only be called directly when cooldown duration is 0
+     * @dev Override of redeem with instant unstaking support
+     * @dev When cooldown is enabled, charges INSTANT_UNSTAKING_FEE and transfers fee to INSURANCE_FUND
+     * @dev When cooldown is disabled, works as normal redemption
      * @inheritdoc ERC4626Upgradeable
      */
     function redeem(
         uint256 shares,
         address receiver,
         address owner
-    ) public virtual override ensureCooldownOff returns (uint256) {
-        return super.redeem(shares, receiver, owner);
+    ) public virtual override returns (uint256) {
+        if (cooldownDuration == 0) {
+            // Normal redemption when cooldown is disabled
+            return super.redeem(shares, receiver, owner);
+        } else {
+            // Instant unstaking with fee when cooldown is enabled
+            return _instantUnstakeShares(shares, receiver, owner);
+        }
     }
 
     /**
@@ -254,6 +331,66 @@ contract sYUSD is
 
         cooldownDuration = newDuration;
         emit CooldownDurationUpdated(previousDuration, newDuration);
+    }
+
+    /**
+     * @dev Internal function for instant unstaking by assets with fee
+     * @param assets Amount of assets to withdraw
+     * @param receiver Address to receive the assets (minus fee)
+     * @param owner Address of the owner of shares
+     * @return shares Amount of shares burned
+     */
+    function _instantUnstakeAssets(uint256 assets, address receiver, address owner) internal returns (uint256 shares) {
+        if (INSURANCE_FUND == address(0)) revert InsuranceFundNotSet();
+        
+        // Calculate fee and net assets
+        uint256 fee = (assets * INSTANT_UNSTAKING_FEE) / 10000;
+        uint256 netAssets = assets - fee;
+        
+        // Perform the withdrawal to get the total assets
+        shares = super.withdraw(assets, address(this), owner);
+        
+        // Transfer fee to insurance fund
+        if (fee > 0) {
+            IERC20(asset()).safeTransfer(INSURANCE_FUND, fee);
+        }
+        
+        // Transfer remaining assets to receiver
+        IERC20(asset()).safeTransfer(receiver, netAssets);
+        
+        emit InstantUnstaking(owner, receiver, netAssets, fee);
+        
+        return shares;
+    }
+
+    /**
+     * @dev Internal function for instant unstaking by shares with fee
+     * @param shares Amount of shares to redeem
+     * @param receiver Address to receive the assets (minus fee)
+     * @param owner Address of the owner of shares
+     * @return assets Amount of net assets transferred to receiver (after fee)
+     */
+    function _instantUnstakeShares(uint256 shares, address receiver, address owner) internal returns (uint256 assets) {
+        if (INSURANCE_FUND == address(0)) revert InsuranceFundNotSet();
+        
+        // Perform the redemption to get total assets
+        uint256 totalAssets = super.redeem(shares, address(this), owner);
+        
+        // Calculate fee and net assets
+        uint256 fee = (totalAssets * INSTANT_UNSTAKING_FEE) / 10000;
+        assets = totalAssets - fee;
+        
+        // Transfer fee to insurance fund
+        if (fee > 0) {
+            IERC20(asset()).safeTransfer(INSURANCE_FUND, fee);
+        }
+        
+        // Transfer remaining assets to receiver
+        IERC20(asset()).safeTransfer(receiver, assets);
+        
+        emit InstantUnstaking(owner, receiver, assets, fee);
+        
+        return assets;
     }
 
     /**
