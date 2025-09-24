@@ -41,7 +41,7 @@ const config: HardhatUserConfig = {
       gasPrice: networksConfig.networks.bnbMainnet.gasPrice,
       chainId: networksConfig.networks.bnbMainnet.chainId,
     },
-    snowtrace: {
+    avalanche: {
       url: buildRpcUrl(networksConfig.networks.avalanche.rpcUrl),
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       gasPrice: networksConfig.networks.avalanche.gasPrice,
@@ -135,7 +135,7 @@ const config: HardhatUserConfig = {
         },
       },
       {
-        network: 'snowtrace',
+        network: 'avalanche',
         chainId: 43114,
         urls: {
           apiURL: 'https://api.routescan.io/v2/network/mainnet/evm/43114/etherscan',
