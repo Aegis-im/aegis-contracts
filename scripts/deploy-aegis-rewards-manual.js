@@ -25,14 +25,14 @@ async function main() {
   const contracts = networkConfig.contracts || {}
 
   // Validate required addresses
-  if (!contracts.yusdAddress) {
+  if (!contracts.yusdAddress && !contracts.yusdOftAddress) {
     throw new Error(`YUSD address not found in config for network ${networkName}`)
   }
   if (!contracts.aegisConfigAddress) {
     throw new Error(`AegisConfig address not found in config for network ${networkName}`)
   }
 
-  const yusdAddress = contracts.yusdAddress
+  const yusdAddress = contracts.yusdAddress || contracts.yusdOftAddress
   const aegisConfigAddress = contracts.aegisConfigAddress
   const admin = contracts.adminAddress || deployer.address
 

@@ -50,27 +50,20 @@ const avalanchesYUSDContract: OmniPointHardhat = {
   contractName: 'sYUSDOFT',
 }
 // UNCOMMENT FOR TESTNETS
-/*
 const sepoliaContract: OmniPointHardhat = {
   eid: EndpointId.SEPOLIA_V2_TESTNET,
   contractName: 'YUSDMintBurnOFTAdapter',
 }
 
-const optimismSepoliaContract: OmniPointHardhat = {
-  eid: EndpointId.OPTSEP_V2_TESTNET,
-  contractName: 'YUSDOFT',
-}
-
 const fujiContract: OmniPointHardhat = {
   eid: EndpointId.AVALANCHE_V2_TESTNET,
-  contractName: 'YUSDMintBurnOFTAdapter',
+  contractName: 'YUSDOFT',
 }
 
 const bnbTestnetContract: OmniPointHardhat = {
   eid: EndpointId.BSC_V2_TESTNET,
   contractName: 'YUSDMintBurnOFTAdapter',
 }
-*/
 
 // Network-specific enforced options
 const MAINNET_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
@@ -288,7 +281,7 @@ export default async function () {
     // ],
     // [
     //   bnbTestnetContract, // Chain A contract
-    //   optimismSepoliaContract, // Chain B contract
+    //   sepoliaContract, // Chain B contract
     //   [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
     //   [15, 20], // [A to B confirmations, B to A confirmations]
     //   [TESTNET_ENFORCED_OPTIONS, TESTNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
@@ -297,9 +290,9 @@ export default async function () {
 
   return {
     contracts: [
-      // { contract: sepoliaContract },
-      // { contract: fujiContract },
-      // { contract: bnbTestnetContract },
+      { contract: sepoliaContract },
+      { contract: fujiContract },
+      { contract: bnbTestnetContract },
       // { contract: optimismSepoliaContract },
       { contract: mainnetContract },
       { contract: bnbMainnetContract },
