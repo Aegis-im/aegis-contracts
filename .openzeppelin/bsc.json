@@ -447,7 +447,7 @@
             "label": "silo",
             "offset": 3,
             "slot": "0",
-            "type": "t_contract(sYUSDSilo)6540",
+            "type": "t_contract(sYUSDSilo)24492",
             "contract": "sYUSD",
             "src": "contracts/sYUSD.sol:66"
           },
@@ -455,7 +455,7 @@
             "label": "cooldowns",
             "offset": 0,
             "slot": "1",
-            "type": "t_mapping(t_address,t_struct(Cooldown)5879_storage)",
+            "type": "t_mapping(t_address,t_struct(Cooldown)23831_storage)",
             "contract": "sYUSD",
             "src": "contracts/sYUSD.sol:75"
           }
@@ -473,7 +473,7 @@
             "label": "bytes32",
             "numberOfBytes": "32"
           },
-          "t_contract(IERC20)1287": {
+          "t_contract(IERC20)4945": {
             "label": "contract IERC20",
             "numberOfBytes": "20"
           },
@@ -489,7 +489,7 @@
             "label": "mapping(address => uint256)",
             "numberOfBytes": "32"
           },
-          "t_mapping(t_bytes32,t_struct(RoleData)24_storage)": {
+          "t_mapping(t_bytes32,t_struct(RoleData)2685_storage)": {
             "label": "mapping(bytes32 => struct AccessControlUpgradeable.RoleData)",
             "numberOfBytes": "32"
           },
@@ -497,19 +497,19 @@
             "label": "string",
             "numberOfBytes": "32"
           },
-          "t_struct(AccessControlStorage)34_storage": {
+          "t_struct(AccessControlStorage)2695_storage": {
             "label": "struct AccessControlUpgradeable.AccessControlStorage",
             "members": [
               {
                 "label": "_roles",
-                "type": "t_mapping(t_bytes32,t_struct(RoleData)24_storage)",
+                "type": "t_mapping(t_bytes32,t_struct(RoleData)2685_storage)",
                 "offset": 0,
                 "slot": "0"
               }
             ],
             "numberOfBytes": "32"
           },
-          "t_struct(EIP712Storage)868_storage": {
+          "t_struct(EIP712Storage)3529_storage": {
             "label": "struct EIP712Upgradeable.EIP712Storage",
             "members": [
               {
@@ -539,7 +539,7 @@
             ],
             "numberOfBytes": "128"
           },
-          "t_struct(ERC20Storage)226_storage": {
+          "t_struct(ERC20Storage)2887_storage": {
             "label": "struct ERC20Upgradeable.ERC20Storage",
             "members": [
               {
@@ -575,12 +575,12 @@
             ],
             "numberOfBytes": "160"
           },
-          "t_struct(ERC4626Storage)486_storage": {
+          "t_struct(ERC4626Storage)3147_storage": {
             "label": "struct ERC4626Upgradeable.ERC4626Storage",
             "members": [
               {
                 "label": "_asset",
-                "type": "t_contract(IERC20)1287",
+                "type": "t_contract(IERC20)4945",
                 "offset": 0,
                 "slot": "0"
               },
@@ -593,7 +593,7 @@
             ],
             "numberOfBytes": "32"
           },
-          "t_struct(InitializableStorage)145_storage": {
+          "t_struct(InitializableStorage)2806_storage": {
             "label": "struct Initializable.InitializableStorage",
             "members": [
               {
@@ -611,7 +611,7 @@
             ],
             "numberOfBytes": "32"
           },
-          "t_struct(NoncesStorage)749_storage": {
+          "t_struct(NoncesStorage)3410_storage": {
             "label": "struct NoncesUpgradeable.NoncesStorage",
             "members": [
               {
@@ -623,7 +623,7 @@
             ],
             "numberOfBytes": "32"
           },
-          "t_struct(ReentrancyGuardStorage)805_storage": {
+          "t_struct(ReentrancyGuardStorage)3466_storage": {
             "label": "struct ReentrancyGuardUpgradeable.ReentrancyGuardStorage",
             "members": [
               {
@@ -635,7 +635,7 @@
             ],
             "numberOfBytes": "32"
           },
-          "t_struct(RoleData)24_storage": {
+          "t_struct(RoleData)2685_storage": {
             "label": "struct AccessControlUpgradeable.RoleData",
             "members": [
               {
@@ -665,15 +665,15 @@
             "label": "uint8",
             "numberOfBytes": "1"
           },
-          "t_contract(sYUSDSilo)6540": {
+          "t_contract(sYUSDSilo)24492": {
             "label": "contract sYUSDSilo",
             "numberOfBytes": "20"
           },
-          "t_mapping(t_address,t_struct(Cooldown)5879_storage)": {
+          "t_mapping(t_address,t_struct(Cooldown)23831_storage)": {
             "label": "mapping(address => struct sYUSD.Cooldown)",
             "numberOfBytes": "32"
           },
-          "t_struct(Cooldown)5879_storage": {
+          "t_struct(Cooldown)23831_storage": {
             "label": "struct sYUSD.Cooldown",
             "members": [
               {
@@ -719,7 +719,7 @@
             {
               "contract": "AccessControlUpgradeable",
               "label": "_roles",
-              "type": "t_mapping(t_bytes32,t_struct(RoleData)24_storage)",
+              "type": "t_mapping(t_bytes32,t_struct(RoleData)2685_storage)",
               "src": "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol:61",
               "offset": 0,
               "slot": "0"
@@ -773,7 +773,7 @@
             {
               "contract": "ERC4626Upgradeable",
               "label": "_asset",
-              "type": "t_contract(IERC20)1287",
+              "type": "t_contract(IERC20)4945",
               "src": "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol:56",
               "offset": 0,
               "slot": "0"

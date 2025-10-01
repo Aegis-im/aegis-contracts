@@ -74,6 +74,9 @@ contract sYUSD is
     // Mapping of user address to cooldown status
     mapping(address => Cooldown) public cooldowns;
 
+    // Upgrade-safe storage: new variables added at the end
+    bool public paused;
+
     error InsufficientShares(uint256 requested, uint256 available);
     error CooldownNotEnded();
     error ZeroAddress(string paramName);
@@ -83,8 +86,11 @@ contract sYUSD is
     error ExpectedCooldownOff();
     error DurationExceedsMax();
     error DurationNotChanged();
+    error ContractPaused();
     
     event CooldownDurationUpdated(uint24 previousDuration, uint24 newDuration);
+    event Paused(address account);
+    event Unpaused(address account);
     event CooldownStarted(address indexed user, uint256 assets, uint256 shares, uint256 cooldownEnd);
     event Unstaked(address indexed user, address indexed receiver, uint256 assets);
 
@@ -101,6 +107,11 @@ contract sYUSD is
 
     modifier ensureCooldownOn() {
         if (cooldownDuration == 0) revert ExpectedCooldownOn();
+        _;
+    }
+
+    modifier whenNotPaused() {
+        if (paused) revert ContractPaused();
         _;
     }
 
@@ -143,6 +154,54 @@ contract sYUSD is
      */
     function setCooldownDuration(uint24 newDuration) external onlyRole(ADMIN_ROLE) {
         _setCooldownDuration(newDuration);
+    }
+
+    /**
+     * @dev Allows admin to pause/unpause deposits
+     * @param _paused True to pause deposits, false to unpause
+     */
+    function setPaused(bool _paused) external onlyRole(ADMIN_ROLE) {
+        if (paused == _paused) return; // No change needed
+        
+        paused = _paused;
+        
+        if (_paused) {
+            emit Paused(msg.sender);
+        } else {
+            emit Unpaused(msg.sender);
+        }
+    }
+
+    function deposit(
+        uint256 assets,
+        address receiver
+    ) public virtual override whenNotPaused returns (uint256) {
+        return super.deposit(assets, receiver);
+    }
+
+    function mint(
+        uint256 shares,
+        address receiver
+    ) public virtual override whenNotPaused returns (uint256) {
+        return super.mint(shares, receiver);
+    }
+
+    /**
+     * @dev Override maxDeposit to return 0 when paused
+     * @inheritdoc ERC4626Upgradeable
+     */
+    function maxDeposit(address) public view virtual override returns (uint256) {
+        if (paused) return 0;
+        return super.maxDeposit(address(0));
+    }
+
+    /**
+     * @dev Override maxMint to return 0 when paused
+     * @inheritdoc ERC4626Upgradeable
+     */
+    function maxMint(address) public view virtual override returns (uint256) {
+        if (paused) return 0;
+        return super.maxMint(address(0));
     }
 
     /**
