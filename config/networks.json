@@ -173,8 +173,8 @@
         "aegisOracleAddress": "0xA02b9A1639D612CA6ca6E63627B9e4Fb896C5dCc",
         "aegisRewardsAddress": "0x7FfeF8Eb8e3D6EB13B3DDc153122EB34AD07F0e4",
         "aegisMintingAddress": "0x626fA918339dA3843946155A298De02CBE7a2105",
-        "sYUSDAddress": "0xf7b97872A9Ce774E6B68486afF5222b188e4Ce6c",
-        "sYUSDSiloAddress": "0x04B768e45581a9ca08b21B2747088488B69FFb72",
+        "sYUSDAddress": "0xBe52acA5988A2D0E1D6337EBaCf5f1C254C075a3",
+        "sYUSDSiloAddress": "0xa3a46D09936DDdbE3b010B07b4e8Fb844AbDbd49",
         "feedRegistryAddress": "0x4CE6563330166122DBe372Ad7ec175b7783a0FC0",
         "aegisRewardsManualAddress": "0x094D11022709817051e73EfEcb459dA4AA418871",
         "aegisChainlinkOracleV2Address": "0x50193f63e479BF3cC7C7533Aa899f5eACc873290"
