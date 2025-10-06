@@ -63,6 +63,20 @@ const config: HardhatUserConfig = {
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       gasPrice: networksConfig.networks.base.gasPrice,
     },
+    plasma: {
+      eid: EndpointId.XPLA_V2_MAINNET,
+      url: process.env.PLASMA_MAINNET_RPC_URL || networksConfig.networks.plasma.rpcUrl,
+      chainId: networksConfig.networks.plasma.chainId,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.plasma.gasPrice,
+    },
+    hedera: {
+      eid: EndpointId.HEDERA_V2_MAINNET,
+      url: process.env.HEDERA_MAINNET_RPC_URL || networksConfig.networks.hedera.rpcUrl,
+      chainId: networksConfig.networks.hedera.chainId,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.hedera.gasPrice,
+    },
     sepolia: {
       eid: EndpointId.SEPOLIA_V2_TESTNET,
       url: process.env.SEPOLIA_RPC_URL || networksConfig.networks.sepolia.rpcUrl,

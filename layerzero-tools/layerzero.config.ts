@@ -2,6 +2,7 @@ import { ExecutorOptionType } from '@layerzerolabs/lz-v2-utilities'
 import { OAppEnforcedOption, OmniPointHardhat } from '@layerzerolabs/toolbox-hardhat'
 import { EndpointId } from '@layerzerolabs/lz-definitions'
 import { generateConnectionsConfig } from '@layerzerolabs/metadata-tools'
+import { networksConfig } from '../hardhat.config'
 
 const mainnetContract: OmniPointHardhat = {
   eid: EndpointId.ETHEREUM_V2_MAINNET,
@@ -28,9 +29,18 @@ const katanaContract: OmniPointHardhat = {
   contractName: 'YUSDOFT',
 }
 
-
 const baseContract: OmniPointHardhat = {
   eid: EndpointId.BASE_V2_MAINNET,
+  contractName: 'YUSDOFT',
+}
+
+const plasmaContract: OmniPointHardhat = {
+  eid: networksConfig.networks.plasma.endpointId,
+  contractName: 'YUSDOFT',
+}
+
+const hederaContract: OmniPointHardhat = {
+  eid: networksConfig.networks.hedera.endpointId,
   contractName: 'YUSDOFT',
 }
 
@@ -49,21 +59,37 @@ const avalanchesYUSDContract: OmniPointHardhat = {
   eid: EndpointId.AVALANCHE_V2_MAINNET,
   contractName: 'sYUSDOFT',
 }
+
+const bnbMainnetsYUSDContract: OmniPointHardhat = {
+  eid: EndpointId.BSC_V2_MAINNET,
+  contractName: 'sYUSDOFT',
+}
+
+const plasmasYUSDContract: OmniPointHardhat = {
+  eid: networksConfig.networks.plasma.endpointId,
+  contractName: 'sYUSDOFT',
+}
+
+const hederasYUSDContract: OmniPointHardhat = {
+  eid: networksConfig.networks.hedera.endpointId,
+  contractName: 'sYUSDOFT',
+}
+
 // UNCOMMENT FOR TESTNETS
-const sepoliaContract: OmniPointHardhat = {
-  eid: EndpointId.SEPOLIA_V2_TESTNET,
-  contractName: 'YUSDMintBurnOFTAdapter',
-}
+// const sepoliaContract: OmniPointHardhat = {
+//   eid: EndpointId.SEPOLIA_V2_TESTNET,
+//   contractName: 'YUSDMintBurnOFTAdapter',
+// }
 
-const fujiContract: OmniPointHardhat = {
-  eid: EndpointId.AVALANCHE_V2_TESTNET,
-  contractName: 'YUSDOFT',
-}
+// const fujiContract: OmniPointHardhat = {
+//   eid: EndpointId.AVALANCHE_V2_TESTNET,
+//   contractName: 'YUSDOFT',
+// }
 
-const bnbTestnetContract: OmniPointHardhat = {
-  eid: EndpointId.BSC_V2_TESTNET,
-  contractName: 'YUSDMintBurnOFTAdapter',
-}
+// const bnbTestnetContract: OmniPointHardhat = {
+//   eid: EndpointId.BSC_V2_TESTNET,
+//   contractName: 'YUSDMintBurnOFTAdapter',
+// }
 
 // Network-specific enforced options
 const MAINNET_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
@@ -115,6 +141,24 @@ const KATANA_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
 
 const BASE_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
 
+  {
+    msgType: 1,
+    optionType: ExecutorOptionType.LZ_RECEIVE,
+    gas: 80000,
+    value: 0,
+  },
+]
+
+const PLASMA_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
+  {
+    msgType: 1,
+    optionType: ExecutorOptionType.LZ_RECEIVE,
+    gas: 80000,
+    value: 0,
+  },
+]
+
+const HEDERA_ENFORCED_OPTIONS: OAppEnforcedOption[] = [
   {
     msgType: 1,
     optionType: ExecutorOptionType.LZ_RECEIVE,
@@ -244,6 +288,97 @@ export default async function () {
       [BASE_ENFORCED_OPTIONS, ARBITRUM_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
+      mainnetContract, // Chain A contract
+      plasmaContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [PLASMA_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      bnbMainnetContract, // Chain A contract
+      plasmaContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [PLASMA_ENFORCED_OPTIONS, BNB_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      avalancheContract, // Chain A contract
+      plasmaContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [PLASMA_ENFORCED_OPTIONS, AVALANCHE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      arbitrumContract, // Chain A contract
+      plasmaContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [PLASMA_ENFORCED_OPTIONS, ARBITRUM_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      baseContract, // Chain A contract
+      plasmaContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [PLASMA_ENFORCED_OPTIONS, BASE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      katanaContract, // Chain A contract
+      plasmaContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [PLASMA_ENFORCED_OPTIONS, KATANA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      mainnetContract, // Chain A contract
+      hederaContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [HEDERA_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      bnbMainnetContract, // Chain A contract
+      hederaContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [HEDERA_ENFORCED_OPTIONS, BNB_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      avalancheContract, // Chain A contract
+      hederaContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [HEDERA_ENFORCED_OPTIONS, AVALANCHE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      arbitrumContract, // Chain A contract
+      hederaContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [HEDERA_ENFORCED_OPTIONS, ARBITRUM_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      baseContract, // Chain A contract
+      hederaContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [HEDERA_ENFORCED_OPTIONS, BASE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      katanaContract, // Chain A contract
+      hederaContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [HEDERA_ENFORCED_OPTIONS, KATANA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      plasmaContract, // Chain B contract
+      hederaContract, // Chain A contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [HEDERA_ENFORCED_OPTIONS, PLASMA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
       mainnetsYUSDContract, // Chain A contract
       katanasYUSDContract, // Chain B contract
       [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
@@ -263,6 +398,90 @@ export default async function () {
       [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
       [15, 20], // [A to B confirmations, B to A confirmations]
       [AVALANCHE_ENFORCED_OPTIONS, KATANA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      mainnetsYUSDContract, // Chain A contract
+      bnbMainnetsYUSDContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [BNB_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      katanasYUSDContract, // Chain A contract
+      bnbMainnetsYUSDContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [BNB_ENFORCED_OPTIONS, KATANA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      avalanchesYUSDContract, // Chain A contract
+      bnbMainnetsYUSDContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [BNB_ENFORCED_OPTIONS, AVALANCHE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      mainnetsYUSDContract, // Chain A contract
+      plasmasYUSDContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [PLASMA_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      katanasYUSDContract, // Chain A contract
+      plasmasYUSDContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [PLASMA_ENFORCED_OPTIONS, KATANA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      avalanchesYUSDContract, // Chain A contract
+      plasmasYUSDContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [PLASMA_ENFORCED_OPTIONS, AVALANCHE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      bnbMainnetsYUSDContract, // Chain A contract
+      plasmasYUSDContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [PLASMA_ENFORCED_OPTIONS, BNB_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      katanasYUSDContract, // Chain A contract
+      hederasYUSDContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [HEDERA_ENFORCED_OPTIONS, KATANA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      bnbMainnetsYUSDContract, // Chain A contract
+      hederasYUSDContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [HEDERA_ENFORCED_OPTIONS, BNB_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      avalanchesYUSDContract, // Chain A contract
+      hederasYUSDContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [HEDERA_ENFORCED_OPTIONS, AVALANCHE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      mainnetsYUSDContract, // Chain A contract
+      hederasYUSDContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [HEDERA_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    [
+      plasmasYUSDContract, // Chain A contract
+      hederasYUSDContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [HEDERA_ENFORCED_OPTIONS, PLASMA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     // UNCOMMENT FOR TESTNETS
     // [
@@ -290,9 +509,9 @@ export default async function () {
 
   return {
     contracts: [
-      { contract: sepoliaContract },
-      { contract: fujiContract },
-      { contract: bnbTestnetContract },
+      // { contract: sepoliaContract },
+      // { contract: fujiContract },
+      // { contract: bnbTestnetContract },
       // { contract: optimismSepoliaContract },
       { contract: mainnetContract },
       { contract: bnbMainnetContract },

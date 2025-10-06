@@ -66,6 +66,18 @@ const config: HardhatUserConfig = {
       gasPrice: networksConfig.networks.base.gasPrice,
       chainId: networksConfig.networks.base.chainId,
     },
+    plasma: {
+      url: buildRpcUrl(networksConfig.networks.plasma.rpcUrl),
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.plasma.gasPrice,
+      chainId: networksConfig.networks.plasma.chainId,
+    },
+    hedera: {
+      url: buildRpcUrl(networksConfig.networks.hedera.rpcUrl),
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.hedera.gasPrice,
+      chainId: networksConfig.networks.hedera.chainId,
+    },
     bnbTestnet: {
       url: networksConfig.networks.bnbTestnet.rpcUrl,
       chainId: networksConfig.networks.bnbTestnet.chainId,
@@ -140,6 +152,14 @@ const config: HardhatUserConfig = {
         urls: {
           apiURL: 'https://api.routescan.io/v2/network/mainnet/evm/43114/etherscan',
           browserURL: 'https://avalanche.routescan.io',
+        },
+      },
+      {
+        network: 'PlasmaMainnet',
+        chainId: networksConfig.networks.plasma.chainId,
+        urls: {
+          apiURL: 'https://plasmascan.to/api',
+          browserURL: 'https://plasmascan.to/',
         },
       },
     ],
