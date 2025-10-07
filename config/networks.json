@@ -52,7 +52,7 @@
     },
     "bnbMainnet": {
       "chainId": 56,
-      "rpcUrl": "https://bnb.rpc.subquery.network/public",
+      "rpcUrl": "https://bsc.rpc.grove.city/v1/01fdb492",
       "gasPrice": 1000000000,
       "description": "BNB Smart Chain Mainnet",
       "explorer": "https://bscscan.com",
@@ -152,7 +152,9 @@
       "contracts": {
         "lzEndpoint": "0x1a44076050125825900e736c501f859c50fE728c",
         "adminAddress": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
-        "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7"
+        "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7",
+        "syusdOracle": "0xFCeF626dE4A0175ac962DD43EB0A002819FaAEFe",
+        "aegisChainlinkOracleV3Address": "0xFCeF626dE4A0175ac962DD43EB0A002819FaAEFe"
       },
       "deployment": {
         "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
