@@ -149,7 +149,7 @@ const config: HardhatUserConfig = {
         },
       },
       {
-        network: 'PlasmaMainnet',
+        network: 'plasma',
         chainId: networksConfig.networks.plasma.chainId,
         urls: {
           apiURL: 'https://plasmascan.to/api',
