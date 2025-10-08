@@ -1,5 +1,5 @@
 {
-  "address": "0x539e46827c37A3ef11c7cE521CC56B4d59E602e3",
+  "address": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7",
   "abi": [
     {
       "type": "constructor",
@@ -1501,11 +1501,11 @@
       "outputs": []
     }
   ],
-  "transactionHash": "0x011c4811b6e1d8968cce645c94a42b83349310c9ef815051b4d04d7d16b1871c",
+  "transactionHash": "0x48da707f6448a56c0a4f471d685f087c98661e0bf1ab6af07df3bf1a7175505a",
   "args": [
     "Staked YUSD",
     "sYUSD",
-    "0x1a44076050125825900e736c501f859c50fE728c",
+    "0x6F475642a6e85809B1c36Fa62763669b1b48DD5B",
     "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
   ],
   "numDeployments": 1,

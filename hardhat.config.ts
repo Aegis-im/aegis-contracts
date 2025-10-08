@@ -3,7 +3,6 @@ import '@nomicfoundation/hardhat-toolbox'
 import '@openzeppelin/hardhat-upgrades'
 import 'solidity-coverage'
 import * as dotenv from 'dotenv'
-import { EndpointId } from '@layerzerolabs/lz-definitions'
 import { setLegacyEnvironmentVariables, getNetworksConfigForHardhat } from './utils/config-helpers'
 
 // Load environment variables from .env file
@@ -46,7 +45,6 @@ const config: HardhatUserConfig = {
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       gasPrice: networksConfig.networks.avalanche.gasPrice,
       chainId: networksConfig.networks.avalanche.chainId,
-      eid: networksConfig.networks.avalanche.endpointId,
     },
     arbitrum: {
       url: buildRpcUrl(networksConfig.networks.arbitrum.rpcUrl),
@@ -66,29 +64,37 @@ const config: HardhatUserConfig = {
       gasPrice: networksConfig.networks.base.gasPrice,
       chainId: networksConfig.networks.base.chainId,
     },
+    plasma: {
+      url: buildRpcUrl(networksConfig.networks.plasma.rpcUrl),
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.plasma.gasPrice,
+      chainId: networksConfig.networks.plasma.chainId,
+    },
+    hedera: {
+      url: buildRpcUrl(networksConfig.networks.hedera.rpcUrl),
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.hedera.gasPrice,
+      chainId: networksConfig.networks.hedera.chainId,
+    },
     bnbTestnet: {
       url: networksConfig.networks.bnbTestnet.rpcUrl,
       chainId: networksConfig.networks.bnbTestnet.chainId,
-      eid: EndpointId.BSC_V2_TESTNET,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       gasPrice: networksConfig.networks.bnbTestnet.gasPrice,
     },
     sepolia: {
-      eid: EndpointId.SEPOLIA_V2_TESTNET,
       url: process.env.SEPOLIA_RPC_URL || networksConfig.networks.sepolia.rpcUrl,
       chainId: networksConfig.networks.sepolia.chainId,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       gasPrice: networksConfig.networks.sepolia.gasPrice,
     },
     avalancheFuji: {
-      eid: EndpointId.AVALANCHE_V2_TESTNET,
       url: process.env.AVALANCHE_FUJI_RPC_URL || networksConfig.networks.avalancheFuji.rpcUrl,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: networksConfig.networks.avalancheFuji.chainId,
       gasPrice: networksConfig.networks.avalancheFuji.gasPrice,
     },
     optimismSepolia: {
-      eid: EndpointId.OPTSEP_V2_TESTNET,
       url: process.env.RPC_URL_OP_SEPOLIA || networksConfig.networks.optimismSepolia.rpcUrl,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: networksConfig.networks.optimismSepolia.chainId,
@@ -140,6 +146,14 @@ const config: HardhatUserConfig = {
         urls: {
           apiURL: 'https://api.routescan.io/v2/network/mainnet/evm/43114/etherscan',
           browserURL: 'https://avalanche.routescan.io',
+        },
+      },
+      {
+        network: 'plasma',
+        chainId: networksConfig.networks.plasma.chainId,
+        urls: {
+          apiURL: 'https://plasmascan.to/api',
+          browserURL: 'https://plasmascan.to/',
         },
       },
     ],

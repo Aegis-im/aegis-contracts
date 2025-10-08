@@ -52,7 +52,7 @@
     },
     "bnbMainnet": {
       "chainId": 56,
-      "rpcUrl": "https://bnb.rpc.subquery.network/public",
+      "rpcUrl": "https://bsc.rpc.grove.city/v1/01fdb492",
       "gasPrice": 1000000000,
       "description": "BNB Smart Chain Mainnet",
       "explorer": "https://bscscan.com",
@@ -65,7 +65,8 @@
         "aegisOracleAddress": "0x588FD039cAdc77ec85d25a072582624CA8d8cF15",
         "aegisRewardsAddress": "0x93eFAA2d2f6c3600d794233ed7E751d086E5B75E",
         "aegisMintingAddress": "0x02bf8f0e046F471709E578b1E633077096ce65CF",
-        "feedRegistryAddress": "0x4274cD7277C7bb0806Bd5FE84b9aDAE466a8DA0a"
+        "feedRegistryAddress": "0x4274cD7277C7bb0806Bd5FE84b9aDAE466a8DA0a",
+        "syusdOftAddress": "0x85636BF94EA95c32e945b0db30A7CDc614F2691e"
       },
       "layerzero": {
         "targetEid": 56,
@@ -117,7 +118,7 @@
       "explorer": "https://arbiscan.io",
       "contracts": {
         "lzEndpoint": "0x1a44076050125825900e736c501f859c50fE728c",
-        "adminAddress": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+        "adminAddress": "0x4Fe78eF65BD8EDDED480efaB030BA680646503c8",
         "yusdOftAddress": "0xF07781182B47e728B040f9e35321260e359fF9f7"
       },
       "deployment": {
@@ -132,7 +133,7 @@
       "explorer": "https://katanascan.com/",
       "contracts": {
         "lzEndpoint": "0x6F475642a6e85809B1c36Fa62763669b1b48DD5B",
-        "adminAddress": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+        "adminAddress": "0x4Fe78eF65BD8EDDED480efaB030BA680646503c8",
         "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7",
         "syusdOftAddress": "0xFCeF626dE4A0175ac962DD43EB0A002819FaAEFe",
         "syusdOracle": "0x3E82D55F05D68255a6625ea39738c1022c50C325",
@@ -151,7 +152,43 @@
       "contracts": {
         "lzEndpoint": "0x1a44076050125825900e736c501f859c50fE728c",
         "adminAddress": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
-        "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7"
+        "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7",
+        "syusdOracle": "0xFCeF626dE4A0175ac962DD43EB0A002819FaAEFe",
+        "aegisChainlinkOracleV3Address": "0xFCeF626dE4A0175ac962DD43EB0A002819FaAEFe"
+      },
+      "deployment": {
+        "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      }
+    },
+    "plasma": {
+      "chainId": 9745,
+      "endpointId": 30383,
+      "rpcUrl": "https://rpc.plasma.to",
+      "gasPrice": 13674,
+      "description": "Plasma Mainnet",
+      "explorer": "https://plasmascan.to",
+      "contracts": {
+        "lzEndpoint": "0x6F475642a6e85809B1c36Fa62763669b1b48DD5B",
+        "adminAddress": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+        "syusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7",
+        "yusdOftAddress": "0xF07781182B47e728B040f9e35321260e359fF9f7"
+      },
+      "deployment": {
+        "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      }
+    },
+    "hedera": {
+      "chainId": 295,
+      "endpointId": 30316,
+      "rpcUrl": "https://mainnet.hashio.io/",
+      "gasPrice": 390000000000,
+      "description": "Hedera Mainnet",
+      "explorer": "https://hashscan.io/mainnet",
+      "contracts": {
+        "lzEndpoint": "0x3A73033C0b1407574C76BdBAc67f126f6b4a9AA9",
+        "adminAddress": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+        "yusdOftAddress": "0xF07781182B47e728B040f9e35321260e359fF9f7",
+        "syusdOftAddress": "0xc48Ea88272e723366e124d9fd2607216969382Ec"
       },
       "deployment": {
         "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"

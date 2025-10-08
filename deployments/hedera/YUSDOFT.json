@@ -1,5 +1,5 @@
 {
-  "address": "0x539e46827c37A3ef11c7cE521CC56B4d59E602e3",
+  "address": "0xF07781182B47e728B040f9e35321260e359fF9f7",
   "abi": [
     {
       "type": "constructor",
@@ -7,20 +7,12 @@
       "payable": false,
       "inputs": [
         {
-          "type": "string",
-          "name": "_name"
-        },
-        {
-          "type": "string",
-          "name": "_symbol"
-        },
-        {
           "type": "address",
           "name": "_lzEndpoint"
         },
         {
           "type": "address",
-          "name": "_owner"
+          "name": "_delegate"
         }
       ]
     },
@@ -41,6 +33,41 @@
         {
           "type": "address",
           "name": "account"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "Blacklisted",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "_user"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "ECDSAInvalidSignature",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "ECDSAInvalidSignatureLength",
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "length"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "ECDSAInvalidSignatureS",
+      "inputs": [
+        {
+          "type": "bytes32",
+          "name": "s"
         }
       ]
     },
@@ -122,8 +149,46 @@
     },
     {
       "type": "error",
+      "name": "ERC2612ExpiredSignature",
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "deadline"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "ERC2612InvalidSigner",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "signer"
+        },
+        {
+          "type": "address",
+          "name": "owner"
+        }
+      ]
+    },
+    {
+      "type": "error",
       "name": "FailedInnerCall",
       "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InvalidAccountNonce",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "account"
+        },
+        {
+          "type": "uint256",
+          "name": "currentNonce"
+        }
+      ]
     },
     {
       "type": "error",
@@ -149,6 +214,11 @@
           "name": "options"
         }
       ]
+    },
+    {
+      "type": "error",
+      "name": "InvalidShortString",
+      "inputs": []
     },
     {
       "type": "error",
@@ -184,6 +254,11 @@
           "name": "addr"
         }
       ]
+    },
+    {
+      "type": "error",
+      "name": "OnlyMinter",
+      "inputs": []
     },
     {
       "type": "error",
@@ -259,6 +334,33 @@
       ]
     },
     {
+      "type": "error",
+      "name": "StringTooLong",
+      "inputs": [
+        {
+          "type": "string",
+          "name": "str"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "ZeroAddress",
+      "inputs": []
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "AddedBlackList",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "_user",
+          "indexed": false
+        }
+      ]
+    },
+    {
       "type": "event",
       "anonymous": false,
       "name": "Approval",
@@ -279,6 +381,12 @@
           "indexed": false
         }
       ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "EIP712DomainChanged",
+      "inputs": []
     },
     {
       "type": "event",
@@ -425,6 +533,18 @@
     {
       "type": "event",
       "anonymous": false,
+      "name": "RemovedBlackList",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "_user",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
       "name": "Transfer",
       "inputs": [
         {
@@ -441,6 +561,20 @@
           "type": "uint256",
           "name": "value",
           "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "DOMAIN_SEPARATOR",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "bytes32",
+          "name": ""
         }
       ]
     },
@@ -471,6 +605,19 @@
           "name": ""
         }
       ]
+    },
+    {
+      "type": "function",
+      "name": "addBlackList",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "_user"
+        }
+      ],
+      "outputs": []
     },
     {
       "type": "function",
@@ -640,6 +787,44 @@
     },
     {
       "type": "function",
+      "name": "eip712Domain",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "bytes1",
+          "name": "fields"
+        },
+        {
+          "type": "string",
+          "name": "name"
+        },
+        {
+          "type": "string",
+          "name": "version"
+        },
+        {
+          "type": "uint256",
+          "name": "chainId"
+        },
+        {
+          "type": "address",
+          "name": "verifyingContract"
+        },
+        {
+          "type": "bytes32",
+          "name": "salt"
+        },
+        {
+          "type": "uint256[]",
+          "name": "extensions"
+        }
+      ]
+    },
+    {
+      "type": "function",
       "name": "endpoint",
       "constant": true,
       "stateMutability": "view",
@@ -672,6 +857,44 @@
         {
           "type": "bytes",
           "name": "enforcedOption"
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "getBlackListStatus",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "_maker"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "bool",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "isBlackListed",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": ""
+        }
+      ],
+      "outputs": [
+        {
+          "type": "bool",
+          "name": ""
         }
       ]
     },
@@ -942,6 +1165,25 @@
     },
     {
       "type": "function",
+      "name": "nonces",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "owner"
+        }
+      ],
+      "outputs": [
+        {
+          "type": "uint256",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
       "name": "oApp",
       "constant": true,
       "stateMutability": "view",
@@ -1022,6 +1264,43 @@
           "name": "peer"
         }
       ]
+    },
+    {
+      "type": "function",
+      "name": "permit",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "owner"
+        },
+        {
+          "type": "address",
+          "name": "spender"
+        },
+        {
+          "type": "uint256",
+          "name": "value"
+        },
+        {
+          "type": "uint256",
+          "name": "deadline"
+        },
+        {
+          "type": "uint8",
+          "name": "v"
+        },
+        {
+          "type": "bytes32",
+          "name": "r"
+        },
+        {
+          "type": "bytes32",
+          "name": "s"
+        }
+      ],
+      "outputs": []
     },
     {
       "type": "function",
@@ -1186,6 +1465,19 @@
           ]
         }
       ]
+    },
+    {
+      "type": "function",
+      "name": "removeBlackList",
+      "constant": false,
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "_user"
+        }
+      ],
+      "outputs": []
     },
     {
       "type": "function",
@@ -1501,11 +1793,11 @@
       "outputs": []
     }
   ],
-  "transactionHash": "0x011c4811b6e1d8968cce645c94a42b83349310c9ef815051b4d04d7d16b1871c",
+  "transactionHash": "0x64c6dc76ffa340e1a95bbbfaff98e2405a0375f909e10ebf5dbcf8c9354dac4e",
   "args": [
-    "Staked YUSD",
-    "sYUSD",
-    "0x1a44076050125825900e736c501f859c50fE728c",
+    "YUSD",
+    "YUSD",
+    "0x3A73033C0b1407574C76BdBAc67f126f6b4a9AA9",
     "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
   ],
   "numDeployments": 1,

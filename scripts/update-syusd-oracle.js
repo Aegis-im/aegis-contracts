@@ -29,7 +29,7 @@ async function main() {
   }
 
   const isDryRun = process.env.DRY_RUN === 'true'
-  const targetNetworks = (process.env.TARGET_NETWORKS || 'avalanche,katana').split(',').map(n => n.trim())
+  const targetNetworks = (process.env.TARGET_NETWORKS || 'avalanche,katana,base').split(',').map(n => n.trim())
 
   console.log('🚀 Starting sYUSD Oracle Update Script')
   console.log(`📊 Mode: ${isDryRun ? 'DRY RUN' : 'LIVE'}`)
