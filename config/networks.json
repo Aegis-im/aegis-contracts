@@ -11,7 +11,7 @@
     "mainnet": {
       "chainId": 1,
       "rpcUrl": "https://mainnet.gateway.tenderly.co",
-      "gasPrice": 4401000000,
+      "gasPrice": 341000000,
       "description": "Ethereum Mainnet",
       "explorer": "https://etherscan.io",
       "contracts": {

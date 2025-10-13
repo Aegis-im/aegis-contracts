@@ -56,7 +56,7 @@ async function main() {
   // For verification on block explorers like Etherscan
   console.log('\n🔍 Verification command:')
   console.log(`npx hardhat verify --network ${network.name} ${newImplAddress}`)
-  
+
   console.log('\n📋 Manual initialization command:')
   console.log('   sYUSDContract.initializeV2(50, "0x...insuranceFundAddress")')
 }
