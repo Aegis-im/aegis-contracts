@@ -51,7 +51,7 @@ contract AegisChainlinkOracleV3 is Ownable2Step, AggregatorV3Interface {
   }
 
   function description() external pure override returns (string memory) {
-    return "Aegis Oracle YUSD / USD";
+    return "Aegis Oracle sYUSD / YUSD";
   }
 
   function version() external pure override returns (uint256) {

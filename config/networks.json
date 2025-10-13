@@ -66,7 +66,8 @@
         "aegisRewardsAddress": "0x93eFAA2d2f6c3600d794233ed7E751d086E5B75E",
         "aegisMintingAddress": "0x02bf8f0e046F471709E578b1E633077096ce65CF",
         "feedRegistryAddress": "0x4274cD7277C7bb0806Bd5FE84b9aDAE466a8DA0a",
-        "syusdOftAddress": "0x85636BF94EA95c32e945b0db30A7CDc614F2691e"
+        "syusdOftAddress": "0x85636BF94EA95c32e945b0db30A7CDc614F2691e",
+        "syusdOracle": "0x5Ef457932C77E906FE81f80192bD6878526aCAdc"
       },
       "layerzero": {
         "targetEid": 56,
