@@ -1,12 +1,12 @@
 import { expect } from 'chai'
 import { ethers } from 'hardhat'
-import { YUSD, sYUSD, sYUSDSilo } from '../typechain-types'
+import { YUSD, SYUSD, SYUSDSilo } from '../typechain-types'
 import { DEFAULT_ADMIN_ROLE } from '../utils/helpers'
 
 describe('sYUSD', () => {
   let yusdContract: YUSD
-  let sYusdContract: sYUSD
-  let siloContract: sYUSDSilo
+  let sYusdContract: SYUSD
+  let siloContract: SYUSDSilo
   let owner: any
   let user1: any
   let user2: any
@@ -27,14 +27,15 @@ describe('sYUSD', () => {
     await yusdContract.mint(user2, initialAmount)
 
     // Deploy sYUSD with admin as the admin
-    sYusdContract = await ethers.deployContract('sYUSD', [
+    const sYusdFactory = await ethers.getContractFactory('sYUSD')
+    sYusdContract = await sYusdFactory.deploy(
       await yusdContract.getAddress(),
       admin.address,
-    ])
+    ) as SYUSD
 
     // Get the silo address
     const siloAddress = await sYusdContract.silo()
-    siloContract = await ethers.getContractAt('sYUSDSilo', siloAddress)
+    siloContract = await ethers.getContractAt('sYUSDSilo', siloAddress) as unknown as SYUSDSilo
   })
 
   describe('Initialization', () => {

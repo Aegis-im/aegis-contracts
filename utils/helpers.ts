@@ -87,6 +87,59 @@ export async function deployFixture() {
   }
 }
 
+export async function deployJUSDFixture() {
+  const [owner] = await ethers.getSigners()
+
+  const assetContract = await ethers.deployContract('TestToken', ['Test', 'TST', 18])
+  const assetAddress = await assetContract.getAddress()
+
+  const jusdContract = await ethers.deployContract('JUSD', [owner.address])
+  const jusdAddress = await jusdContract.getAddress()
+
+  const aegisConfig = await ethers.deployContract('AegisConfig', [trustedSignerAccount, [owner], owner])
+  const aegisConfigAddress = await aegisConfig.getAddress()
+
+  const aegisRewardsManualContract = await ethers.deployContract('AegisRewardsManual', [
+    jusdAddress,
+    aegisConfig,
+    owner,
+  ])
+
+  const aegisRewardsContract = await ethers.deployContract('AegisRewards', [jusdAddress, aegisConfig, owner])
+  const aegisRewardsAddress = await aegisRewardsContract.getAddress()
+
+  const aegisMintingJUSDContract = await ethers.deployContract('AegisMintingJUSD', [
+    jusdAddress,
+    aegisConfig,
+    aegisRewardsAddress,
+    ethers.ZeroAddress,
+    ethers.ZeroAddress,
+    insuranceFundAccount.address,
+    [assetAddress],
+    [86400],
+    [custodianAccount.address],
+    owner.address,
+  ])
+  const aegisMintingJUSDAddress = await aegisMintingJUSDContract.getAddress()
+
+  await jusdContract.setMinter(aegisMintingJUSDAddress)
+  await aegisRewardsContract.setAegisMintingAddress(aegisMintingJUSDAddress)
+
+  return {
+    jusdContract,
+    jusdAddress,
+    aegisRewardsContract,
+    aegisRewardsManualContract,
+    aegisRewardsAddress,
+    aegisMintingJUSDContract,
+    aegisMintingJUSDAddress,
+    assetContract,
+    assetAddress,
+    aegisConfig,
+    aegisConfigAddress,
+  }
+}
+
 export async function signOrderByWallet(order: OrderLib.OrderStruct, contractAddress: string, wallet: HDNodeWallet) {
   return wallet.signTypedData(
     {
@@ -114,6 +167,35 @@ export async function signOrderByWallet(order: OrderLib.OrderStruct, contractAdd
 
 export async function signOrder(order: OrderLib.OrderStruct, contractAddress: string) {
   return signOrderByWallet(order, contractAddress, trustedSignerAccount)
+}
+
+export async function signOrderJUSDByWallet(order: OrderLib.OrderStruct, contractAddress: string, wallet: HDNodeWallet) {
+  return wallet.signTypedData(
+    {
+      name: 'AegisMintingJUSD',
+      version: '1',
+      chainId: 1337n,
+      verifyingContract: contractAddress,
+    },
+    {
+      Order: [
+        { name: 'orderType', type: 'uint8' },
+        { name: 'userWallet', type: 'address' },
+        { name: 'collateralAsset', type: 'address' },
+        { name: 'collateralAmount', type: 'uint256' },
+        { name: 'yusdAmount', type: 'uint256' },
+        { name: 'slippageAdjustedAmount', type: 'uint256' },
+        { name: 'expiry', type: 'uint256' },
+        { name: 'nonce', type: 'uint256' },
+        { name: 'additionalData', type: 'bytes' },
+      ],
+    },
+    order,
+  )
+}
+
+export async function signOrderJUSD(order: OrderLib.OrderStruct, contractAddress: string) {
+  return signOrderJUSDByWallet(order, contractAddress, trustedSignerAccount)
 }
 
 export async function signClaimRequestByWallet(
