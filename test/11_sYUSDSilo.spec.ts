@@ -1,5 +1,5 @@
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
+import { ethers, upgrades } from 'hardhat'
 import { YUSD, sYUSD, sYUSDSilo } from '../typechain-types'
 
 describe('sYUSDSilo', () => {
@@ -23,10 +23,16 @@ describe('sYUSDSilo', () => {
     await yusdContract.mint(user1, initialAmount)
 
     // Deploy sYUSD with admin as the admin
-    sYusdContract = await ethers.deployContract('sYUSD', [
-      await yusdContract.getAddress(),
-      admin.address,
-    ])
+    const sYusdFactory = await ethers.getContractFactory('sYUSD')
+    sYusdContract = await upgrades.deployProxy(
+      sYusdFactory,
+      [await yusdContract.getAddress(), admin.address],
+      {
+        kind: 'transparent',
+        initializer: 'initialize',
+        unsafeAllow: ['constructor', 'delegatecall'],
+      },
+    ) as any
 
     // The silo is deployed by the sYUSD contract in its constructor
     const siloAddress = await sYusdContract.silo()
