@@ -198,7 +198,6 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
     address _admin
   ) AccessControlDefaultAdminRules(3 days, _admin) {
     if (address(_jusd) == address(0)) revert ZeroAddress();
-    if (address(_aegisRewards) == address(0)) revert ZeroAddress();
     if (address(_aegisConfig) == address(0)) revert ZeroAddress();
     if (_assets.length == 0) revert NotAssetsProvided();
     require(_assets.length == _chainlinkAssetHeartbeats.length);
@@ -455,6 +454,9 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
     OrderLib.Order calldata order,
     bytes calldata signature
   ) external nonReentrant onlyRole(FUNDS_MANAGER_ROLE) onlySupportedAsset(order.collateralAsset) {
+    if (address(aegisRewards) == address(0)) {
+      revert ZeroAddress();
+    }
     if (order.orderType != OrderLib.OrderType.DEPOSIT_INCOME) {
       revert InvalidOrder();
     }

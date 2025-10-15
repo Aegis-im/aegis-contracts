@@ -246,7 +246,10 @@
         "sYUSDAddress": "0xf7b97872A9Ce774E6B68486afF5222b188e4Ce6c",
         "sYUSDSiloAddress": "0xE70e53Eadfd72A8f8773286296636818196B7E79",
         "feedRegistryAddress": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
-        "aegisChainlinkOracleV2Address": "0x6FFB6cAa98B90458B0446855943C6588DD480c18"
+        "aegisChainlinkOracleV2Address": "0x6FFB6cAa98B90458B0446855943C6588DD480c18",
+        "jusdAddress": "0xC832f4063D654aC62708c67F9B079dC6186eA406",
+        "aegisOracleJUSDAddress": "0x27604917Fb09eD13E00a95aC6F75bf3142b92e20",
+        "aegisMintingJUSDAddress": "0xC6d72a8796c0d86c8F9385878Fa787AE02E537eF"
       },
       "layerzero": {
         "targetEid": 40102,
@@ -337,7 +340,6 @@
         "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984"
       ],
       "custodianAddresses": [
-        "{DEPLOYER_ADDRESS}",
         "{DEPLOYER_ADDRESS}"
       ]
     }
