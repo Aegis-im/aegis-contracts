@@ -19,15 +19,15 @@ import { OrderLib } from "./lib/OrderLib.sol";
 import { IAegisMintingEvents, IAegisMintingErrors } from "./interfaces/IAegisMinting.sol";
 import { IAegisRewards } from "./interfaces/IAegisRewards.sol";
 import { IAegisConfig } from "./interfaces/IAegisConfig.sol";
-import { IAegisOracle } from "./interfaces/IAegisOracle.sol";
-import { IYUSD } from "./interfaces/IYUSD.sol";
+import { IAegisOracleJUSD } from "./interfaces/IAegisOracleJUSD.sol";
+import { IJUSD } from "./interfaces/IJUSD.sol";
 
 contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessControlDefaultAdminRules, ReentrancyGuard {
   using EnumerableSet for EnumerableSet.AddressSet;
   using EnumerableMap for EnumerableMap.AddressToUintMap;
   using OrderLib for OrderLib.Order;
   using SafeERC20 for IERC20;
-  using SafeERC20 for IYUSD;
+  using SafeERC20 for IJUSD;
 
   enum RedeemRequestStatus {
     PENDING,
@@ -70,7 +70,7 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
   bytes32 private constant EIP712_REVISION = keccak256("1");
 
   /// @dev JUSD stablecoin
-  IYUSD public immutable jusd;
+  IJUSD public immutable jusd;
 
   /// @dev AegisRewards contract
   IAegisRewards public aegisRewards;
@@ -78,13 +78,13 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
   /// @dev AegisConfig contract
   IAegisConfig public aegisConfig;
 
-  /// @dev AegisOracle contract providing YUSD/USD price
-  IAegisOracle public aegisOracle;
+  /// @dev AegisOracle contract providing jUSD/USD price
+  IAegisOracleJUSD public aegisOracle;
 
   /// @dev InsuranceFund address
   address public insuranceFundAddress;
 
-  /// @dev Percent of YUSD rewards that will be transferred to InsuranceFund address. Default: 5%
+  /// @dev Percent of jUSD rewards that will be transferred to InsuranceFund address. Default: 5%
   uint16 public incomeFeeBP = 500;
 
   /// @dev Mint pause state
@@ -96,10 +96,10 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
   /// @dev Cross-chain operations pause state
   bool public crossChainPaused;
 
-  /// @dev Percent of YUSD that will be taken as a fee from mint amount
+  /// @dev Percent of jUSD that will be taken as a fee from mint amount
   uint16 public mintFeeBP;
 
-  /// @dev Percent of YUSD that will be taken as a fee from redeem amount
+  /// @dev Percent of jUSD that will be taken as a fee from redeem amount
   uint16 public redeemFeeBP;
 
   /// @dev Asset funds that were frozen and cannot be transfered to custody
@@ -186,10 +186,10 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
   }
 
   constructor(
-    IYUSD _jusd,
+    IJUSD _jusd,
     IAegisConfig _aegisConfig,
     IAegisRewards _aegisRewards,
-    IAegisOracle _aegisOracle,
+    IAegisOracleJUSD _aegisOracle,
     FeedRegistryInterface _fdRegistry,
     address _insuranceFundAddress,
     address[] memory _assets,
@@ -245,14 +245,14 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
     return price;
   }
 
-  /// @dev Returns asset/YUSD price from AegisOracle
+  /// @dev Returns asset/jUSD price from AegisOracle
   function assetAegisOracleJUSDPrice(address asset) public view returns (uint256) {
     (uint256 price, ) = _getAssetJUSDPriceOracle(asset);
     return price;
   }
 
   /**
-   * @dev Mints YUSD from assets
+   * @dev Mints jUSD from assets
    * @param order Struct containing order details
    * @param signature Signature of trusted signer
    */
@@ -294,7 +294,7 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
   }
 
   /**
-   * @dev Creates new RedeemRequest and locks user's YUSD tokens
+   * @dev Creates new RedeemRequest and locks user's jUSD tokens
    * @param order Struct containing order details
    * @param signature Signature of trusted signer
    */
@@ -332,7 +332,7 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
 
   /**
    * @dev Approves pending RedeemRequest.
-   * @dev Burns locked YUSD and transfers collateral amount to request order benefactor
+   * @dev Burns locked jUSD and transfers collateral amount to request order benefactor
    * @param requestId Id of RedeemRequest to approve
    * @param amount Max collateral amount that will be transferred to user
    */
@@ -383,7 +383,7 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
   }
 
   /**
-   * @dev Rejects pending RedeemRequest and unlocks user's YUSD
+   * @dev Rejects pending RedeemRequest and unlocks user's jUSD
    * @param requestId Id of RedeemRequest to reject
    */
   function rejectRedeemRequest(string calldata requestId) external nonReentrant onlyRole(FUNDS_MANAGER_ROLE) whenRedeemUnpaused {
@@ -396,7 +396,7 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
   }
 
   /**
-   * @dev Withdraws expired RedeemRequest locked YUSD funds to user
+   * @dev Withdraws expired RedeemRequest locked jUSD funds to user
    * @param requestId Id of RedeemRequest to withdraw
    */
   function withdrawRedeemRequest(string calldata requestId) public nonReentrant whenRedeemUnpaused {
@@ -415,9 +415,9 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
   }
 
   /**
-   * @dev Mints YUSD for cross-chain transfer
-   * @param to Address to mint YUSD to
-   * @param amount Amount of YUSD to mint
+   * @dev Mints jUSD for cross-chain transfer
+   * @param to Address to mint jUSD to
+   * @param amount Amount of jUSD to mint
    */
   function mintForCrossChain(address to, uint256 amount) 
     external 
@@ -430,9 +430,9 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
   }
 
   /**
-   * @dev Burns YUSD for cross-chain transfer
-   * @param from Address to burn YUSD from
-   * @param amount Amount of YUSD to burn
+   * @dev Burns jUSD for cross-chain transfer
+   * @param from Address to burn jUSD from
+   * @param amount Amount of jUSD to burn
    */
   function burnForCrossChain(address from, uint256 amount) 
     external 
@@ -447,7 +447,7 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
 
 
   /**
-   * @dev Mints YUSD rewards in exchange for collateral asset income
+   * @dev Mints jUSD rewards in exchange for collateral asset income
    * @param order Struct containing order details
    * @param signature Signature of trusted signer
    */
@@ -560,7 +560,7 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
   }
 
   /// @dev Sets new AegisOracle address
-  function setAegisOracleAddress(IAegisOracle _aegisOracle) external onlyRole(SETTINGS_MANAGER_ROLE) {
+  function setAegisOracleAddress(IAegisOracleJUSD _aegisOracle) external onlyRole(SETTINGS_MANAGER_ROLE) {
     _setAegisOracleAddress(_aegisOracle);
   }
 
@@ -569,7 +569,7 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
     _setCrossChainOperator(_operator);
   }
 
-  /// @dev Sets percent in basis points of YUSD that will be taken as a fee on depositIncome
+  /// @dev Sets percent in basis points of jUSD that will be taken as a fee on depositIncome
   function setIncomeFeeBP(uint16 value) external onlyRole(SETTINGS_MANAGER_ROLE) {
     // No more than 50%
     if (value > MAX_BPS / 2) {
@@ -597,7 +597,7 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
     emit CrossChainPauseChanged(paused);
   }
 
-  /// @dev Sets percent in basis points of YUSD that will be taken as a fee on mint
+  /// @dev Sets percent in basis points of jUSD that will be taken as a fee on mint
   function setMintFeeBP(uint16 value) external onlyRole(SETTINGS_MANAGER_ROLE) {
     // No more than 50%
     if (value > MAX_BPS / 2) {
@@ -607,7 +607,7 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
     emit SetMintFeeBP(value);
   }
 
-  /// @dev Sets percent in basis points of YUSD that will be taken as a fee on redeem
+  /// @dev Sets percent in basis points of jUSD that will be taken as a fee on redeem
   function setRedeemFeeBP(uint16 value) external onlyRole(SETTINGS_MANAGER_ROLE) {
     // No more than 50%
     if (value > MAX_BPS / 2) {
@@ -749,7 +749,7 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
     emit SetAegisRewardsAddress(address(aegisRewards));
   }
 
-  function _setAegisOracleAddress(IAegisOracle _aegisOracle) internal {
+  function _setAegisOracleAddress(IAegisOracleJUSD _aegisOracle) internal {
     aegisOracle = _aegisOracle;
     emit SetAegisOracleAddress(address(aegisOracle));
   }
@@ -841,7 +841,7 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
       collateralAmount = Math.min(collateralAmount, chainlinkCollateralAmount);
     }
 
-    // Calculate collateral amount for aegisOracle asset/YUSD price.
+    // Calculate collateral amount for aegisOracle asset/jUSD price.
     (uint256 oraclePrice, uint8 oracleDecimals) = _getAssetJUSDPriceOracle(collateralAsset);
     if (oraclePrice > 0) {
       uint256 oracleCollateralAmount = Math.mulDiv(
@@ -894,7 +894,7 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
       return (0, 0);
     }
 
-    int256 jusdUSDPrice = aegisOracle.yusdUSDPrice();
+    int256 jusdUSDPrice = aegisOracle.jusdUSDPrice();
     if (jusdUSDPrice <= 0) {
       return (0, 0);
     }

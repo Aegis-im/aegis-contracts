@@ -626,7 +626,7 @@ describe('AegisMintingJUSD', function() {
         await expect(aegisMintingJUSDContract.connect(sender).requestRedeem(redeemOrder, signature)).to.be.revertedWithCustomError(aegisMintingJUSDContract, 'PriceSlippage')
       })
 
-      it('should revert when calculated collateral amount by AegisOracle price is less than min receive amount', async () => {
+      it('should revert when calculated collateral amount by AegisOracleJUSD price is less than min receive amount', async () => {
         const [owner, sender] = await ethers.getSigners()
 
         const { aegisMintingJUSDContract, aegisMintingJUSDAddress, assetAddress, jusdContract, assetContract, aegisConfig } = await loadFixture(deployJUSDFixture)
@@ -640,10 +640,10 @@ describe('AegisMintingJUSD', function() {
         // Set feed price to 1 asset/USD to pass check
         await feedRegistry.setPrice(assetContract, USD_FEED_ADDRESS, '100000000')
 
-        const aegisOracle = await ethers.deployContract('AegisOracle', [[owner], owner])
+        const aegisOracle = await ethers.deployContract('AegisOracleJUSD', [[owner], owner])
         await aegisMintingJUSDContract.setAegisOracleAddress(aegisOracle)
 
-        await aegisOracle.updateYUSDPrice('99963000')
+        await aegisOracle.updateJUSDPrice('99963000')
 
         await jusdContract.setMinter(owner)
         await jusdContract.mint(sender, ethers.parseEther('100'))
@@ -906,11 +906,11 @@ describe('AegisMintingJUSD', function() {
 
         await feedRegistry.setPrice(assetContract, USD_FEED_ADDRESS, '100000000')
 
-        const aegisOracle = await ethers.deployContract('AegisOracle', [[owner], owner])
+        const aegisOracle = await ethers.deployContract('AegisOracleJUSD', [[owner], owner])
         await aegisOracle.setOperator(owner, true)
         await aegisMintingJUSDContract.setAegisOracleAddress(aegisOracle)
 
-        await aegisOracle.updateYUSDPrice('100000000')
+        await aegisOracle.updateJUSDPrice('100000000')
 
         await jusdContract.setMinter(owner)
         await jusdContract.mint(sender, ethers.parseEther('100'))
@@ -943,7 +943,7 @@ describe('AegisMintingJUSD', function() {
         await feedRegistry.setPrice(assetContract, USD_FEED_ADDRESS, chainlinkPrice)
 
         const oraclePrice = 99963000n
-        await aegisOracle.updateYUSDPrice(oraclePrice)
+        await aegisOracle.updateJUSDPrice(oraclePrice)
 
         const chainlinkCollateralAmount = yusdAmount * 10n ** 8n / chainlinkPrice
         const oracleCollateralAmount = yusdAmount * 10n ** 8n / (chainlinkPrice * 10n ** 8n / oraclePrice)
@@ -1101,7 +1101,7 @@ describe('AegisMintingJUSD', function() {
           withArgs(requestId, owner.address, sender.address, yusdAmount)
       })
 
-      it('should reject RedeemRequest when calculated collateral amount by AegisOracle price is less than min receive amount', async () => {
+      it('should reject RedeemRequest when calculated collateral amount by AegisOracleJUSD price is less than min receive amount', async () => {
         const [owner, sender] = await ethers.getSigners()
 
         const { aegisMintingJUSDContract, aegisMintingJUSDAddress, assetContract, assetAddress, jusdContract, aegisConfig } = await loadFixture(deployJUSDFixture)
@@ -1142,11 +1142,11 @@ describe('AegisMintingJUSD', function() {
 
         await feedRegistry.setPrice(assetContract, USD_FEED_ADDRESS, '100000000')
 
-        const aegisOracle = await ethers.deployContract('AegisOracle', [[owner], owner])
+        const aegisOracle = await ethers.deployContract('AegisOracleJUSD', [[owner], owner])
         await aegisOracle.setOperator(owner, true)
         await aegisMintingJUSDContract.setAegisOracleAddress(aegisOracle)
 
-        await aegisOracle.updateYUSDPrice('99963000')
+        await aegisOracle.updateJUSDPrice('99963000')
 
         await expect(aegisMintingJUSDContract.approveRedeemRequest('test', collateralAmount)).to.
           emit(aegisMintingJUSDContract, 'RejectRedeemRequest').

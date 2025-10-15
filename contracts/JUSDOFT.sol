@@ -6,9 +6,9 @@ import { OFT } from "@layerzerolabs/oft-evm/contracts/OFT.sol";
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import { IYUSD, IYUSDErrors } from "./interfaces/IYUSD.sol";
+import { IJUSD, IJUSDErrors } from "./interfaces/IJUSD.sol";
 
-contract JUSDOFT is OFT, ERC20Permit, IYUSDErrors {
+contract JUSDOFT is OFT, ERC20Permit, IJUSDErrors {
   mapping(address => bool) public isBlackListed;
 
   event AddedBlackList(address _user);

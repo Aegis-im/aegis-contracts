@@ -8,13 +8,13 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IYUSD } from "./interfaces/IYUSD.sol";
+import { IJUSD } from "./interfaces/IJUSD.sol";
 import { sJUSDSilo } from "./sJUSDSilo.sol";
 
 /**
  * @title sJUSDUpgradeable
  * @dev Staked JUSD (sJUSD) - an interest-bearing token that represents JUSD staked in the protocol.
- * The token's value increases over time relative to YUSD, reflecting staking rewards.
+ * The token's value increases over time relative to JUSD, reflecting staking rewards.
  * Implements ERC4626 Tokenized Vault Standard.
  * 
  * @dev Staking Mechanics:
@@ -36,7 +36,7 @@ import { sJUSDSilo } from "./sJUSDSilo.sol";
  * @dev Security Features:
  * - Based on OpenZeppelin's upgradeable contracts
  * - Admin role is required for changing critical parameters
- * - Rescue function for recovering non-YUSD tokens sent to the contract accidentally
+ * - Rescue function for recovering non-JUSD tokens sent to the contract accidentally
  * - Safeguards against withdrawing during cooldown period
  * 
  * @dev Integration Notes:

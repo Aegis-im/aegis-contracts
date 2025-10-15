@@ -7,9 +7,9 @@ import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import { IYUSD, IYUSDErrors } from "./interfaces/IYUSD.sol";
+import { IJUSD, IJUSDErrors } from "./interfaces/IJUSD.sol";
 
-contract JUSD is Ownable2Step, ERC20Burnable, ERC20Permit, IYUSDErrors {
+contract JUSD is Ownable2Step, ERC20Burnable, ERC20Permit, IJUSDErrors {
   address public minter;
 
   mapping(address => bool) public isBlackListed;
