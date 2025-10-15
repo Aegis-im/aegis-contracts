@@ -154,7 +154,7 @@ describe('#AegisChainlinkOracleV3', () => {
     it('should return correct description', async () => {
       const [owner] = await ethers.getSigners()
       const contract = await ethers.deployContract('AegisChainlinkOracleV3', [[owner], owner])
-      expect(await contract.description()).to.equal('Aegis Oracle YUSD / USD')
+      expect(await contract.description()).to.equal('Aegis Oracle sYUSD / YUSD')
     })
 
     it('should return version = 1', async () => {

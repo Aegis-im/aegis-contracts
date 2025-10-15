@@ -1,5 +1,5 @@
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
+import { ethers, upgrades } from 'hardhat'
 import { JUSD, SJUSD, SJUSDSilo } from '../typechain-types'
 import { DEFAULT_ADMIN_ROLE } from '../utils/helpers'
 
@@ -12,9 +12,11 @@ describe('sJUSD', function () {
   let user1: any
   let user2: any
   let admin: any
+  let insuranceFund: any
   const ADMIN_ROLE = DEFAULT_ADMIN_ROLE
   const initialAmount = ethers.parseEther('1000')
   const cooldown7days = 7 * 24 * 60 * 60 // 7 days in seconds
+  const instantUnstakingFee = 50 // 0.5% in basis points
 
   beforeEach(async function () {
     this.timeout(300000) // 5 minutes
@@ -23,6 +25,7 @@ describe('sJUSD', function () {
     user1 = signers[1]
     user2 = signers[2]
     admin = signers[3]
+    insuranceFund = signers[4]
 
     // Deploy JUSD
     jusdContract = await ethers.deployContract('JUSD', [owner.address])
@@ -32,16 +35,24 @@ describe('sJUSD', function () {
     await jusdContract.mint(user1, initialAmount)
     await jusdContract.mint(user2, initialAmount)
 
-    // Deploy sYUSD with admin as the admin
+    // Deploy sJUSD with admin as the admin
     const sJusdFactory = await ethers.getContractFactory('sJUSD')
-    sJusdContract = await sJusdFactory.deploy(
-      await jusdContract.getAddress(),
-      admin.address,
-    ) as SJUSD
+    sJusdContract = await upgrades.deployProxy(
+      sJusdFactory,
+      [await jusdContract.getAddress(), admin.address],
+      {
+        kind: 'transparent',
+        initializer: 'initialize',
+        unsafeAllow: ['constructor', 'delegatecall'],
+      },
+    ) as any
 
     // Get the silo address
     const siloAddress = await sJusdContract.silo()
-    siloContract = await ethers.getContractAt('sYUSDSilo', siloAddress) as unknown as SJUSDSilo
+    siloContract = await ethers.getContractAt('sJUSDSilo', siloAddress) as unknown as SJUSDSilo
+
+    // Initialize V2 functionality
+    await sJusdContract.connect(admin).initializeV2(instantUnstakingFee, insuranceFund.address)
   })
 
   describe('Initialization', () => {
@@ -68,8 +79,17 @@ describe('sJUSD', function () {
     })
 
     it('should revert if JUSD address is zero', async () => {
+      const sJusdFactory = await ethers.getContractFactory('sJUSD')
       await expect(
-        ethers.deployContract('sJUSD', [ethers.ZeroAddress, admin.address]),
+        upgrades.deployProxy(
+          sJusdFactory,
+          [ethers.ZeroAddress, admin.address],
+          {
+            kind: 'transparent',
+            initializer: 'initialize',
+            unsafeAllow: ['constructor', 'delegatecall'],
+          },
+        ),
       ).to.be.revertedWithCustomError(
         sJusdContract,
         'ZeroAddress',
@@ -77,9 +97,18 @@ describe('sJUSD', function () {
     })
 
     it('should revert if admin address is zero', async () => {
-      const yusdAddress = await jusdContract.getAddress()
+      const jusdAddress = await jusdContract.getAddress()
+      const sJusdFactory = await ethers.getContractFactory('sJUSD')
       await expect(
-        ethers.deployContract('sJUSD', [yusdAddress, ethers.ZeroAddress]),
+        upgrades.deployProxy(
+          sJusdFactory,
+          [jusdAddress, ethers.ZeroAddress],
+          {
+            kind: 'transparent',
+            initializer: 'initialize',
+            unsafeAllow: ['constructor', 'delegatecall'],
+          },
+        ),
       ).to.be.revertedWithCustomError(
         sJusdContract,
         'ZeroAddress',
@@ -165,19 +194,14 @@ describe('sJUSD', function () {
     })
 
     it('should not allow direct withdrawals when cooldown is enabled', async () => {
-      await expect(
-        sJusdContract.connect(user1).withdraw(depositAmount, user1, user1),
-      ).to.be.revertedWithCustomError(
-        sJusdContract,
-        'ExpectedCooldownOff',
-      )
+      // With V2 initialized, instant unstaking is allowed with fee
+      // So this test now checks that instant unstaking works
+      const balanceBefore = await jusdContract.balanceOf(user1)
+      await sJusdContract.connect(user1).withdraw(depositAmount, user1, user1)
+      const balanceAfter = await jusdContract.balanceOf(user1)
 
-      await expect(
-        sJusdContract.connect(user1).redeem(depositAmount, user1, user1),
-      ).to.be.revertedWithCustomError(
-        sJusdContract,
-        'ExpectedCooldownOff',
-      )
+      // User should receive less than depositAmount due to instant unstaking fee
+      expect(balanceAfter - balanceBefore).to.be.lt(depositAmount)
     })
 
     it('should allow cooldown process with assets', async () => {

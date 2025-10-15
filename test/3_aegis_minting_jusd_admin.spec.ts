@@ -728,7 +728,7 @@ describe('AegisMintingJUSD', () => {
   describe('#setUnbackedMinter', () => {
     describe('success', () => {
       it('should set new unbacked minter', async () => {
-        const [owner] = await ethers.getSigners()
+        await ethers.getSigners()
         const newMinter = await ethers.Wallet.createRandom()
 
         const { aegisMintingJUSDContract } = await loadFixture(deployJUSDFixture)
@@ -741,7 +741,7 @@ describe('AegisMintingJUSD', () => {
       })
 
       it('should update existing unbacked minter', async () => {
-        const [owner] = await ethers.getSigners()
+        await ethers.getSigners()
         const oldMinter = await ethers.Wallet.createRandom()
         const newMinter = await ethers.Wallet.createRandom()
 
@@ -774,9 +774,9 @@ describe('AegisMintingJUSD', () => {
   describe('#mintUnbacked', () => {
     describe('success', () => {
       it('should mint unbacked JUSD tokens', async () => {
-        const [owner] = await ethers.getSigners()
-        const unbackedMinter = await ethers.Wallet.createRandom()
-        const recipient = await ethers.Wallet.createRandom()
+        const signers = await ethers.getSigners()
+        const unbackedMinter = signers[1]
+        const recipient = signers[2]
 
         const { aegisMintingJUSDContract, jusdContract } = await loadFixture(deployJUSDFixture)
 
@@ -796,10 +796,10 @@ describe('AegisMintingJUSD', () => {
 
     describe('error', () => {
       it('should revert when caller is not unbacked minter', async () => {
-        const [owner] = await ethers.getSigners()
-        const unbackedMinter = await ethers.Wallet.createRandom()
-        const notMinter = await ethers.Wallet.createRandom()
-        const recipient = await ethers.Wallet.createRandom()
+        const signers = await ethers.getSigners()
+        const unbackedMinter = signers[1]
+        const notMinter = signers[2]
+        const recipient = signers[3]
 
         const { aegisMintingJUSDContract } = await loadFixture(deployJUSDFixture)
 
@@ -812,7 +812,7 @@ describe('AegisMintingJUSD', () => {
       })
 
       it('should revert when unbacked minter is not set', async () => {
-        const [owner] = await ethers.getSigners()
+        await ethers.getSigners()
         const recipient = await ethers.Wallet.createRandom()
 
         const { aegisMintingJUSDContract } = await loadFixture(deployJUSDFixture)
