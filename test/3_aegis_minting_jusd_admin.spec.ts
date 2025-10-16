@@ -725,35 +725,35 @@ describe('AegisMintingJUSD', () => {
     })
   })
 
-  describe('#setUnbackedMinter', () => {
+  describe('#setPreCollateralizedMinter', () => {
     describe('success', () => {
-      it('should set new unbacked minter', async () => {
+      it('should set new pre-collateralized minter', async () => {
         await ethers.getSigners()
         const newMinter = await ethers.Wallet.createRandom()
 
         const { aegisMintingJUSDContract } = await loadFixture(deployJUSDFixture)
 
-        await expect(aegisMintingJUSDContract.setUnbackedMinter(newMinter.address))
-          .to.emit(aegisMintingJUSDContract, 'SetUnbackedMinter')
+        await expect(aegisMintingJUSDContract.setPreCollateralizedMinter(newMinter.address))
+          .to.emit(aegisMintingJUSDContract, 'SetPreCollateralizedMinter')
           .withArgs(newMinter.address, ethers.ZeroAddress)
 
-        expect(await aegisMintingJUSDContract.unbackedMinter()).to.equal(newMinter.address)
+        expect(await aegisMintingJUSDContract.preCollateralizedMinter()).to.equal(newMinter.address)
       })
 
-      it('should update existing unbacked minter', async () => {
+      it('should update existing pre-collateralized minter', async () => {
         await ethers.getSigners()
         const oldMinter = await ethers.Wallet.createRandom()
         const newMinter = await ethers.Wallet.createRandom()
 
         const { aegisMintingJUSDContract } = await loadFixture(deployJUSDFixture)
 
-        await aegisMintingJUSDContract.setUnbackedMinter(oldMinter.address)
+        await aegisMintingJUSDContract.setPreCollateralizedMinter(oldMinter.address)
 
-        await expect(aegisMintingJUSDContract.setUnbackedMinter(newMinter.address))
-          .to.emit(aegisMintingJUSDContract, 'SetUnbackedMinter')
+        await expect(aegisMintingJUSDContract.setPreCollateralizedMinter(newMinter.address))
+          .to.emit(aegisMintingJUSDContract, 'SetPreCollateralizedMinter')
           .withArgs(newMinter.address, oldMinter.address)
 
-        expect(await aegisMintingJUSDContract.unbackedMinter()).to.equal(newMinter.address)
+        expect(await aegisMintingJUSDContract.preCollateralizedMinter()).to.equal(newMinter.address)
       })
     })
 
@@ -765,28 +765,28 @@ describe('AegisMintingJUSD', () => {
 
         const { aegisMintingJUSDContract } = await loadFixture(deployJUSDFixture)
 
-        await expect(aegisMintingJUSDContract.connect(notOwner).setUnbackedMinter(newMinter.address))
+        await expect(aegisMintingJUSDContract.connect(notOwner).setPreCollateralizedMinter(newMinter.address))
           .to.be.revertedWithCustomError(aegisMintingJUSDContract, 'AccessControlUnauthorizedAccount')
       })
     })
   })
 
-  describe('#mintUnbacked', () => {
+  describe('#mintPreCollateralized', () => {
     describe('success', () => {
-      it('should mint unbacked JUSD tokens', async () => {
+      it('should mint pre-collateralized JUSD tokens', async () => {
         const signers = await ethers.getSigners()
-        const unbackedMinter = signers[1]
+        const preCollateralizedMinter = signers[1]
         const recipient = signers[2]
 
         const { aegisMintingJUSDContract, jusdContract } = await loadFixture(deployJUSDFixture)
 
-        await aegisMintingJUSDContract.setUnbackedMinter(unbackedMinter.address)
+        await aegisMintingJUSDContract.setPreCollateralizedMinter(preCollateralizedMinter.address)
 
         const amount = ethers.parseEther('1000')
         const initialBalance = await jusdContract.balanceOf(recipient.address)
 
-        await expect(aegisMintingJUSDContract.connect(unbackedMinter).mintUnbacked(recipient.address, amount))
-          .to.emit(aegisMintingJUSDContract, 'UnbackedMint')
+        await expect(aegisMintingJUSDContract.connect(preCollateralizedMinter).mintPreCollateralized(recipient.address, amount))
+          .to.emit(aegisMintingJUSDContract, 'PreCollateralizedMint')
           .withArgs(recipient.address, amount)
 
         const finalBalance = await jusdContract.balanceOf(recipient.address)
@@ -795,23 +795,23 @@ describe('AegisMintingJUSD', () => {
     })
 
     describe('error', () => {
-      it('should revert when caller is not unbacked minter', async () => {
+      it('should revert when caller is not pre-collateralized minter', async () => {
         const signers = await ethers.getSigners()
-        const unbackedMinter = signers[1]
+        const preCollateralizedMinter = signers[1]
         const notMinter = signers[2]
         const recipient = signers[3]
 
         const { aegisMintingJUSDContract } = await loadFixture(deployJUSDFixture)
 
-        await aegisMintingJUSDContract.setUnbackedMinter(unbackedMinter.address)
+        await aegisMintingJUSDContract.setPreCollateralizedMinter(preCollateralizedMinter.address)
 
         const amount = ethers.parseEther('1000')
 
-        await expect(aegisMintingJUSDContract.connect(notMinter).mintUnbacked(recipient.address, amount))
+        await expect(aegisMintingJUSDContract.connect(notMinter).mintPreCollateralized(recipient.address, amount))
           .to.be.revertedWithCustomError(aegisMintingJUSDContract, 'NotAuthorized')
       })
 
-      it('should revert when unbacked minter is not set', async () => {
+      it('should revert when pre-collateralized minter is not set', async () => {
         await ethers.getSigners()
         const recipient = await ethers.Wallet.createRandom()
 
@@ -819,7 +819,7 @@ describe('AegisMintingJUSD', () => {
 
         const amount = ethers.parseEther('1000')
 
-        await expect(aegisMintingJUSDContract.mintUnbacked(recipient.address, amount))
+        await expect(aegisMintingJUSDContract.mintPreCollateralized(recipient.address, amount))
           .to.be.revertedWithCustomError(aegisMintingJUSDContract, 'NotAuthorized')
       })
     })

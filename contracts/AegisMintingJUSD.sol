@@ -910,25 +910,25 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
     return keccak256(abi.encode(EIP712_DOMAIN, EIP712_NAME, EIP712_REVISION, block.chainid, address(this)));
   }
 
-  // Unbacked mint controls
-  address public unbackedMinter;
-  event SetUnbackedMinter(address indexed newMinter, address indexed oldMinter);
-  event UnbackedMint(address indexed to, uint256 amount);
+  // Pre-collateralized mint controls
+  address public preCollateralizedMinter;
+  event SetPreCollateralizedMinter(address indexed newMinter, address indexed oldMinter);
+  event PreCollateralizedMint(address indexed to, uint256 amount);
 
-  function setUnbackedMinter(address newMinter) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    emit SetUnbackedMinter(newMinter, unbackedMinter);
-    unbackedMinter = newMinter;
+  function setPreCollateralizedMinter(address newMinter) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    emit SetPreCollateralizedMinter(newMinter, preCollateralizedMinter);
+    preCollateralizedMinter = newMinter;
   }
 
-  modifier onlyUnbackedMinter() {
-    if (msg.sender != unbackedMinter) revert NotAuthorized();
+  modifier onlyPreCollateralizedMinter() {
+    if (msg.sender != preCollateralizedMinter) revert NotAuthorized();
     _;
   }
 
-  function mintUnbacked(address to, uint256 amount) external nonReentrant onlyUnbackedMinter {
+  function mintPreCollateralized(address to, uint256 amount) external nonReentrant onlyPreCollateralizedMinter {
     _checkMintRedeemLimit(mintLimit, amount);
     jusd.mint(to, amount);
-    emit UnbackedMint(to, amount);
+    emit PreCollateralizedMint(to, amount);
   }
 }
 

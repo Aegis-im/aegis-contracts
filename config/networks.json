@@ -249,7 +249,8 @@
         "aegisChainlinkOracleV2Address": "0x6FFB6cAa98B90458B0446855943C6588DD480c18",
         "jusdAddress": "0xC832f4063D654aC62708c67F9B079dC6186eA406",
         "aegisOracleJUSDAddress": "0x27604917Fb09eD13E00a95aC6F75bf3142b92e20",
-        "aegisMintingJUSDAddress": "0xC6d72a8796c0d86c8F9385878Fa787AE02E537eF"
+        "aegisMintingJUSDAddress": "0xE0FA3992a0c1390199C06aaf250d9BE3fFf473DE",
+        "usdtAddress": "0xa8d8524be97a6b0bdfa9ab2635e18e9fe8384eda"
       },
       "layerzero": {
         "targetEid": 40102,
@@ -332,8 +333,7 @@
     "deployment": {
       "operators": [],
       "lockupPeriods": [
-        86400,
-        604800
+        86400
       ],
       "assetAddresses": [
         "0x11fE4B6AE13d2a6055C8D9cF65c55bac32B5d844",
