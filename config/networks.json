@@ -246,7 +246,14 @@
         "sYUSDAddress": "0xf7b97872A9Ce774E6B68486afF5222b188e4Ce6c",
         "sYUSDSiloAddress": "0xE70e53Eadfd72A8f8773286296636818196B7E79",
         "feedRegistryAddress": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
-        "aegisChainlinkOracleV2Address": "0x6FFB6cAa98B90458B0446855943C6588DD480c18"
+        "aegisChainlinkOracleV2Address": "0x6FFB6cAa98B90458B0446855943C6588DD480c18",
+        "jusdAddress": "0xC832f4063D654aC62708c67F9B079dC6186eA406",
+        "aegisOracleJUSDAddress": "0x27604917Fb09eD13E00a95aC6F75bf3142b92e20",
+        "aegisMintingJUSDAddress": "0xE0FA3992a0c1390199C06aaf250d9BE3fFf473DE",
+        "usdtAddress": "0xa8d8524be97a6b0bdfa9ab2635e18e9fe8384eda",
+        "sJUSDAddress": "0x214a8EB47Ca8C66C9acF491d8c5a0C6b6B0bBC5C",
+        "sJUSDSiloAddress": "0xDF21A3b705e8Be047CF04e7E76C310928B3790B9",
+        "sjusdOracle": "0x2C44FBe77Ca5FAD24B627BeFa82680d1177a1F21"
       },
       "layerzero": {
         "targetEid": 40102,
@@ -329,15 +336,13 @@
     "deployment": {
       "operators": [],
       "lockupPeriods": [
-        86400,
-        604800
+        86400
       ],
       "assetAddresses": [
         "0x11fE4B6AE13d2a6055C8D9cF65c55bac32B5d844",
         "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984"
       ],
       "custodianAddresses": [
-        "{DEPLOYER_ADDRESS}",
         "{DEPLOYER_ADDRESS}"
       ]
     }
