@@ -102,6 +102,9 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
   /// @dev Percent of jUSD that will be taken as a fee from redeem amount
   uint16 public redeemFeeBP;
 
+  /// @dev Maximum percent of total supply that can be minted in single PreCollateralized mint
+  uint16 public preCollateralizedMaxBps;
+
   /// @dev Asset funds that were frozen and cannot be transfered to custody
   mapping(address => uint256) public assetFrozenFunds;
 
@@ -619,6 +622,15 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
     emit SetRedeemFeeBP(value);
   }
 
+  /// @dev Sets maximum percent of total supply that can be minted in single PreCollateralized mint
+  function setPreCollateralizedMaxBps(uint16 value) external onlyRole(SETTINGS_MANAGER_ROLE) {
+    if (value > MAX_BPS) {
+      revert InvalidPercentBP(value);
+    }
+    preCollateralizedMaxBps = value;
+    emit SetPreCollateralizedMaxBps(value);
+  }
+
   /// @dev Sets mint limit period duration and maximum amount
   function setMintLimits(uint32 periodDuration, uint256 maxPeriodAmount) external onlyRole(SETTINGS_MANAGER_ROLE) {
     mintLimit.periodDuration = periodDuration;
@@ -914,6 +926,7 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
   address public preCollateralizedMinter;
   event SetPreCollateralizedMinter(address indexed newMinter, address indexed oldMinter);
   event PreCollateralizedMint(address indexed to, uint256 amount);
+  event SetPreCollateralizedMaxBps(uint16 value);
 
   function setPreCollateralizedMinter(address newMinter) external onlyRole(DEFAULT_ADMIN_ROLE) {
     emit SetPreCollateralizedMinter(newMinter, preCollateralizedMinter);
@@ -927,6 +940,16 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
 
   function mintPreCollateralized(address to, uint256 amount) external nonReentrant onlyPreCollateralizedMinter {
     _checkMintRedeemLimit(mintLimit, amount);
+    
+    // Check that single mint amount doesn't exceed the percentage of total supply
+    if (preCollateralizedMaxBps > 0) {
+      uint256 totalSupply = jusd.totalSupply();
+      uint256 maxAllowedAmount = (totalSupply * preCollateralizedMaxBps) / MAX_BPS;
+      if (amount > maxAllowedAmount) {
+        revert InvalidAmount();
+      }
+    }
+    
     jusd.mint(to, amount);
     emit PreCollateralizedMint(to, amount);
   }

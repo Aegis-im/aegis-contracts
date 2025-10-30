@@ -777,4 +777,237 @@ describe('AegisMintingJUSD', function() {
       })
     })
   })
+
+  describe('#setPreCollateralizedMaxBps', () => {
+    describe('success', () => {
+      it('should set preCollateralizedMaxBps value', async () => {
+        const [owner] = await ethers.getSigners()
+        const { aegisMintingJUSDContract } = await loadFixture(deployJUSDFixture)
+
+        await aegisMintingJUSDContract.grantRole(SETTINGS_MANAGER_ROLE, owner)
+
+        const newValue = 1000 // 10%
+        await expect(aegisMintingJUSDContract.setPreCollateralizedMaxBps(newValue))
+          .to.emit(aegisMintingJUSDContract, 'SetPreCollateralizedMaxBps')
+          .withArgs(newValue)
+
+        await expect(aegisMintingJUSDContract.preCollateralizedMaxBps()).eventually.to.be.equal(newValue)
+      })
+
+      it('should allow setting to 0', async () => {
+        const [owner] = await ethers.getSigners()
+        const { aegisMintingJUSDContract } = await loadFixture(deployJUSDFixture)
+
+        await aegisMintingJUSDContract.grantRole(SETTINGS_MANAGER_ROLE, owner)
+
+        await expect(aegisMintingJUSDContract.setPreCollateralizedMaxBps(0))
+          .to.emit(aegisMintingJUSDContract, 'SetPreCollateralizedMaxBps')
+          .withArgs(0)
+
+        await expect(aegisMintingJUSDContract.preCollateralizedMaxBps()).eventually.to.be.equal(0)
+      })
+
+      it('should allow setting to MAX_BPS', async () => {
+        const [owner] = await ethers.getSigners()
+        const { aegisMintingJUSDContract } = await loadFixture(deployJUSDFixture)
+
+        await aegisMintingJUSDContract.grantRole(SETTINGS_MANAGER_ROLE, owner)
+
+        await expect(aegisMintingJUSDContract.setPreCollateralizedMaxBps(MAX_BPS))
+          .to.emit(aegisMintingJUSDContract, 'SetPreCollateralizedMaxBps')
+          .withArgs(MAX_BPS)
+
+        await expect(aegisMintingJUSDContract.preCollateralizedMaxBps()).eventually.to.be.equal(MAX_BPS)
+      })
+    })
+
+    describe('error', () => {
+      it('should revert when caller does not have SETTINGS_MANAGER_ROLE', async () => {
+        const signers = await ethers.getSigners()
+        const notOwner = signers[1]
+
+        const { aegisMintingJUSDContract } = await loadFixture(deployJUSDFixture)
+
+        await expect(aegisMintingJUSDContract.connect(notOwner).setPreCollateralizedMaxBps(1000))
+          .to.be.revertedWithCustomError(aegisMintingJUSDContract, 'AccessControlUnauthorizedAccount')
+      })
+
+      it('should revert when value exceeds MAX_BPS', async () => {
+        const [owner] = await ethers.getSigners()
+        const { aegisMintingJUSDContract } = await loadFixture(deployJUSDFixture)
+
+        await aegisMintingJUSDContract.grantRole(SETTINGS_MANAGER_ROLE, owner)
+
+        await expect(aegisMintingJUSDContract.setPreCollateralizedMaxBps(MAX_BPS + 1n))
+          .to.be.revertedWithCustomError(aegisMintingJUSDContract, 'InvalidPercentBP')
+      })
+    })
+  })
+
+  describe('#mintPreCollateralized', () => {
+    describe('success', () => {
+      it('should mint when preCollateralizedMaxBps is 0 (check disabled)', async () => {
+        const [owner, minter, recipient] = await ethers.getSigners()
+        const { aegisMintingJUSDContract, jusdContract } = await loadFixture(deployJUSDFixture)
+
+        await aegisMintingJUSDContract.grantRole(SETTINGS_MANAGER_ROLE, owner)
+        await aegisMintingJUSDContract.setPreCollateralizedMinter(minter.address)
+
+        // preCollateralizedMaxBps is 0 by default, so check is disabled
+        const mintAmount = ethers.parseEther('1000')
+        const balanceBefore = await jusdContract.balanceOf(recipient.address)
+
+        await expect(aegisMintingJUSDContract.connect(minter).mintPreCollateralized(recipient.address, mintAmount))
+          .to.emit(aegisMintingJUSDContract, 'PreCollateralizedMint')
+          .withArgs(recipient.address, mintAmount)
+
+        await expect(jusdContract.balanceOf(recipient.address)).eventually.to.be.equal(balanceBefore + mintAmount)
+      })
+
+      it('should mint when amount is within percentage limit', async () => {
+        const [owner, minter, recipient, sender] = await ethers.getSigners()
+        const { aegisMintingJUSDContract, aegisMintingJUSDAddress, jusdContract, assetContract, assetAddress, aegisConfig } = await loadFixture(deployJUSDFixture)
+
+        await aegisMintingJUSDContract.grantRole(SETTINGS_MANAGER_ROLE, owner)
+        await aegisConfig['whitelistAddress(address,bool)'](sender, true)
+
+        // First mint some JUSD to establish total supply
+        await assetContract.mint(sender.address, ethers.parseEther('1000'))
+        await assetContract.connect(sender).approve(aegisMintingJUSDAddress, ethers.parseEther('1000'))
+
+        const collateralAmount = ethers.parseEther('100')
+        const yusdAmount = ethers.parseEther('99.999')
+        const blockTime = await time.latest()
+        const order = {
+          orderType: OrderType.MINT,
+          userWallet: sender.address,
+          collateralAsset: assetAddress,
+          collateralAmount: collateralAmount,
+          yusdAmount: yusdAmount,
+          slippageAdjustedAmount: yusdAmount,
+          expiry: blockTime + 10000,
+          nonce: Date.now(),
+          additionalData: encodeString(''),
+        }
+        const signature = await signOrderJUSD(order, aegisMintingJUSDAddress)
+
+        await expect(aegisMintingJUSDContract.connect(sender).mint(order, signature)).not.to.be.reverted
+
+        // Set preCollateralizedMaxBps to 10%
+        await aegisMintingJUSDContract.setPreCollateralizedMaxBps(1000)
+        await aegisMintingJUSDContract.setPreCollateralizedMinter(minter.address)
+
+        // Try to mint 5% of total supply (should succeed)
+        const totalSupply = await jusdContract.totalSupply()
+        const mintAmount = (totalSupply * 500n) / 10000n // 5%
+        const balanceBefore = await jusdContract.balanceOf(recipient.address)
+
+        await expect(aegisMintingJUSDContract.connect(minter).mintPreCollateralized(recipient.address, mintAmount))
+          .to.emit(aegisMintingJUSDContract, 'PreCollateralizedMint')
+          .withArgs(recipient.address, mintAmount)
+
+        await expect(jusdContract.balanceOf(recipient.address)).eventually.to.be.equal(balanceBefore + mintAmount)
+      })
+
+      it('should mint when amount exactly equals percentage limit', async () => {
+        const [owner, minter, recipient, sender] = await ethers.getSigners()
+        const { aegisMintingJUSDContract, aegisMintingJUSDAddress, jusdContract, assetContract, assetAddress, aegisConfig } = await loadFixture(deployJUSDFixture)
+
+        await aegisMintingJUSDContract.grantRole(SETTINGS_MANAGER_ROLE, owner)
+        await aegisConfig['whitelistAddress(address,bool)'](sender, true)
+
+        // First mint some JUSD to establish total supply
+        await assetContract.mint(sender.address, ethers.parseEther('1000'))
+        await assetContract.connect(sender).approve(aegisMintingJUSDAddress, ethers.parseEther('1000'))
+
+        const collateralAmount = ethers.parseEther('100')
+        const yusdAmount = ethers.parseEther('100')
+        const blockTime = await time.latest()
+        const order = {
+          orderType: OrderType.MINT,
+          userWallet: sender.address,
+          collateralAsset: assetAddress,
+          collateralAmount: collateralAmount,
+          yusdAmount: yusdAmount,
+          slippageAdjustedAmount: yusdAmount,
+          expiry: blockTime + 10000,
+          nonce: Date.now(),
+          additionalData: encodeString(''),
+        }
+        const signature = await signOrderJUSD(order, aegisMintingJUSDAddress)
+
+        await expect(aegisMintingJUSDContract.connect(sender).mint(order, signature)).not.to.be.reverted
+
+        // Set preCollateralizedMaxBps to 10%
+        await aegisMintingJUSDContract.setPreCollateralizedMaxBps(1000)
+        await aegisMintingJUSDContract.setPreCollateralizedMinter(minter.address)
+
+        // Try to mint exactly 10% of total supply (should succeed)
+        const totalSupply = await jusdContract.totalSupply()
+        const mintAmount = (totalSupply * 1000n) / 10000n // 10%
+        const balanceBefore = await jusdContract.balanceOf(recipient.address)
+
+        await expect(aegisMintingJUSDContract.connect(minter).mintPreCollateralized(recipient.address, mintAmount))
+          .to.emit(aegisMintingJUSDContract, 'PreCollateralizedMint')
+          .withArgs(recipient.address, mintAmount)
+
+        await expect(jusdContract.balanceOf(recipient.address)).eventually.to.be.equal(balanceBefore + mintAmount)
+      })
+    })
+
+    describe('error', () => {
+      it('should revert when amount exceeds percentage limit', async () => {
+        const [owner, minter, recipient, sender] = await ethers.getSigners()
+        const { aegisMintingJUSDContract, aegisMintingJUSDAddress, jusdContract, assetContract, assetAddress, aegisConfig } = await loadFixture(deployJUSDFixture)
+
+        await aegisMintingJUSDContract.grantRole(SETTINGS_MANAGER_ROLE, owner)
+        await aegisConfig['whitelistAddress(address,bool)'](sender, true)
+
+        // First mint some JUSD to establish total supply
+        await assetContract.mint(sender.address, ethers.parseEther('1000'))
+        await assetContract.connect(sender).approve(aegisMintingJUSDAddress, ethers.parseEther('1000'))
+
+        const collateralAmount = ethers.parseEther('100')
+        const yusdAmount = ethers.parseEther('100')
+        const blockTime = await time.latest()
+        const order = {
+          orderType: OrderType.MINT,
+          userWallet: sender.address,
+          collateralAsset: assetAddress,
+          collateralAmount: collateralAmount,
+          yusdAmount: yusdAmount,
+          slippageAdjustedAmount: yusdAmount,
+          expiry: blockTime + 10000,
+          nonce: Date.now(),
+          additionalData: encodeString(''),
+        }
+        const signature = await signOrderJUSD(order, aegisMintingJUSDAddress)
+
+        await expect(aegisMintingJUSDContract.connect(sender).mint(order, signature)).not.to.be.reverted
+
+        // Set preCollateralizedMaxBps to 10%
+        await aegisMintingJUSDContract.setPreCollateralizedMaxBps(1000)
+        await aegisMintingJUSDContract.setPreCollateralizedMinter(minter.address)
+
+        // Try to mint 15% of total supply (should fail)
+        const totalSupply = await jusdContract.totalSupply()
+        const mintAmount = (totalSupply * 1500n) / 10000n // 15%
+
+        await expect(aegisMintingJUSDContract.connect(minter).mintPreCollateralized(recipient.address, mintAmount))
+          .to.be.revertedWithCustomError(aegisMintingJUSDContract, 'InvalidAmount')
+      })
+
+      it('should revert when caller is not preCollateralizedMinter', async () => {
+        const [owner, notMinter, recipient] = await ethers.getSigners()
+        const { aegisMintingJUSDContract } = await loadFixture(deployJUSDFixture)
+
+        await aegisMintingJUSDContract.grantRole(SETTINGS_MANAGER_ROLE, owner)
+
+        const mintAmount = ethers.parseEther('100')
+
+        await expect(aegisMintingJUSDContract.connect(notMinter).mintPreCollateralized(recipient.address, mintAmount))
+          .to.be.revertedWithCustomError(aegisMintingJUSDContract, 'NotAuthorized')
+      })
+    })
+  })
 })
