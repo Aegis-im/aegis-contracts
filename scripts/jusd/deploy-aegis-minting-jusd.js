@@ -50,9 +50,10 @@ async function main() {
   console.log('Insurance Fund Address:', insuranceFundAddress)
 
   // Asset details
-  const assetAddresses = ['0xa8d8524be97a6b0bdfa9ab2635e18e9fe8384eda']
-  //  process.env.ASSET_ADDRESSES
-  //   ? process.env.ASSET_ADDRESSES.split(',')
+  const assetAddresses = process.env.ASSET_ADDRESSES
+    ? process.env.ASSET_ADDRESSES.split(',')
+    : []
+
   if (assetAddresses.length === 0) {
     throw new Error('Please provide at least one asset address in ASSET_ADDRESSES environment variable')
   }
