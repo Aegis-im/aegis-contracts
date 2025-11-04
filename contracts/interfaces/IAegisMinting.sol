@@ -96,6 +96,9 @@ interface IAegisMintingEvents {
   /// @dev Event emitted when redeem limit parameters are changed
   event SetRedeemLimits(uint32 periodDuration, uint256 maxPeriodAmount);
 
+  /// @dev Event emitted when pre-collateralized mint limit parameters are changed
+  event SetPreCollateralizedMintLimits(uint32 periodDuration, uint256 maxPeriodAmountBps);
+
   /// @dev Event emitted when Chainlink FeedRegistry address is changed
   event SetFeedRegistryAddress(address registry);
 

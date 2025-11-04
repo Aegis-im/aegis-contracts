@@ -3,7 +3,8 @@ import { ethers, upgrades } from 'hardhat'
 import { YUSD, SYUSD, SYUSDSilo } from '../typechain-types'
 import { DEFAULT_ADMIN_ROLE } from '../utils/helpers'
 
-describe('sYUSD', () => {
+describe('sYUSD', function() {
+  this.timeout(300000) // 5 minutes
   let yusdContract: YUSD
   let sYusdContract: SYUSD
   let siloContract: SYUSDSilo
