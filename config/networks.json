@@ -253,7 +253,9 @@
         "usdtAddress": "0xa8d8524be97a6b0bdfa9ab2635e18e9fe8384eda",
         "sJUSDAddress": "0x214a8EB47Ca8C66C9acF491d8c5a0C6b6B0bBC5C",
         "sJUSDSiloAddress": "0xDF21A3b705e8Be047CF04e7E76C310928B3790B9",
-        "sjusdOracle": "0x2C44FBe77Ca5FAD24B627BeFa82680d1177a1F21"
+        "sjusdOracle": "0x2C44FBe77Ca5FAD24B627BeFa82680d1177a1F21",
+        "jusdOftAdapterAddress": "0x1117dB8c8C4f4A917ff947E518D3D45B2eDbB0AA",
+        "sjusdOftAdapterAddress": "0xAEBCb9e713480AA54bAB87346e6343B7eD2F48F3"
       },
       "layerzero": {
         "targetEid": 40102,
