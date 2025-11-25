@@ -345,12 +345,7 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
       revert InvalidAmount();
     }
 
-    // Take a fee, if it's applicable
     (uint256 burnAmount, uint256 fee) = _calculateInsuranceFundFeeFromAmount(request.order.yusdAmount, redeemFeeBP);
-    if (fee > 0) {
-      yusd.safeTransfer(insuranceFundAddress, fee);
-    }
-
     uint256 collateralAmount = _calculateRedeemMinCollateralAmount(request.order.collateralAsset, amount, burnAmount);
 
     /*
@@ -366,6 +361,11 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     ) {
       _rejectRedeemRequest(requestId, request);
       return;
+    }
+
+    // Take a fee, if it's applicable
+    if (fee > 0) {
+      yusd.safeTransfer(insuranceFundAddress, fee);
     }
 
     uint256 availableAssetFunds = _untrackedAvailableAssetBalance(request.order.collateralAsset);

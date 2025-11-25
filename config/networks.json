@@ -212,7 +212,7 @@
         "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
         "adminAddress": "0x8aF05B6Df31035aeBA506e7aFC40AF348cBE4AE1",
         "oftAdapterAddress": "0x7A94fd95Cc222E9f904Ec1e537B8d113A1CB358E",
-        "aegisConfigAddress": "0x1dAe7eBfb0Daa9AEb8a956f38df6f297b9e32B29",
+        "aegisConfigAddress": "0x7F74F36F3Ad28a6960D0a397290E0F10f1561ff7",
         "aegisOracleAddress": "0xA02b9A1639D612CA6ca6E63627B9e4Fb896C5dCc",
         "aegisRewardsAddress": "0x7FfeF8Eb8e3D6EB13B3DDc153122EB34AD07F0e4",
         "aegisMintingAddress": "0x626fA918339dA3843946155A298De02CBE7a2105",
@@ -220,7 +220,9 @@
         "sYUSDSiloAddress": "0xa3a46D09936DDdbE3b010B07b4e8Fb844AbDbd49",
         "feedRegistryAddress": "0x4CE6563330166122DBe372Ad7ec175b7783a0FC0",
         "aegisRewardsManualAddress": "0x094D11022709817051e73EfEcb459dA4AA418871",
-        "aegisChainlinkOracleV2Address": "0x50193f63e479BF3cC7C7533Aa899f5eACc873290"
+        "aegisChainlinkOracleV2Address": "0x50193f63e479BF3cC7C7533Aa899f5eACc873290",
+        "jusdAddress": "0x1A7cDe558d318052aDd800cA30DC7464920B41FC",
+        "aegisMintingJUSDAddress": "0x10f8624C7C55eaB9A511011415ec5298489637b2"
       },
       "layerzero": {
         "targetEid": 40161,

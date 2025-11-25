@@ -356,9 +356,6 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
 
     // Take a fee, if it's applicable
     (uint256 burnAmount, uint256 fee) = _calculateInsuranceFundFeeFromAmount(request.order.yusdAmount, redeemFeeBP);
-    if (fee > 0) {
-      jusd.safeTransfer(insuranceFundAddress, fee);
-    }
 
     uint256 collateralAmount = _calculateRedeemMinCollateralAmount(request.order.collateralAsset, amount, burnAmount);
 
@@ -375,6 +372,10 @@ contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessCon
     ) {
       _rejectRedeemRequest(requestId, request);
       return;
+    }
+
+    if (fee > 0) {
+      jusd.safeTransfer(insuranceFundAddress, fee);
     }
 
     uint256 availableAssetFunds = _untrackedAvailableAssetBalance(request.order.collateralAsset);
