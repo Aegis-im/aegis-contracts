@@ -221,8 +221,9 @@
         "feedRegistryAddress": "0x4CE6563330166122DBe372Ad7ec175b7783a0FC0",
         "aegisRewardsManualAddress": "0x094D11022709817051e73EfEcb459dA4AA418871",
         "aegisChainlinkOracleV2Address": "0x50193f63e479BF3cC7C7533Aa899f5eACc873290",
-        "jusdAddress": "0x1A7cDe558d318052aDd800cA30DC7464920B41FC",
-        "aegisMintingJUSDAddress": "0x10f8624C7C55eaB9A511011415ec5298489637b2"
+        "jusdAddress": "0x061dd9CB70B9e6F99486d81586B007a10213E81D",
+        "aegisMintingJUSDAddress": "0x3066290F87c91FA474268066c1e7809a06c054D9",
+        "aegisOracleJUSDAddress": "0xeFAE0B938FF734b67FD17E896Bf1944B4895e61e"
       },
       "layerzero": {
         "targetEid": 40161,

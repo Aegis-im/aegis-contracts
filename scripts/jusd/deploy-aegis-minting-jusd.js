@@ -45,6 +45,10 @@ async function main() {
   }
   console.log('AegisOracleJUSD Address:', aegisOracleJUSDAddress)
 
+  // Feed Registry address
+  const feedRegistryAddress = contracts.feedRegistryAddress || process.env.FEED_REGISTRY_ADDRESS || ethers.ZeroAddress
+  console.log('Feed Registry Address:', feedRegistryAddress)
+
   // Insurance Fund address
   const insuranceFundAddress = process.env.INSURANCE_FUND_ADDRESS || deployer.address
   console.log('Insurance Fund Address:', insuranceFundAddress)
@@ -85,7 +89,7 @@ async function main() {
     aegisConfigAddress,
     ethers.ZeroAddress, // No AegisRewards for JUSD
     aegisOracleJUSDAddress,
-    ethers.ZeroAddress, // No Feed Registry for JUSD
+    feedRegistryAddress,
     insuranceFundAddress,
     assetAddresses,
     lockupPeriods,
@@ -129,7 +133,7 @@ async function main() {
   "${aegisConfigAddress}",
   "${ethers.ZeroAddress}",
   "${aegisOracleJUSDAddress}",
-  "${ethers.ZeroAddress}",
+  "${feedRegistryAddress}",
   "${insuranceFundAddress}",
   [${assetAddresses.map((addr) => `"${addr}"`).join(', ')}],
   [${lockupPeriods.join(', ')}],
