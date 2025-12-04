@@ -106,12 +106,12 @@ async function main() {
 
   console.log('\nSetting up connections between contracts...')
 
-  // Set AegisMintingJUSD as JUSD minter
-  console.log('Setting AegisMintingJUSD as JUSD minter...')
-  const jusdContract = await ethers.getContractAt('JUSD', jusdAddress)
-  const setMinterTx = await jusdContract.setMinter(aegisMintingJUSDAddress)
-  await setMinterTx.wait()
-  console.log('✅ AegisMintingJUSD set as JUSD minter')
+  // // Set AegisMintingJUSD as JUSD minter
+  // console.log('Setting AegisMintingJUSD as JUSD minter...')
+  // const jusdContract = await ethers.getContractAt('JUSD', jusdAddress)
+  // const setMinterTx = await jusdContract.setMinter(aegisMintingJUSDAddress)
+  // await setMinterTx.wait()
+  // console.log('✅ AegisMintingJUSD set as JUSD minter')
 
   // Update networks.json
   updateNetworksConfig(network.name, {
