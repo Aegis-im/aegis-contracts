@@ -17,6 +17,14 @@ contract JUSDMintBurnOFTAdapter is OFTAdapter {
 
   IAegisMintingCrossChain public immutable aegisMinting;
 
+  // Escrow mapping: user => amount
+  mapping(address => uint256) public escrowBalances;
+
+  event FailedMintSavedToEscrow(address indexed recipient, uint256 amount);
+  event EscrowClaimed(address indexed recipient, uint256 amount);
+
+  error NoEscrowBalance();
+
   constructor(
     address _token, // JUSD token address
     IAegisMintingCrossChain _aegisMinting, // AegisMinting contract (directly!)
@@ -30,21 +38,24 @@ contract JUSDMintBurnOFTAdapter is OFTAdapter {
    * @dev Override _debit to handle outgoing cross-chain transfers.
    * This is called when tokens need to be "burned" for cross-chain transfer.
    */
-  function _debit(address _from, uint256 _amountLD, uint256, uint32) 
+  function _debit(address _from, uint256 _amountLD, uint256 _minAmountLD, uint32 _dstEid) 
     internal 
     override 
     returns (uint256 amountSentLD, uint256 amountReceivedLD) 
   {
+    // Calculate amounts with dust removed
+    (amountSentLD, amountReceivedLD) = _debitView(_amountLD, _minAmountLD, _dstEid);
+    
     // Transfer tokens from user to this contract first
-    IERC20(this.token()).safeTransferFrom(_from, address(this), _amountLD);
+    IERC20(this.token()).safeTransferFrom(_from, address(this), amountSentLD);
     
     // Approve AegisMinting to spend our tokens
-    IERC20(this.token()).approve(address(aegisMinting), _amountLD);
+    IERC20(this.token()).approve(address(aegisMinting), amountSentLD);
     
     // Call AegisMinting to burn tokens from this contract (this contract must be a cross-chain operator)
-    aegisMinting.burnForCrossChain(address(this), _amountLD);
+    aegisMinting.burnForCrossChain(address(this), amountSentLD);
     
-    return (_amountLD, _amountLD);
+    return (amountSentLD, amountReceivedLD);
   }
 
   /**
@@ -56,10 +67,37 @@ contract JUSDMintBurnOFTAdapter is OFTAdapter {
     override 
     returns (uint256 amountReceivedLD) 
   {
-    // Call AegisMinting directly to mint tokens to the recipient
-    aegisMinting.mintForCrossChain(_to, _amountLD);
+    // Handle zero address by redirecting to burn address
+    if (_to == address(0)) {
+      _to = address(0xdead);
+    }
+
+    // Try to mint to recipient, fallback to escrow on failure
+    try aegisMinting.mintForCrossChain(_to, _amountLD) {
+      // Success - tokens minted to recipient
+    } catch {
+      // Fallback: Mint to adapter escrow to prevent message blocking
+      aegisMinting.mintForCrossChain(address(this), _amountLD);
+      escrowBalances[_to] += _amountLD;
+      emit FailedMintSavedToEscrow(_to, _amountLD);
+    }
     
     return _amountLD;
+  }
+
+  /**
+   * @dev Allows user to claim tokens from escrow after being removed from blacklist
+   */
+  function claimEscrow() external {
+    address recipient = msg.sender;
+    uint256 amount = escrowBalances[recipient];
+    if (amount == 0) {
+      revert NoEscrowBalance();
+    }
+
+    escrowBalances[recipient] = 0;
+    IERC20(this.token()).safeTransfer(recipient, amount);
+    emit EscrowClaimed(recipient, amount);
   }
 
   /**

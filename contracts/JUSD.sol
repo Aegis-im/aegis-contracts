@@ -52,6 +52,13 @@ contract JUSD is Ownable2Step, ERC20Burnable, ERC20Permit, IJUSDErrors {
     _mint(account, value);
   }
 
+  function _spendAllowance(address owner, address spender, uint256 value) internal virtual override {
+    if (isBlackListed[spender]) {
+      revert Blacklisted(spender);
+    }
+    super._spendAllowance(owner, spender, value);
+  }
+
   function _update(address from, address to, uint256 value) internal virtual override(ERC20) {
     if (isBlackListed[from]) {
       revert Blacklisted(from);

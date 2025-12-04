@@ -94,6 +94,7 @@ contract sJUSD is
     error FeeNotChanged();
     error InsuranceFundNotSet();
     error InsuranceFundNotChanged();
+    error InvalidReceiver();
     
     event CooldownDurationUpdated(uint24 previousDuration, uint24 newDuration);
     event CooldownStarted(address indexed user, uint256 assets, uint256 shares, uint256 cooldownEnd);
@@ -294,6 +295,7 @@ contract sJUSD is
      */
     function unstake(address receiver) external nonReentrant {        
         if (receiver == address(0)) revert ZeroAddress("receiver");
+        if (receiver == address(silo)) revert InvalidReceiver();
         
         Cooldown storage cooldown = cooldowns[msg.sender];
         uint256 assets = cooldown.underlyingAmount;
