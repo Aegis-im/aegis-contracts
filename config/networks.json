@@ -57,7 +57,7 @@
     },
     "bnbMainnet": {
       "chainId": 56,
-      "rpcUrl": "https://bsc.rpc.grove.city/v1/01fdb492",
+      "rpcUrl": "https://bsc-rpc.publicnode.com",
       "gasPrice": 1000000000,
       "description": "BNB Smart Chain Mainnet",
       "explorer": "https://bscscan.com",
@@ -178,6 +178,23 @@
         "adminAddress": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
         "syusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7",
         "yusdOftAddress": "0xF07781182B47e728B040f9e35321260e359fF9f7"
+      },
+      "deployment": {
+        "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      }
+    },
+    "monad": {
+      "chainId": 143,
+      "endpointId": 30390,
+      "rpcUrl": "https://rpc3.monad.xyz",
+      "gasPrice": 100000000000,
+      "description": "Monad Mainnet",
+      "explorer": "https://monad.socialscan.io/",
+      "contracts": {
+        "lzEndpoint": "0x6F475642a6e85809B1c36Fa62763669b1b48DD5B",
+        "adminAddress": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+        "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7",
+        "syusdOftAddress": "0xF07781182B47e728B040f9e35321260e359fF9f7"
       },
       "deployment": {
         "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
