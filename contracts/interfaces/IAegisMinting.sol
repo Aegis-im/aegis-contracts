@@ -1,6 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+/**
+ * @notice Minimal interface for AegisIncomeRouter to access AegisMinting state
+ * @dev Only includes public state variables that are auto-generated getters
+ */
+interface IAegisMinting {
+    /// @notice Get insurance fund address
+    function insuranceFundAddress() external view returns (address);
+
+    /// @notice Get income fee in basis points
+    function incomeFeeBP() external view returns (uint16);
+
+    /// @notice Get Chainlink USD price for asset
+    function assetChainlinkUSDPrice(address asset) external view returns (uint256);
+}
+
 interface IAegisMintingEvents {
   /// @dev Event emitted when YUSD is minted
   event Mint(address indexed userWallet, address collateralAsset, uint256 collateralAmount, uint256 yusdAmount, uint256 fee);
