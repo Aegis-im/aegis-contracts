@@ -19,15 +19,15 @@ import { OrderLib } from "./lib/OrderLib.sol";
 import { IAegisMintingEvents, IAegisMintingErrors } from "./interfaces/IAegisMinting.sol";
 import { IAegisRewards } from "./interfaces/IAegisRewards.sol";
 import { IAegisConfig } from "./interfaces/IAegisConfig.sol";
-import { IAegisOracle } from "./interfaces/IAegisOracle.sol";
-import { IYUSD } from "./interfaces/IYUSD.sol";
+import { IAegisOracleJUSD } from "./interfaces/IAegisOracleJUSD.sol";
+import { IJUSD } from "./interfaces/IJUSD.sol";
 
-contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControlDefaultAdminRules, ReentrancyGuard {
+contract AegisMintingJUSD is IAegisMintingEvents, IAegisMintingErrors, AccessControlDefaultAdminRules, ReentrancyGuard {
   using EnumerableSet for EnumerableSet.AddressSet;
   using EnumerableMap for EnumerableMap.AddressToUintMap;
   using OrderLib for OrderLib.Order;
   using SafeERC20 for IERC20;
-  using SafeERC20 for IYUSD;
+  using SafeERC20 for IJUSD;
 
   enum RedeemRequestStatus {
     PENDING,
@@ -49,6 +49,13 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     uint256 currentPeriodTotalAmount;
   }
 
+  struct PreCollateralizedMintLimit {
+    uint32 periodDuration;
+    uint32 currentPeriodStartTime;
+    uint256 maxPeriodAmountBps;
+    uint256 currentPeriodTotalAmount;
+  }
+
   uint16 constant MAX_BPS = 10_000;
 
   /// @dev role enabling to update various settings
@@ -64,13 +71,13 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   bytes32 private constant EIP712_DOMAIN = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
 
   /// @dev EIP712 name
-  bytes32 private constant EIP712_NAME = keccak256("AegisMinting");
+  bytes32 private constant EIP712_NAME = keccak256("AegisMintingJUSD");
 
   /// @dev holds EIP712 revision
   bytes32 private constant EIP712_REVISION = keccak256("1");
 
-  /// @dev YUSD stablecoin
-  IYUSD public immutable yusd;
+  /// @dev JUSD stablecoin
+  IJUSD public immutable jusd;
 
   /// @dev AegisRewards contract
   IAegisRewards public aegisRewards;
@@ -78,13 +85,13 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   /// @dev AegisConfig contract
   IAegisConfig public aegisConfig;
 
-  /// @dev AegisOracle contract providing YUSD/USD price
-  IAegisOracle public aegisOracle;
+  /// @dev AegisOracle contract providing jUSD/USD price
+  IAegisOracleJUSD public aegisOracle;
 
   /// @dev InsuranceFund address
   address public insuranceFundAddress;
 
-  /// @dev Percent of YUSD rewards that will be transferred to InsuranceFund address. Default: 5%
+  /// @dev Percent of jUSD rewards that will be transferred to InsuranceFund address. Default: 5%
   uint16 public incomeFeeBP = 500;
 
   /// @dev Mint pause state
@@ -96,10 +103,10 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   /// @dev Cross-chain operations pause state
   bool public crossChainPaused;
 
-  /// @dev Percent of YUSD that will be taken as a fee from mint amount
+  /// @dev Percent of jUSD that will be taken as a fee from mint amount
   uint16 public mintFeeBP;
 
-  /// @dev Percent of YUSD that will be taken as a fee from redeem amount
+  /// @dev Percent of jUSD that will be taken as a fee from redeem amount
   uint16 public redeemFeeBP;
 
   /// @dev Asset funds that were frozen and cannot be transfered to custody
@@ -111,8 +118,11 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   /// @dev Redeem limiting parameters
   MintRedeemLimit public redeemLimit;
 
-  /// @dev Tracks total amount of users locked YUSD for redeem requests
-  uint256 public totalRedeemLockedYUSD;
+  /// @dev PreCollateralized mint limiting parameter
+  PreCollateralizedMintLimit public preCollateralizedMintLimit;
+
+  /// @dev Tracks total amount of users locked JUSD for redeem requests
+  uint256 public totalRedeemLockedJUSD;
 
   /// @dev Asset heartbeat of Chainlink feed in seconds
   mapping(address => uint32) public chainlinkAssetHeartbeat;
@@ -186,10 +196,10 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   }
 
   constructor(
-    IYUSD _yusd,
+    IJUSD _jusd,
     IAegisConfig _aegisConfig,
     IAegisRewards _aegisRewards,
-    IAegisOracle _aegisOracle,
+    IAegisOracleJUSD _aegisOracle,
     FeedRegistryInterface _fdRegistry,
     address _insuranceFundAddress,
     address[] memory _assets,
@@ -197,13 +207,12 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     address[] memory _custodians,
     address _admin
   ) AccessControlDefaultAdminRules(3 days, _admin) {
-    if (address(_yusd) == address(0)) revert ZeroAddress();
-    if (address(_aegisRewards) == address(0)) revert ZeroAddress();
+    if (address(_jusd) == address(0)) revert ZeroAddress();
     if (address(_aegisConfig) == address(0)) revert ZeroAddress();
     if (_assets.length == 0) revert NotAssetsProvided();
     require(_assets.length == _chainlinkAssetHeartbeats.length);
 
-    yusd = _yusd;
+    jusd = _jusd;
     mintLimit.currentPeriodStartTime = uint32(block.timestamp);
     redeemLimit.currentPeriodStartTime = uint32(block.timestamp);
     _setAegisRewardsAddress(_aegisRewards);
@@ -245,14 +254,14 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     return price;
   }
 
-  /// @dev Returns asset/YUSD price from AegisOracle
-  function assetAegisOracleYUSDPrice(address asset) public view returns (uint256) {
-    (uint256 price, ) = _getAssetYUSDPriceOracle(asset);
+  /// @dev Returns asset/jUSD price from AegisOracle
+  function assetAegisOracleJUSDPrice(address asset) public view returns (uint256) {
+    (uint256 price, ) = _getAssetJUSDPriceOracle(asset);
     return price;
   }
 
   /**
-   * @dev Mints YUSD from assets
+   * @dev Mints jUSD from assets
    * @param order Struct containing order details
    * @param signature Signature of trusted signer
    */
@@ -276,25 +285,25 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     uint256 balanceAfter = IERC20(order.collateralAsset).balanceOf(address(this));
     uint256 received = balanceAfter - balanceBefore;
 
-    uint256 yusdAmount = _calculateMinYUSDAmount(order.collateralAsset, received, order.yusdAmount);
-    if (yusdAmount < order.slippageAdjustedAmount) {
+    uint256 jusdAmount = _calculateMinJUSDAmount(order.collateralAsset, received, order.yusdAmount);
+    if (jusdAmount < order.slippageAdjustedAmount) {
       revert PriceSlippage();
     }
 
     // Take a fee, if it's applicable
-    (uint256 mintAmount, uint256 fee) = _calculateInsuranceFundFeeFromAmount(yusdAmount, mintFeeBP);
+    (uint256 mintAmount, uint256 fee) = _calculateInsuranceFundFeeFromAmount(jusdAmount, mintFeeBP);
     if (fee > 0) {
-      yusd.mint(insuranceFundAddress, fee);
+      jusd.mint(insuranceFundAddress, fee);
     }
 
-    yusd.mint(order.userWallet, mintAmount);
+    jusd.mint(order.userWallet, mintAmount);
     _custodyTransferrableAssetFunds[order.collateralAsset] += received;
 
     emit Mint(_msgSender(), order.collateralAsset, received, mintAmount, fee);
   }
 
   /**
-   * @dev Creates new RedeemRequest and locks user's YUSD tokens
+   * @dev Creates new RedeemRequest and locks user's jUSD tokens
    * @param order Struct containing order details
    * @param signature Signature of trusted signer
    */
@@ -323,16 +332,16 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
 
     _redeemRequests[keccak256(abi.encode(requestId))] = RedeemRequest(RedeemRequestStatus.PENDING, order, block.timestamp);
 
-    // Lock YUSD
-    yusd.safeTransferFrom(order.userWallet, address(this), order.yusdAmount);
-    totalRedeemLockedYUSD += order.yusdAmount;
+    // Lock JUSD
+    jusd.safeTransferFrom(order.userWallet, address(this), order.yusdAmount);
+    totalRedeemLockedJUSD += order.yusdAmount;
 
     emit CreateRedeemRequest(requestId, _msgSender(), order.collateralAsset, order.collateralAmount, order.yusdAmount);
   }
 
   /**
    * @dev Approves pending RedeemRequest.
-   * @dev Burns locked YUSD and transfers collateral amount to request order benefactor
+   * @dev Burns locked jUSD and transfers collateral amount to request order benefactor
    * @param requestId Id of RedeemRequest to approve
    * @param amount Max collateral amount that will be transferred to user
    */
@@ -345,7 +354,9 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
       revert InvalidAmount();
     }
 
+    // Take a fee, if it's applicable
     (uint256 burnAmount, uint256 fee) = _calculateInsuranceFundFeeFromAmount(request.order.yusdAmount, redeemFeeBP);
+
     uint256 collateralAmount = _calculateRedeemMinCollateralAmount(request.order.collateralAsset, amount, burnAmount);
 
     /*
@@ -363,9 +374,8 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
       return;
     }
 
-    // Take a fee, if it's applicable
     if (fee > 0) {
-      yusd.safeTransfer(insuranceFundAddress, fee);
+      jusd.safeTransfer(insuranceFundAddress, fee);
     }
 
     uint256 availableAssetFunds = _untrackedAvailableAssetBalance(request.order.collateralAsset);
@@ -374,16 +384,16 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     }
 
     request.status = RedeemRequestStatus.APPROVED;
-    totalRedeemLockedYUSD -= request.order.yusdAmount;
+    totalRedeemLockedJUSD -= request.order.yusdAmount;
 
     IERC20(request.order.collateralAsset).safeTransfer(request.order.userWallet, collateralAmount);
-    yusd.burn(burnAmount);
+    jusd.burn(burnAmount);
 
     emit ApproveRedeemRequest(requestId, _msgSender(), request.order.userWallet, request.order.collateralAsset, collateralAmount, burnAmount, fee);
   }
 
   /**
-   * @dev Rejects pending RedeemRequest and unlocks user's YUSD
+   * @dev Rejects pending RedeemRequest and unlocks user's jUSD
    * @param requestId Id of RedeemRequest to reject
    */
   function rejectRedeemRequest(string calldata requestId) external nonReentrant onlyRole(FUNDS_MANAGER_ROLE) whenRedeemUnpaused {
@@ -396,7 +406,7 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   }
 
   /**
-   * @dev Withdraws expired RedeemRequest locked YUSD funds to user
+   * @dev Withdraws expired RedeemRequest locked jUSD funds to user
    * @param requestId Id of RedeemRequest to withdraw
    */
   function withdrawRedeemRequest(string calldata requestId) public nonReentrant whenRedeemUnpaused {
@@ -407,17 +417,17 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
 
     request.status = RedeemRequestStatus.WITHDRAWN;
 
-    // Unlock YUSD
-    totalRedeemLockedYUSD -= request.order.yusdAmount;
-    yusd.safeTransfer(request.order.userWallet, request.order.yusdAmount);
+    // Unlock JUSD
+    totalRedeemLockedJUSD -= request.order.yusdAmount;
+    jusd.safeTransfer(request.order.userWallet, request.order.yusdAmount);
 
     emit WithdrawRedeemRequest(requestId, request.order.userWallet, request.order.yusdAmount);
   }
 
   /**
-   * @dev Mints YUSD for cross-chain transfer
-   * @param to Address to mint YUSD to
-   * @param amount Amount of YUSD to mint
+   * @dev Mints jUSD for cross-chain transfer
+   * @param to Address to mint jUSD to
+   * @param amount Amount of jUSD to mint
    */
   function mintForCrossChain(address to, uint256 amount) 
     external 
@@ -425,14 +435,14 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     onlyCrossChainOperator 
     whenCrossChainUnpaused 
   {
-    yusd.mint(to, amount);
+    jusd.mint(to, amount);
     emit CrossChainMint(to, amount);
   }
 
   /**
-   * @dev Burns YUSD for cross-chain transfer
-   * @param from Address to burn YUSD from
-   * @param amount Amount of YUSD to burn
+   * @dev Burns jUSD for cross-chain transfer
+   * @param from Address to burn jUSD from
+   * @param amount Amount of jUSD to burn
    */
   function burnForCrossChain(address from, uint256 amount) 
     external 
@@ -440,14 +450,14 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     onlyCrossChainOperator 
     whenCrossChainUnpaused 
   {
-    yusd.burnFrom(from, amount);
+    jusd.burnFrom(from, amount);
     emit CrossChainBurn(from, amount);
   }
 
 
 
   /**
-   * @dev Mints YUSD rewards in exchange for collateral asset income
+   * @dev Mints jUSD rewards in exchange for collateral asset income
    * @param order Struct containing order details
    * @param signature Signature of trusted signer
    */
@@ -455,6 +465,9 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     OrderLib.Order calldata order,
     bytes calldata signature
   ) external nonReentrant onlyRole(FUNDS_MANAGER_ROLE) onlySupportedAsset(order.collateralAsset) {
+    if (address(aegisRewards) == address(0)) {
+      revert ZeroAddress();
+    }
     if (order.orderType != OrderLib.OrderType.DEPOSIT_INCOME) {
       revert InvalidOrder();
     }
@@ -466,18 +479,18 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
       revert NotEnoughFunds();
     }
 
-    uint256 yusdAmount = _calculateMinYUSDAmount(order.collateralAsset, order.collateralAmount, order.yusdAmount);
+    uint256 jusdAmount = _calculateMinJUSDAmount(order.collateralAsset, order.collateralAmount, order.yusdAmount);
 
     _custodyTransferrableAssetFunds[order.collateralAsset] += order.collateralAmount;
 
-    // Transfer percent of YUSD rewards to insurance fund
-    (uint256 mintAmount, uint256 fee) = _calculateInsuranceFundFeeFromAmount(yusdAmount, incomeFeeBP);
+    // Transfer percent of JUSD rewards to insurance fund
+    (uint256 mintAmount, uint256 fee) = _calculateInsuranceFundFeeFromAmount(jusdAmount, incomeFeeBP);
     if (fee > 0) {
-      yusd.mint(insuranceFundAddress, fee);
+      jusd.mint(insuranceFundAddress, fee);
     }
 
-    // Mint YUSD rewards to AegisRewards contract
-    yusd.mint(address(aegisRewards), mintAmount);
+    // Mint JUSD rewards to AegisRewards contract
+    jusd.mint(address(aegisRewards), mintAmount);
     aegisRewards.depositRewards(order.additionalData, mintAmount);
 
     emit DepositIncome(
@@ -560,7 +573,7 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   }
 
   /// @dev Sets new AegisOracle address
-  function setAegisOracleAddress(IAegisOracle _aegisOracle) external onlyRole(SETTINGS_MANAGER_ROLE) {
+  function setAegisOracleAddress(IAegisOracleJUSD _aegisOracle) external onlyRole(SETTINGS_MANAGER_ROLE) {
     _setAegisOracleAddress(_aegisOracle);
   }
 
@@ -569,7 +582,7 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     _setCrossChainOperator(_operator);
   }
 
-  /// @dev Sets percent in basis points of YUSD that will be taken as a fee on depositIncome
+  /// @dev Sets percent in basis points of jUSD that will be taken as a fee on depositIncome
   function setIncomeFeeBP(uint16 value) external onlyRole(SETTINGS_MANAGER_ROLE) {
     // No more than 50%
     if (value > MAX_BPS / 2) {
@@ -597,7 +610,7 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     emit CrossChainPauseChanged(paused);
   }
 
-  /// @dev Sets percent in basis points of YUSD that will be taken as a fee on mint
+  /// @dev Sets percent in basis points of jUSD that will be taken as a fee on mint
   function setMintFeeBP(uint16 value) external onlyRole(SETTINGS_MANAGER_ROLE) {
     // No more than 50%
     if (value > MAX_BPS / 2) {
@@ -607,7 +620,7 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     emit SetMintFeeBP(value);
   }
 
-  /// @dev Sets percent in basis points of YUSD that will be taken as a fee on redeem
+  /// @dev Sets percent in basis points of jUSD that will be taken as a fee on redeem
   function setRedeemFeeBP(uint16 value) external onlyRole(SETTINGS_MANAGER_ROLE) {
     // No more than 50%
     if (value > MAX_BPS / 2) {
@@ -629,6 +642,13 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     redeemLimit.periodDuration = periodDuration;
     redeemLimit.maxPeriodAmount = maxPeriodAmount;
     emit SetRedeemLimits(periodDuration, maxPeriodAmount);
+  }
+
+  /// @dev Sets pre-collateralized mint limit period duration and maximum amount
+  function setPreCollateralizedMintLimits(uint32 periodDuration, uint256 maxPeriodAmountBps) external onlyRole(SETTINGS_MANAGER_ROLE) {
+    preCollateralizedMintLimit.periodDuration = periodDuration;
+    preCollateralizedMintLimit.maxPeriodAmountBps = maxPeriodAmountBps;
+    emit SetPreCollateralizedMintLimits(periodDuration, maxPeriodAmountBps);
   }
 
   /// @dev Sets Chainlink feed heartbeat for asset
@@ -720,7 +740,7 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   }
 
   function _addSupportedAsset(address asset, uint32 heartbeat) internal {
-    if (asset == address(0) || asset == address(yusd) || !_supportedAssets.add(asset)) {
+    if (asset == address(0) || asset == address(jusd) || !_supportedAssets.add(asset)) {
       revert InvalidAssetAddress(asset);
     }
     chainlinkAssetHeartbeat[asset] = heartbeat;
@@ -728,7 +748,7 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   }
 
   function _addCustodianAddress(address custodian) internal {
-    if (custodian == address(0) || custodian == address(yusd) || !_custodianAddresses.add(custodian)) {
+    if (custodian == address(0) || custodian == address(jusd) || !_custodianAddresses.add(custodian)) {
       revert InvalidCustodianAddress(custodian);
     }
     emit CustodianAddressAdded(custodian);
@@ -749,7 +769,7 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     emit SetAegisRewardsAddress(address(aegisRewards));
   }
 
-  function _setAegisOracleAddress(IAegisOracle _aegisOracle) internal {
+  function _setAegisOracleAddress(IAegisOracleJUSD _aegisOracle) internal {
     aegisOracle = _aegisOracle;
     emit SetAegisOracleAddress(address(aegisOracle));
   }
@@ -771,9 +791,9 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
   function _rejectRedeemRequest(string calldata requestId, RedeemRequest storage request) internal {
     request.status = RedeemRequestStatus.REJECTED;
 
-    // Unlock YUSD
-    totalRedeemLockedYUSD -= request.order.yusdAmount;
-    yusd.safeTransfer(request.order.userWallet, request.order.yusdAmount);
+    // Unlock JUSD
+    totalRedeemLockedJUSD -= request.order.yusdAmount;
+    jusd.safeTransfer(request.order.userWallet, request.order.yusdAmount);
 
     emit RejectRedeemRequest(requestId, _msgSender(), request.order.userWallet, request.order.yusdAmount);
   }
@@ -807,20 +827,20 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     return (amount - fee, fee);
   }
 
-  function _calculateMinYUSDAmount(address collateralAsset, uint256 collateralAmount, uint256 yusdAmount) internal view returns (uint256) {
+  function _calculateMinJUSDAmount(address collateralAsset, uint256 collateralAmount, uint256 jusdAmount) internal view returns (uint256) {
     (uint256 chainlinkPrice, uint8 feedDecimals) = _getAssetUSDPriceChainlink(collateralAsset);
     if (chainlinkPrice == 0) {
-      return yusdAmount;
+      return jusdAmount;
     }
 
-    uint256 chainlinkYUSDAmount = Math.mulDiv(
+    uint256 chainlinkJUSDAmount = Math.mulDiv(
       collateralAmount * 10 ** (18 - IERC20Metadata(collateralAsset).decimals()),
       chainlinkPrice,
       10 ** feedDecimals
     );
 
     // Return smallest amount
-    return Math.min(yusdAmount, chainlinkYUSDAmount);
+    return Math.min(jusdAmount, chainlinkJUSDAmount);
   }
 
   function _calculateRedeemMinCollateralAmount(
@@ -841,8 +861,8 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
       collateralAmount = Math.min(collateralAmount, chainlinkCollateralAmount);
     }
 
-    // Calculate collateral amount for aegisOracle asset/YUSD price.
-    (uint256 oraclePrice, uint8 oracleDecimals) = _getAssetYUSDPriceOracle(collateralAsset);
+    // Calculate collateral amount for aegisOracle asset/jUSD price.
+    (uint256 oraclePrice, uint8 oracleDecimals) = _getAssetJUSDPriceOracle(collateralAsset);
     if (oraclePrice > 0) {
       uint256 oracleCollateralAmount = Math.mulDiv(
         yusdAmount,
@@ -877,6 +897,28 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     limits.currentPeriodTotalAmount += yusdAmount;
   }
 
+  function _checkPreCollateralizedMintLimit(PreCollateralizedMintLimit storage limits, uint256 yusdAmount) internal {
+    if (limits.periodDuration == 0 || limits.maxPeriodAmountBps == 0) {
+      return;
+    }
+
+    uint256 totalSupply = jusd.totalSupply();
+    uint256 currentPeriodEndTime = limits.currentPeriodStartTime + limits.periodDuration;
+    if (
+      (currentPeriodEndTime >= block.timestamp && limits.currentPeriodTotalAmount + yusdAmount > (totalSupply * limits.maxPeriodAmountBps) / MAX_BPS) ||
+      (currentPeriodEndTime < block.timestamp && yusdAmount > (totalSupply * limits.maxPeriodAmountBps) / MAX_BPS)
+    ) {
+      revert LimitReached();
+    }
+    // Start new mint period
+    if (currentPeriodEndTime <= block.timestamp) {
+      limits.currentPeriodStartTime = uint32(block.timestamp);
+      limits.currentPeriodTotalAmount = 0;
+    }
+
+    limits.currentPeriodTotalAmount += yusdAmount;
+  }
+
   function _getAssetUSDPriceChainlink(address asset) internal view returns (uint256, uint8) {
     if (address(_feedRegistry) == address(0)) {
       return (0, 0);
@@ -889,22 +931,45 @@ contract AegisMinting is IAegisMintingEvents, IAegisMintingErrors, AccessControl
     return (uint256(answer), _feedRegistry.decimals(asset, Denominations.USD));
   }
 
-  function _getAssetYUSDPriceOracle(address asset) internal view returns (uint256, uint8) {
+  function _getAssetJUSDPriceOracle(address asset) internal view returns (uint256, uint8) {
     if (address(aegisOracle) == address(0)) {
       return (0, 0);
     }
 
-    int256 yusdUSDPrice = aegisOracle.yusdUSDPrice();
-    if (yusdUSDPrice <= 0) {
+    int256 jusdUSDPrice = aegisOracle.jusdUSDPrice();
+    if (jusdUSDPrice <= 0) {
       return (0, 0);
     }
-    uint8 yusdUSDPriceDecimals = aegisOracle.decimals();
+    uint8 jusdUSDPriceDecimals = aegisOracle.decimals();
     (uint256 assetUSDPrice, ) = _getAssetUSDPriceChainlink(asset);
 
-    return ((assetUSDPrice * 10 ** yusdUSDPriceDecimals) / uint256(yusdUSDPrice), yusdUSDPriceDecimals);
+    return ((assetUSDPrice * 10 ** jusdUSDPriceDecimals) / uint256(jusdUSDPrice), jusdUSDPriceDecimals);
   }
 
   function _computeDomainSeparator() internal view returns (bytes32) {
     return keccak256(abi.encode(EIP712_DOMAIN, EIP712_NAME, EIP712_REVISION, block.chainid, address(this)));
   }
+
+  // Pre-collateralized mint controls
+  address public preCollateralizedMinter;
+  event SetPreCollateralizedMinter(address indexed newMinter, address indexed oldMinter);
+  event PreCollateralizedMint(address indexed to, uint256 amount);
+
+  function setPreCollateralizedMinter(address newMinter) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    emit SetPreCollateralizedMinter(newMinter, preCollateralizedMinter);
+    preCollateralizedMinter = newMinter;
+  }
+
+  modifier onlyPreCollateralizedMinter() {
+    if (msg.sender != preCollateralizedMinter) revert NotAuthorized();
+    _;
+  }
+
+  function mintPreCollateralized(address to, uint256 amount) external nonReentrant onlyPreCollateralizedMinter {
+    _checkPreCollateralizedMintLimit(preCollateralizedMintLimit, amount);
+    
+    jusd.mint(to, amount);
+    emit PreCollateralizedMint(to, amount);
+  }
 }
+

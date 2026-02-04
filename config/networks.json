@@ -11,7 +11,7 @@
     "mainnet": {
       "chainId": 1,
       "rpcUrl": "https://mainnet.gateway.tenderly.co",
-      "gasPrice": 4401000000,
+      "gasPrice": 77000000,
       "description": "Ethereum Mainnet",
       "explorer": "https://etherscan.io",
       "contracts": {
@@ -25,7 +25,12 @@
         "aegisOracleAddress": "0x2B4Ad1d479561064cd1C311004Aca93d15041aEc",
         "aegisRewardsAddress": "0x8aDCFAf1B64Cc514524B80565bCc732273dDEafD",
         "aegisMintingAddress": "0xc4df68e592245ca5202fe8b7c438d2b799820fc2",
-        "feedRegistryAddress": "0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf"
+        "feedRegistryAddress": "0x47Fb2585D2C56Fe188D0E6ec628a38b74fCeeeDf",
+        "jusdAddress": "0xc86168d2424d28942EE0866F043c1206bc9E4900",
+        "aegisOracleJUSDAddress": "0xfA449DC17194Fdaca1dd2237C828938f1917e0E7",
+        "aegisMintingJUSDAddress": "0xBB0F32D176590faEdC7bc552b7EAD7A86809b520",
+        "sJUSDAddress": "0x4AA8949bb47da4b4F27345404Ba1e5E7EA90bdb3",
+        "sJUSDSiloAddress": "0x22daCEEd48d7eE53f964A5aa3bDB6e4D3d688d9A"
       },
       "layerzero": {
         "targetEid": 30101,
@@ -52,7 +57,7 @@
     },
     "bnbMainnet": {
       "chainId": 56,
-      "rpcUrl": "https://bsc.rpc.grove.city/v1/01fdb492",
+      "rpcUrl": "https://bsc-rpc.publicnode.com",
       "gasPrice": 1000000000,
       "description": "BNB Smart Chain Mainnet",
       "explorer": "https://bscscan.com",
@@ -178,6 +183,23 @@
         "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
       }
     },
+    "monad": {
+      "chainId": 143,
+      "endpointId": 30390,
+      "rpcUrl": "https://rpc3.monad.xyz",
+      "gasPrice": 100000000000,
+      "description": "Monad Mainnet",
+      "explorer": "https://monad.socialscan.io/",
+      "contracts": {
+        "lzEndpoint": "0x6F475642a6e85809B1c36Fa62763669b1b48DD5B",
+        "adminAddress": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+        "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7",
+        "syusdOftAddress": "0xF07781182B47e728B040f9e35321260e359fF9f7"
+      },
+      "deployment": {
+        "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      }
+    },
     "hedera": {
       "chainId": 295,
       "endpointId": 30316,
@@ -207,7 +229,7 @@
         "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
         "adminAddress": "0x8aF05B6Df31035aeBA506e7aFC40AF348cBE4AE1",
         "oftAdapterAddress": "0x7A94fd95Cc222E9f904Ec1e537B8d113A1CB358E",
-        "aegisConfigAddress": "0x1dAe7eBfb0Daa9AEb8a956f38df6f297b9e32B29",
+        "aegisConfigAddress": "0x7F74F36F3Ad28a6960D0a397290E0F10f1561ff7",
         "aegisOracleAddress": "0xA02b9A1639D612CA6ca6E63627B9e4Fb896C5dCc",
         "aegisRewardsAddress": "0x7FfeF8Eb8e3D6EB13B3DDc153122EB34AD07F0e4",
         "aegisMintingAddress": "0x626fA918339dA3843946155A298De02CBE7a2105",
@@ -215,7 +237,10 @@
         "sYUSDSiloAddress": "0xa3a46D09936DDdbE3b010B07b4e8Fb844AbDbd49",
         "feedRegistryAddress": "0x4CE6563330166122DBe372Ad7ec175b7783a0FC0",
         "aegisRewardsManualAddress": "0x094D11022709817051e73EfEcb459dA4AA418871",
-        "aegisChainlinkOracleV2Address": "0x50193f63e479BF3cC7C7533Aa899f5eACc873290"
+        "aegisChainlinkOracleV2Address": "0x50193f63e479BF3cC7C7533Aa899f5eACc873290",
+        "jusdAddress": "0x061dd9CB70B9e6F99486d81586B007a10213E81D",
+        "aegisMintingJUSDAddress": "0x3066290F87c91FA474268066c1e7809a06c054D9",
+        "aegisOracleJUSDAddress": "0xeFAE0B938FF734b67FD17E896Bf1944B4895e61e"
       },
       "layerzero": {
         "targetEid": 40161,
@@ -246,7 +271,16 @@
         "sYUSDAddress": "0xf7b97872A9Ce774E6B68486afF5222b188e4Ce6c",
         "sYUSDSiloAddress": "0xE70e53Eadfd72A8f8773286296636818196B7E79",
         "feedRegistryAddress": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
-        "aegisChainlinkOracleV2Address": "0x6FFB6cAa98B90458B0446855943C6588DD480c18"
+        "aegisChainlinkOracleV2Address": "0x6FFB6cAa98B90458B0446855943C6588DD480c18",
+        "jusdAddress": "0xC832f4063D654aC62708c67F9B079dC6186eA406",
+        "aegisOracleJUSDAddress": "0x27604917Fb09eD13E00a95aC6F75bf3142b92e20",
+        "aegisMintingJUSDAddress": "0x1FE05C75a8affb3889a3078dA7EcCc0805Dc727A",
+        "usdtAddress": "0xa8d8524be97a6b0bdfa9ab2635e18e9fe8384eda",
+        "sJUSDAddress": "0x214a8EB47Ca8C66C9acF491d8c5a0C6b6B0bBC5C",
+        "sJUSDSiloAddress": "0xDF21A3b705e8Be047CF04e7E76C310928B3790B9",
+        "sjusdOracle": "0x2C44FBe77Ca5FAD24B627BeFa82680d1177a1F21",
+        "jusdOftAdapterAddress": "0x1117dB8c8C4f4A917ff947E518D3D45B2eDbB0AA",
+        "sjusdOftAdapterAddress": "0xAEBCb9e713480AA54bAB87346e6343B7eD2F48F3"
       },
       "layerzero": {
         "targetEid": 40102,
@@ -329,15 +363,13 @@
     "deployment": {
       "operators": [],
       "lockupPeriods": [
-        86400,
-        604800
+        86400
       ],
       "assetAddresses": [
         "0x11fE4B6AE13d2a6055C8D9cF65c55bac32B5d844",
         "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984"
       ],
       "custodianAddresses": [
-        "{DEPLOYER_ADDRESS}",
         "{DEPLOYER_ADDRESS}"
       ]
     }

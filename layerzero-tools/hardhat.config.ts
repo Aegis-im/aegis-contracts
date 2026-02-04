@@ -77,6 +77,13 @@ const config: HardhatUserConfig = {
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       gasPrice: networksConfig.networks.hedera.gasPrice,
     },
+    monad: {
+      eid: EndpointId.MONAD_V2_MAINNET as any,
+      url: process.env.MONAD_MAINNET_RPC_URL || networksConfig.networks.monad.rpcUrl,
+      chainId: networksConfig.networks.monad.chainId,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.monad.gasPrice,
+    },
     sepolia: {
       eid: EndpointId.SEPOLIA_V2_TESTNET as any,
       url: process.env.SEPOLIA_RPC_URL || networksConfig.networks.sepolia.rpcUrl,

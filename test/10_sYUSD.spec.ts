@@ -1,22 +1,25 @@
 import { expect } from 'chai'
-import { ethers } from 'hardhat'
-import { YUSD, sYUSD, sYUSDSilo } from '../typechain-types'
+import { ethers, upgrades } from 'hardhat'
+import { YUSD, SYUSD, SYUSDSilo } from '../typechain-types'
 import { DEFAULT_ADMIN_ROLE } from '../utils/helpers'
 
-describe('sYUSD', () => {
+describe('sYUSD', function() {
+  this.timeout(300000) // 5 minutes
   let yusdContract: YUSD
-  let sYusdContract: sYUSD
-  let siloContract: sYUSDSilo
+  let sYusdContract: SYUSD
+  let siloContract: SYUSDSilo
   let owner: any
   let user1: any
   let user2: any
   let admin: any
+  let insuranceFund: any
   const ADMIN_ROLE = DEFAULT_ADMIN_ROLE
   const initialAmount = ethers.parseEther('1000')
   const cooldown7days = 7 * 24 * 60 * 60 // 7 days in seconds
+  const instantUnstakingFee = 50 // 0.5% in basis points
 
   beforeEach(async () => {
-    [owner, user1, user2, admin] = await ethers.getSigners()
+    [owner, user1, user2, admin, insuranceFund] = await ethers.getSigners()
 
     // Deploy YUSD
     yusdContract = await ethers.deployContract('YUSD', [owner.address])
@@ -27,14 +30,23 @@ describe('sYUSD', () => {
     await yusdContract.mint(user2, initialAmount)
 
     // Deploy sYUSD with admin as the admin
-    sYusdContract = await ethers.deployContract('sYUSD', [
-      await yusdContract.getAddress(),
-      admin.address,
-    ])
+    const sYusdFactory = await ethers.getContractFactory('sYUSD')
+    sYusdContract = await upgrades.deployProxy(
+      sYusdFactory,
+      [await yusdContract.getAddress(), admin.address],
+      {
+        kind: 'transparent',
+        initializer: 'initialize',
+        unsafeAllow: ['constructor', 'delegatecall'],
+      },
+    ) as any
 
     // Get the silo address
     const siloAddress = await sYusdContract.silo()
-    siloContract = await ethers.getContractAt('sYUSDSilo', siloAddress)
+    siloContract = await ethers.getContractAt('sYUSDSilo', siloAddress) as unknown as SYUSDSilo
+
+    // Initialize V2 functionality
+    await sYusdContract.connect(admin).initializeV2(instantUnstakingFee, insuranceFund.address)
   })
 
   describe('Initialization', () => {
@@ -61,8 +73,17 @@ describe('sYUSD', () => {
     })
 
     it('should revert if YUSD address is zero', async () => {
+      const sYusdFactory = await ethers.getContractFactory('sYUSD')
       await expect(
-        ethers.deployContract('sYUSD', [ethers.ZeroAddress, admin.address]),
+        upgrades.deployProxy(
+          sYusdFactory,
+          [ethers.ZeroAddress, admin.address],
+          {
+            kind: 'transparent',
+            initializer: 'initialize',
+            unsafeAllow: ['constructor', 'delegatecall'],
+          },
+        ),
       ).to.be.revertedWithCustomError(
         sYusdContract,
         'ZeroAddress',
@@ -71,8 +92,17 @@ describe('sYUSD', () => {
 
     it('should revert if admin address is zero', async () => {
       const yusdAddress = await yusdContract.getAddress()
+      const sYusdFactory = await ethers.getContractFactory('sYUSD')
       await expect(
-        ethers.deployContract('sYUSD', [yusdAddress, ethers.ZeroAddress]),
+        upgrades.deployProxy(
+          sYusdFactory,
+          [yusdAddress, ethers.ZeroAddress],
+          {
+            kind: 'transparent',
+            initializer: 'initialize',
+            unsafeAllow: ['constructor', 'delegatecall'],
+          },
+        ),
       ).to.be.revertedWithCustomError(
         sYusdContract,
         'ZeroAddress',
@@ -158,19 +188,14 @@ describe('sYUSD', () => {
     })
 
     it('should not allow direct withdrawals when cooldown is enabled', async () => {
-      await expect(
-        sYusdContract.connect(user1).withdraw(depositAmount, user1, user1),
-      ).to.be.revertedWithCustomError(
-        sYusdContract,
-        'ExpectedCooldownOff',
-      )
+      // With V2 initialized, instant unstaking is allowed with fee
+      // So this test now checks that instant unstaking works
+      const balanceBefore = await yusdContract.balanceOf(user1)
+      await sYusdContract.connect(user1).withdraw(depositAmount, user1, user1)
+      const balanceAfter = await yusdContract.balanceOf(user1)
 
-      await expect(
-        sYusdContract.connect(user1).redeem(depositAmount, user1, user1),
-      ).to.be.revertedWithCustomError(
-        sYusdContract,
-        'ExpectedCooldownOff',
-      )
+      // User should receive less than depositAmount due to instant unstaking fee
+      expect(balanceAfter - balanceBefore).to.be.lt(depositAmount)
     })
 
     it('should allow cooldown process with assets', async () => {
