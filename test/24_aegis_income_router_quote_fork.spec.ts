@@ -202,6 +202,12 @@ describe('AegisIncomeRouter - Comprehensive Quote & Route Testing (Fork)', () =>
     await aegisMinting.waitForDeployment()
     console.log('   ✅ AegisMinting deployed at:', await aegisMinting.getAddress())
 
+    // Set income fee to 10% (1000 BP) to match mainnet configuration
+    const SETTINGS_MANAGER_ROLE = ethers.keccak256(ethers.toUtf8Bytes('SETTINGS_MANAGER_ROLE'))
+    await aegisMinting.connect(admin).grantRole(SETTINGS_MANAGER_ROLE, admin.address)
+    await aegisMinting.connect(admin).setIncomeFeeBP(1000) // 10% to match mainnet
+    console.log('   ✅ Set income fee to 10% (1000 BP) to match mainnet')
+
     // 4. Deploy AegisRewards
     console.log('\n4️⃣  Deploying AegisRewards...')
     const AegisRewards = await ethers.getContractFactory('AegisRewards')
@@ -213,9 +219,7 @@ describe('AegisIncomeRouter - Comprehensive Quote & Route Testing (Fork)', () =>
     await aegisRewards.waitForDeployment()
     console.log('   ✅ AegisRewards deployed at:', await aegisRewards.getAddress())
 
-    // Grant SETTINGS_MANAGER_ROLE to admin and update AegisMinting with AegisRewards address
-    const SETTINGS_MANAGER_ROLE = ethers.keccak256(ethers.toUtf8Bytes('SETTINGS_MANAGER_ROLE'))
-    await aegisMinting.connect(admin).grantRole(SETTINGS_MANAGER_ROLE, admin.address)
+    // Update AegisMinting with AegisRewards address
     await aegisMinting.connect(admin).setAegisRewardsAddress(await aegisRewards.getAddress())
     console.log('   ✅ Updated AegisMinting with AegisRewards address')
 
@@ -335,7 +339,7 @@ describe('AegisIncomeRouter - Comprehensive Quote & Route Testing (Fork)', () =>
       expect(quote.mintingOutput).to.be.closeTo(expectedYUSD, expectedYUSD / 100n) // 1% tolerance
 
       // Read actual fee from deployed contract
-      const feeBP = await aegisMinting.incomeFeeBP() // Currently returns 500 (5%) in test environment
+      const feeBP = await aegisMinting.incomeFeeBP() // Returns 1000 (10%) to match mainnet
 
       // Calculate expected rewards after fee (based on actual mintingOutput, not theoretical)
       const expectedRewards = (quote.mintingOutput * (10000n - feeBP)) / 10000n
