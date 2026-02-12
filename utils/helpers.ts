@@ -11,6 +11,8 @@ export const FUNDS_MANAGER_ROLE = ethers.id('FUNDS_MANAGER_ROLE')
 export const COLLATERAL_MANAGER_ROLE = ethers.id('COLLATERAL_MANAGER_ROLE')
 export const REWARDS_MANAGER_ROLE = ethers.id('REWARDS_MANAGER_ROLE')
 export const OPERATOR_ROLE = ethers.id('OPERATOR_ROLE')
+export const DAILY_UPDATER_ROLE = ethers.id('DAILY_UPDATER_ROLE')
+export const DISTRIBUTOR_ROLE = ethers.id('DISTRIBUTOR_ROLE')
 
 export const USD_FEED_ADDRESS = '0x0000000000000000000000000000000000000348'
 
@@ -82,6 +84,37 @@ export async function deployFixture() {
     aegisMintingAddress,
     assetContract,
     assetAddress,
+    aegisConfig,
+    aegisConfigAddress,
+  }
+}
+
+export async function deployRewardsV2Fixture() {
+  const [owner] = await ethers.getSigners()
+
+  const yusdContract = await ethers.deployContract('YUSD', [owner.address])
+  const yusdAddress = await yusdContract.getAddress()
+
+  const aegisConfig = await ethers.deployContract('AegisConfig', [trustedSignerAccount, [owner], owner])
+  const aegisConfigAddress = await aegisConfig.getAddress()
+
+  // Deploy as main chain (ETH)
+  const aegisRewardsV2Contract = await ethers.deployContract('AegisRewardsV2', [
+    yusdAddress,
+    aegisConfigAddress,
+    owner.address,
+    true, // isMainChain
+  ])
+  const aegisRewardsV2Address = await aegisRewardsV2Contract.getAddress()
+
+  // Setup YUSD minting
+  await yusdContract.setMinter(owner.address)
+
+  return {
+    yusdContract,
+    yusdAddress,
+    aegisRewardsV2Contract,
+    aegisRewardsV2Address,
     aegisConfig,
     aegisConfigAddress,
   }
@@ -247,6 +280,30 @@ export async function signClaimRequestManualByWallet(request: ClaimRewardsLib.Cl
 export async function signClaimRequestManual(request: ClaimRewardsLib.ClaimRequestStruct, contractAddress: string) {
   return signClaimRequestManualByWallet(request, contractAddress, trustedSignerAccount)
 }
+
+export async function signClaimRequestV2ByWallet(request: ClaimRewardsLib.ClaimRequestStruct, contractAddress: string, wallet: HDNodeWallet) {
+  return wallet.signTypedData(
+    {
+      name: 'AegisRewardsV2',
+      version: '1',
+      chainId: 1337n,
+      verifyingContract: contractAddress,
+    },
+    {
+      ClaimRequest: [
+        {name: 'claimer', type: 'address'},
+        {name: 'ids', type: 'bytes32[]'},
+        {name: 'amounts', type: 'uint256[]'},
+      ],
+    },
+    request,
+  )
+}
+
+export async function signClaimRequestV2(request: ClaimRewardsLib.ClaimRequestStruct, contractAddress: string) {
+  return signClaimRequestV2ByWallet(request, contractAddress, trustedSignerAccount)
+}
+
 export function encodeString(str: string) {
   return ethers.AbiCoder.defaultAbiCoder().encode(['string'], [str])
 }
