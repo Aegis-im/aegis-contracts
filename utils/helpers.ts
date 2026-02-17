@@ -110,6 +110,13 @@ export async function deployRewardsV2Fixture() {
   // Setup YUSD minting
   await yusdContract.setMinter(owner.address)
 
+  // Deploy MockOFTAdapter
+  const mockOFTAdapterContract = await ethers.deployContract('MockOFTAdapter', [yusdAddress])
+  const mockOFTAdapterAddress = await mockOFTAdapterContract.getAddress()
+
+  // Set OFT adapter on rewards contract
+  await aegisRewardsV2Contract.setOFTAdapter(mockOFTAdapterAddress)
+
   return {
     yusdContract,
     yusdAddress,
@@ -117,6 +124,8 @@ export async function deployRewardsV2Fixture() {
     aegisRewardsV2Address,
     aegisConfig,
     aegisConfigAddress,
+    mockOFTAdapterContract,
+    mockOFTAdapterAddress,
   }
 }
 

@@ -11,6 +11,9 @@ import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
+import { IOFT, SendParam } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
+import { MessagingFee } from "@layerzerolabs/oapp-evm/contracts/oapp/OAppSender.sol";
+
 import { ClaimRewardsLib } from "./lib/ClaimRewardsLib.sol";
 
 import { IYUSD } from "./interfaces/IYUSD.sol";
@@ -25,7 +28,7 @@ import { IAegisRewardsEvents, IAegisRewardsErrors } from "./interfaces/IAegisRew
  *      - Daily reward updates without closing snapshot
  *      - On-chain storage of user rewards data
  *      - Rescue function for admin to recover stuck rewards
- *      - Cross-chain distribution support via bridges
+ *      - Cross-chain distribution support via LayerZero OFT bridging
  */
 contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessControlDefaultAdminRules, ReentrancyGuard {
     using EnumerableMap for EnumerableMap.Bytes32ToUintMap;
@@ -61,6 +64,13 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
         uint256 usersShare;
     }
 
+    /// @notice Configuration for a supported chain
+    struct ChainConfig {
+        uint32 dstEid;
+        address rewardsContract;
+        bool configured;
+    }
+
     /// @dev role enabling to finalize and withdraw expired rewards
     bytes32 private constant REWARDS_MANAGER_ROLE = keccak256("REWARDS_MANAGER_ROLE");
 
@@ -94,6 +104,9 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     /// @notice Staking contract address (for cross-chain distribution)
     address public stakingContract;
 
+    /// @notice OFT adapter for cross-chain bridging
+    IOFT public oftAdapter;
+
     /// @dev Map of reward ids to rewards amounts
     mapping(bytes32 => Reward) private _rewards;
 
@@ -118,8 +131,8 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     /// @dev List of supported chain IDs for distribution
     uint32[] private _supportedChains;
 
-    /// @dev Mapping to track if chain is already configured
-    mapping(uint32 => bool) private _chainConfigured;
+    /// @dev Chain configurations: chainId => ChainConfig
+    mapping(uint32 => ChainConfig) private _chainConfigs;
 
     /// @dev holds computable chain id
     uint256 private immutable _chainId;
@@ -162,7 +175,10 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     event SetStakingContract(address indexed stakingContract);
 
     /// @dev Event emitted when chain is added/removed for distribution
-    event ChainConfigured(uint32 indexed chainId, address rewardsContract, bool added);
+    event ChainConfigured(uint32 indexed chainId, uint32 dstEid, address rewardsContract, bool added);
+
+    /// @dev Event emitted when OFT adapter is set
+    event SetOFTAdapter(address indexed oftAdapter);
 
     // ============================================
     // ERRORS
@@ -176,6 +192,7 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     error UserRewardsNotSet();
     error ChainAlreadyConfigured();
     error InvalidSnapshotId();
+    error OFTAdapterNotSet();
 
     // ============================================
     // CONSTRUCTOR
@@ -249,6 +266,38 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     /// @dev Returns list of supported chains
     function getSupportedChains() public view returns (uint32[] memory) {
         return _supportedChains;
+    }
+
+    /// @dev Returns chain configuration
+    function getChainConfig(uint32 chainId) public view returns (ChainConfig memory) {
+        return _chainConfigs[chainId];
+    }
+
+    /// @dev Returns fee quote for bridging rewards to a chain
+    function quoteBridging(
+        bytes32 snapshotId,
+        uint32 chainId,
+        bytes calldata extraOptions
+    ) public view returns (MessagingFee memory) {
+        if (address(oftAdapter) == address(0)) revert OFTAdapterNotSet();
+
+        ChainConfig storage config = _chainConfigs[chainId];
+        if (!config.configured) revert InvalidChain();
+
+        ChainDistribution storage dist = _chainDistributions[snapshotId][chainId];
+        if (dist.chainId == 0) revert InvalidChain();
+
+        SendParam memory sendParam = SendParam({
+            dstEid: config.dstEid,
+            to: bytes32(uint256(uint160(dist.rewardsContract))),
+            amountLD: dist.amount,
+            minAmountLD: dist.amount,
+            extraOptions: extraOptions,
+            composeMsg: "",
+            oftCmd: ""
+        });
+
+        return oftAdapter.quoteSend(sendParam, false);
     }
 
     // ============================================
@@ -439,22 +488,28 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     /**
      * @notice Configure a chain for cross-chain distribution
      * @param chainId The chain ID
+     * @param dstEid The LayerZero destination endpoint ID
      * @param rewardsContract The rewards contract address on that chain
      * @param add True to add, false to remove
      */
     function configureChain(
         uint32 chainId,
+        uint32 dstEid,
         address rewardsContract,
         bool add
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (add) {
             if (rewardsContract == address(0)) revert ZeroAddress();
-            if (_chainConfigured[chainId]) revert ChainAlreadyConfigured();
-            _chainConfigured[chainId] = true;
+            if (_chainConfigs[chainId].configured) revert ChainAlreadyConfigured();
+            _chainConfigs[chainId] = ChainConfig({
+                dstEid: dstEid,
+                rewardsContract: rewardsContract,
+                configured: true
+            });
             _supportedChains.push(chainId);
         } else {
-            if (!_chainConfigured[chainId]) revert InvalidChain();
-            _chainConfigured[chainId] = false;
+            if (!_chainConfigs[chainId].configured) revert InvalidChain();
+            delete _chainConfigs[chainId];
             // Remove chain from supported list
             for (uint256 i = 0; i < _supportedChains.length; i++) {
                 if (_supportedChains[i] == chainId) {
@@ -464,7 +519,7 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
                 }
             }
         }
-        emit ChainConfigured(chainId, rewardsContract, add);
+        emit ChainConfigured(chainId, dstEid, rewardsContract, add);
     }
 
     /**
@@ -497,21 +552,56 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     }
 
     /**
-     * @notice Mark chain distribution as bridged
-     * @dev Called after bridge transaction is initiated
+     * @notice Bridge YUSD to a destination chain via LayerZero OFT adapter
+     * @dev Replaces withdrawForBridging - actually bridges tokens cross-chain
      * @param snapshotId The snapshot identifier
-     * @param chainId The chain ID that was bridged to
+     * @param chainId The chain ID to bridge to
+     * @param extraOptions Additional LayerZero options
      */
-    function markAsBridged(bytes32 snapshotId, uint32 chainId) external onlyRole(DISTRIBUTOR_ROLE) {
+    function bridgeToChain(
+        bytes32 snapshotId,
+        uint32 chainId,
+        bytes calldata extraOptions
+    ) external payable onlyRole(DISTRIBUTOR_ROLE) {
+        if (!isMainChain) revert NotMainChain();
+        if (address(oftAdapter) == address(0)) revert OFTAdapterNotSet();
+
+        ChainConfig storage config = _chainConfigs[chainId];
+        if (!config.configured) revert InvalidChain();
+
         ChainDistribution storage dist = _chainDistributions[snapshotId][chainId];
         if (dist.chainId == 0) revert InvalidChain();
         if (dist.bridged) revert AlreadyBridged();
 
+        uint256 amount = dist.amount;
         dist.bridged = true;
-        _rewards[snapshotId].amount -= dist.amount;
-        _totalReservedRewards -= dist.amount;
+        _rewards[snapshotId].amount -= amount;
+        _totalReservedRewards -= amount;
 
-        emit CrossChainDistribution(snapshotId, chainId, dist.rewardsContract, dist.amount);
+        // Approve OFT adapter to spend YUSD
+        yusd.forceApprove(address(oftAdapter), amount);
+
+        // Build SendParam
+        SendParam memory sendParam = SendParam({
+            dstEid: config.dstEid,
+            to: bytes32(uint256(uint160(dist.rewardsContract))),
+            amountLD: amount,
+            minAmountLD: amount,
+            extraOptions: extraOptions,
+            composeMsg: "",
+            oftCmd: ""
+        });
+
+        // Get fee quote
+        MessagingFee memory fee = MessagingFee({
+            nativeFee: msg.value,
+            lzTokenFee: 0
+        });
+
+        // Send via OFT adapter - excess ETH refunded to msg.sender
+        oftAdapter.send{value: msg.value}(sendParam, fee, _msgSender());
+
+        emit CrossChainDistribution(snapshotId, chainId, dist.rewardsContract, amount);
     }
 
     // ============================================
@@ -613,6 +703,12 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     function setStakingContract(address _stakingContract) external onlyRole(DEFAULT_ADMIN_ROLE) {
         stakingContract = _stakingContract;
         emit SetStakingContract(_stakingContract);
+    }
+
+    /// @dev Sets OFT adapter for cross-chain bridging
+    function setOFTAdapter(IOFT _oftAdapter) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        oftAdapter = _oftAdapter;
+        emit SetOFTAdapter(address(_oftAdapter));
     }
 
     // ============================================

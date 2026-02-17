@@ -618,11 +618,12 @@ describe('AegisRewardsV2', () => {
         const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
 
         const bnbChainId = 56
+        const bnbDstEid = 30102
         const bnbRewardsContract = ethers.Wallet.createRandom().address
 
-        await expect(aegisRewardsV2Contract.configureChain(bnbChainId, bnbRewardsContract, true))
+        await expect(aegisRewardsV2Contract.configureChain(bnbChainId, bnbDstEid, bnbRewardsContract, true))
           .to.emit(aegisRewardsV2Contract, 'ChainConfigured')
-          .withArgs(bnbChainId, bnbRewardsContract, true)
+          .withArgs(bnbChainId, bnbDstEid, bnbRewardsContract, true)
 
         const supportedChains = await aegisRewardsV2Contract.getSupportedChains()
         expect(supportedChains).to.include(BigInt(bnbChainId))
@@ -632,15 +633,16 @@ describe('AegisRewardsV2', () => {
         const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
 
         const bnbChainId = 56
+        const bnbDstEid = 30102
         const bnbRewardsContract = ethers.Wallet.createRandom().address
 
         // Add first
-        await aegisRewardsV2Contract.configureChain(bnbChainId, bnbRewardsContract, true)
+        await aegisRewardsV2Contract.configureChain(bnbChainId, bnbDstEid, bnbRewardsContract, true)
 
         // Remove
-        await expect(aegisRewardsV2Contract.configureChain(bnbChainId, ethers.ZeroAddress, false))
+        await expect(aegisRewardsV2Contract.configureChain(bnbChainId, 0, ethers.ZeroAddress, false))
           .to.emit(aegisRewardsV2Contract, 'ChainConfigured')
-          .withArgs(bnbChainId, ethers.ZeroAddress, false)
+          .withArgs(bnbChainId, 0, ethers.ZeroAddress, false)
 
         const supportedChains = await aegisRewardsV2Contract.getSupportedChains()
         expect(supportedChains).to.not.include(BigInt(bnbChainId))
@@ -704,11 +706,11 @@ describe('AegisRewardsV2', () => {
     })
   })
 
-  describe('#markAsBridged', () => {
+  describe('#bridgeToChain', () => {
     describe('success', () => {
-      it('should mark distribution as bridged', async () => {
+      it('should bridge YUSD via OFT adapter and mark distribution as bridged', async () => {
         const [owner] = await ethers.getSigners()
-        const { aegisRewardsV2Contract, yusdContract } = await loadFixture(deployRewardsV2Fixture)
+        const { aegisRewardsV2Contract, yusdContract, mockOFTAdapterContract, mockOFTAdapterAddress } = await loadFixture(deployRewardsV2Fixture)
 
         await aegisRewardsV2Contract.grantRole(DISTRIBUTOR_ROLE, owner.address)
         await aegisRewardsV2Contract.setAegisMintingAddress(owner.address)
@@ -716,10 +718,14 @@ describe('AegisRewardsV2', () => {
         const snapshotId = 'week-2024-01'
         const bytes32SnapshotId = ethers.encodeBytes32String(snapshotId)
         const chainId = 56
+        const dstEid = 30102
         const rewardsContract = ethers.Wallet.createRandom().address
         const amount = ethers.parseEther('1000')
 
-        // Deposit rewards first
+        // Configure chain
+        await aegisRewardsV2Contract.configureChain(chainId, dstEid, rewardsContract, true)
+
+        // Deposit rewards
         await yusdContract.mint(owner, amount)
         await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), amount)
         await aegisRewardsV2Contract.depositRewards(encodeString(snapshotId), amount)
@@ -727,21 +733,195 @@ describe('AegisRewardsV2', () => {
         // Set distribution
         await aegisRewardsV2Contract.setChainDistribution(bytes32SnapshotId, [chainId], [rewardsContract], [amount])
 
-        // Mark as bridged
-        await expect(aegisRewardsV2Contract.markAsBridged(bytes32SnapshotId, chainId))
+        const extraOptions = '0x'
+        const bridgeFee = ethers.parseEther('0.01')
+
+        // Bridge to chain
+        await expect(aegisRewardsV2Contract.bridgeToChain(bytes32SnapshotId, chainId, extraOptions, { value: bridgeFee }))
           .to.emit(aegisRewardsV2Contract, 'CrossChainDistribution')
           .withArgs(bytes32SnapshotId, chainId, rewardsContract, amount)
 
+        // OFT adapter received YUSD
+        const adapterBalance = await yusdContract.balanceOf(mockOFTAdapterAddress)
+        expect(adapterBalance).to.equal(amount)
+
+        // Verify bridge call params
+        const bridgeCall = await mockOFTAdapterContract.getBridgeCall(0)
+        expect(bridgeCall.dstEid).to.equal(dstEid)
+        expect(bridgeCall.to).to.equal(ethers.zeroPadValue(rewardsContract, 32))
+        expect(bridgeCall.amountLD).to.equal(amount)
+
+        // Distribution marked as bridged
         const dist = await aegisRewardsV2Contract.getChainDistribution(bytes32SnapshotId, chainId)
         expect(dist.bridged).to.equal(true)
 
-        // Reward amount should be reduced
+        // Reward amount reduced
         const reward = await aegisRewardsV2Contract.rewardById(snapshotId)
         expect(reward.amount).to.equal(0)
+
+        // Reserved rewards reduced
+        expect(await aegisRewardsV2Contract.totalReservedRewards()).to.equal(0)
+      })
+
+      it('should bridge partial amount when distribution is less than total rewards', async () => {
+        const [owner] = await ethers.getSigners()
+        const { aegisRewardsV2Contract, yusdContract, mockOFTAdapterContract } = await loadFixture(deployRewardsV2Fixture)
+
+        await aegisRewardsV2Contract.grantRole(DISTRIBUTOR_ROLE, owner.address)
+        await aegisRewardsV2Contract.setAegisMintingAddress(owner.address)
+
+        const snapshotId = 'week-2024-01'
+        const bytes32SnapshotId = ethers.encodeBytes32String(snapshotId)
+        const totalAmount = ethers.parseEther('1000')
+        const bridgeAmount = ethers.parseEther('400')
+        const chainId = 56
+        const dstEid = 30102
+        const rewardsContract = ethers.Wallet.createRandom().address
+
+        // Configure chain
+        await aegisRewardsV2Contract.configureChain(chainId, dstEid, rewardsContract, true)
+
+        await yusdContract.mint(owner, totalAmount)
+        await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), totalAmount)
+        await aegisRewardsV2Contract.depositRewards(encodeString(snapshotId), totalAmount)
+
+        // Set distribution for only part of rewards
+        await aegisRewardsV2Contract.setChainDistribution(bytes32SnapshotId, [chainId], [rewardsContract], [bridgeAmount])
+
+        const bridgeFee = ethers.parseEther('0.01')
+        await aegisRewardsV2Contract.bridgeToChain(bytes32SnapshotId, chainId, '0x', { value: bridgeFee })
+
+        // Remaining reward = total - bridged
+        const reward = await aegisRewardsV2Contract.rewardById(snapshotId)
+        expect(reward.amount).to.equal(totalAmount - bridgeAmount)
+
+        expect(await aegisRewardsV2Contract.totalReservedRewards()).to.equal(totalAmount - bridgeAmount)
+
+        // Verify bridge call amount
+        const bridgeCall = await mockOFTAdapterContract.getBridgeCall(0)
+        expect(bridgeCall.amountLD).to.equal(bridgeAmount)
+      })
+
+      it('should refund excess ETH to caller', async () => {
+        const [owner] = await ethers.getSigners()
+        const { aegisRewardsV2Contract, yusdContract, mockOFTAdapterContract } = await loadFixture(deployRewardsV2Fixture)
+
+        await aegisRewardsV2Contract.grantRole(DISTRIBUTOR_ROLE, owner.address)
+        await aegisRewardsV2Contract.setAegisMintingAddress(owner.address)
+
+        const snapshotId = 'week-2024-01'
+        const bytes32SnapshotId = ethers.encodeBytes32String(snapshotId)
+        const chainId = 56
+        const dstEid = 30102
+        const rewardsContract = ethers.Wallet.createRandom().address
+        const amount = ethers.parseEther('100')
+
+        await aegisRewardsV2Contract.configureChain(chainId, dstEid, rewardsContract, true)
+
+        await yusdContract.mint(owner, amount)
+        await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), amount)
+        await aegisRewardsV2Contract.depositRewards(encodeString(snapshotId), amount)
+        await aegisRewardsV2Contract.setChainDistribution(bytes32SnapshotId, [chainId], [rewardsContract], [amount])
+
+        // Set mock fee to 0.01 ETH
+        await mockOFTAdapterContract.setMockNativeFee(ethers.parseEther('0.01'))
+
+        // Send 0.05 ETH (excess of 0.04 ETH)
+        const excessAmount = ethers.parseEther('0.05')
+        const balanceBefore = await ethers.provider.getBalance(owner.address)
+
+        const tx = await aegisRewardsV2Contract.bridgeToChain(bytes32SnapshotId, chainId, '0x', { value: excessAmount })
+        const receipt = await tx.wait()
+        const gasUsed = receipt!.gasUsed * receipt!.gasPrice
+
+        const balanceAfter = await ethers.provider.getBalance(owner.address)
+
+        // Balance should be reduced by gas + mockNativeFee (0.01 ETH), not the full 0.05 ETH sent
+        const actualSpent = balanceBefore - balanceAfter - gasUsed
+        expect(actualSpent).to.equal(ethers.parseEther('0.01'))
       })
     })
 
     describe('error', () => {
+      it('should revert when caller does not have DISTRIBUTOR_ROLE', async () => {
+        const [, user] = await ethers.getSigners()
+        const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
+
+        await expect(
+          aegisRewardsV2Contract.connect(user).bridgeToChain(
+            ethers.encodeBytes32String('test'),
+            56,
+            '0x',
+          ),
+        ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'AccessControlUnauthorizedAccount')
+      })
+
+      it('should revert when not on main chain', async () => {
+        const [owner] = await ethers.getSigners()
+        const { yusdContract, aegisConfig } = await loadFixture(deployRewardsV2Fixture)
+
+        // Deploy as secondary chain
+        const secondaryRewards = await ethers.deployContract('AegisRewardsV2', [
+          await yusdContract.getAddress(),
+          await aegisConfig.getAddress(),
+          owner.address,
+          false, // isMainChain = false
+        ])
+
+        await secondaryRewards.grantRole(DISTRIBUTOR_ROLE, owner.address)
+
+        await expect(
+          secondaryRewards.bridgeToChain(ethers.encodeBytes32String('test'), 56, '0x'),
+        ).to.be.revertedWithCustomError(secondaryRewards, 'NotMainChain')
+      })
+
+      it('should revert when OFT adapter is not set', async () => {
+        const [owner] = await ethers.getSigners()
+        const { yusdContract, aegisConfig } = await loadFixture(deployRewardsV2Fixture)
+
+        // Deploy a fresh contract without OFT adapter set
+        const rewardsNoAdapter = await ethers.deployContract('AegisRewardsV2', [
+          await yusdContract.getAddress(),
+          await aegisConfig.getAddress(),
+          owner.address,
+          true,
+        ])
+
+        await rewardsNoAdapter.grantRole(DISTRIBUTOR_ROLE, owner.address)
+
+        await expect(
+          rewardsNoAdapter.bridgeToChain(ethers.encodeBytes32String('test'), 56, '0x'),
+        ).to.be.revertedWithCustomError(rewardsNoAdapter, 'OFTAdapterNotSet')
+      })
+
+      it('should revert when chain is not configured', async () => {
+        const [owner] = await ethers.getSigners()
+        const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
+
+        await aegisRewardsV2Contract.grantRole(DISTRIBUTOR_ROLE, owner.address)
+
+        await expect(
+          aegisRewardsV2Contract.bridgeToChain(ethers.encodeBytes32String('test'), 56, '0x'),
+        ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'InvalidChain')
+      })
+
+      it('should revert when chain distribution does not exist', async () => {
+        const [owner] = await ethers.getSigners()
+        const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
+
+        await aegisRewardsV2Contract.grantRole(DISTRIBUTOR_ROLE, owner.address)
+
+        const chainId = 56
+        const dstEid = 30102
+        const rewardsContract = ethers.Wallet.createRandom().address
+
+        await aegisRewardsV2Contract.configureChain(chainId, dstEid, rewardsContract, true)
+
+        await expect(
+          aegisRewardsV2Contract.bridgeToChain(ethers.encodeBytes32String('test'), chainId, '0x'),
+        ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'InvalidChain')
+      })
+
       it('should revert when already bridged', async () => {
         const [owner] = await ethers.getSigners()
         const { aegisRewardsV2Contract, yusdContract } = await loadFixture(deployRewardsV2Fixture)
@@ -752,20 +932,165 @@ describe('AegisRewardsV2', () => {
         const snapshotId = 'week-2024-01'
         const bytes32SnapshotId = ethers.encodeBytes32String(snapshotId)
         const chainId = 56
+        const dstEid = 30102
         const rewardsContract = ethers.Wallet.createRandom().address
         const amount = ethers.parseEther('1000')
+
+        await aegisRewardsV2Contract.configureChain(chainId, dstEid, rewardsContract, true)
 
         await yusdContract.mint(owner, amount)
         await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), amount)
         await aegisRewardsV2Contract.depositRewards(encodeString(snapshotId), amount)
         await aegisRewardsV2Contract.setChainDistribution(bytes32SnapshotId, [chainId], [rewardsContract], [amount])
 
+        const bridgeFee = ethers.parseEther('0.01')
+
         // First bridge succeeds
-        await aegisRewardsV2Contract.markAsBridged(bytes32SnapshotId, chainId)
+        await aegisRewardsV2Contract.bridgeToChain(bytes32SnapshotId, chainId, '0x', { value: bridgeFee })
 
         // Second bridge fails
-        await expect(aegisRewardsV2Contract.markAsBridged(bytes32SnapshotId, chainId))
-          .to.be.revertedWithCustomError(aegisRewardsV2Contract, 'AlreadyBridged')
+        await expect(
+          aegisRewardsV2Contract.bridgeToChain(bytes32SnapshotId, chainId, '0x', { value: bridgeFee }),
+        ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'AlreadyBridged')
+      })
+    })
+  })
+
+  describe('#quoteBridging', () => {
+    describe('success', () => {
+      it('should return fee quote for bridging', async () => {
+        const [owner] = await ethers.getSigners()
+        const { aegisRewardsV2Contract, yusdContract, mockOFTAdapterContract } = await loadFixture(deployRewardsV2Fixture)
+
+        await aegisRewardsV2Contract.grantRole(DISTRIBUTOR_ROLE, owner.address)
+        await aegisRewardsV2Contract.setAegisMintingAddress(owner.address)
+
+        const snapshotId = 'week-2024-01'
+        const bytes32SnapshotId = ethers.encodeBytes32String(snapshotId)
+        const chainId = 56
+        const dstEid = 30102
+        const rewardsContract = ethers.Wallet.createRandom().address
+        const amount = ethers.parseEther('1000')
+
+        await aegisRewardsV2Contract.configureChain(chainId, dstEid, rewardsContract, true)
+
+        await yusdContract.mint(owner, amount)
+        await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), amount)
+        await aegisRewardsV2Contract.depositRewards(encodeString(snapshotId), amount)
+        await aegisRewardsV2Contract.setChainDistribution(bytes32SnapshotId, [chainId], [rewardsContract], [amount])
+
+        const fee = await aegisRewardsV2Contract.quoteBridging(bytes32SnapshotId, chainId, '0x')
+        expect(fee.nativeFee).to.equal(ethers.parseEther('0.01'))
+        expect(fee.lzTokenFee).to.equal(0)
+      })
+    })
+
+    describe('error', () => {
+      it('should revert when OFT adapter is not set', async () => {
+        const [owner] = await ethers.getSigners()
+        const { yusdContract, aegisConfig } = await loadFixture(deployRewardsV2Fixture)
+
+        const rewardsNoAdapter = await ethers.deployContract('AegisRewardsV2', [
+          await yusdContract.getAddress(),
+          await aegisConfig.getAddress(),
+          owner.address,
+          true,
+        ])
+
+        await expect(
+          rewardsNoAdapter.quoteBridging(ethers.encodeBytes32String('test'), 56, '0x'),
+        ).to.be.revertedWithCustomError(rewardsNoAdapter, 'OFTAdapterNotSet')
+      })
+
+      it('should revert when chain is not configured', async () => {
+        const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
+
+        await expect(
+          aegisRewardsV2Contract.quoteBridging(ethers.encodeBytes32String('test'), 56, '0x'),
+        ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'InvalidChain')
+      })
+
+      it('should revert when distribution does not exist', async () => {
+        const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
+
+        const chainId = 56
+        const dstEid = 30102
+        const rewardsContract = ethers.Wallet.createRandom().address
+
+        await aegisRewardsV2Contract.configureChain(chainId, dstEid, rewardsContract, true)
+
+        await expect(
+          aegisRewardsV2Contract.quoteBridging(ethers.encodeBytes32String('test'), chainId, '0x'),
+        ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'InvalidChain')
+      })
+    })
+  })
+
+  describe('#setOFTAdapter', () => {
+    describe('success', () => {
+      it('should set OFT adapter address', async () => {
+        const { aegisRewardsV2Contract, mockOFTAdapterAddress } = await loadFixture(deployRewardsV2Fixture)
+
+        const newAdapter = ethers.Wallet.createRandom().address
+
+        await expect(aegisRewardsV2Contract.setOFTAdapter(newAdapter))
+          .to.emit(aegisRewardsV2Contract, 'SetOFTAdapter')
+          .withArgs(newAdapter)
+
+        expect(await aegisRewardsV2Contract.oftAdapter()).to.equal(newAdapter)
+      })
+    })
+
+    describe('error', () => {
+      it('should revert when caller is not admin', async () => {
+        const [, user] = await ethers.getSigners()
+        const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
+
+        await expect(
+          aegisRewardsV2Contract.connect(user).setOFTAdapter(ethers.Wallet.createRandom().address),
+        ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'AccessControlUnauthorizedAccount')
+      })
+    })
+  })
+
+  describe('#getChainConfig', () => {
+    describe('success', () => {
+      it('should return chain config after configuring', async () => {
+        const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
+
+        const chainId = 56
+        const dstEid = 30102
+        const rewardsContract = ethers.Wallet.createRandom().address
+
+        await aegisRewardsV2Contract.configureChain(chainId, dstEid, rewardsContract, true)
+
+        const config = await aegisRewardsV2Contract.getChainConfig(chainId)
+        expect(config.dstEid).to.equal(dstEid)
+        expect(config.rewardsContract).to.equal(rewardsContract)
+        expect(config.configured).to.equal(true)
+      })
+
+      it('should return empty config for non-configured chain', async () => {
+        const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
+
+        const config = await aegisRewardsV2Contract.getChainConfig(999)
+        expect(config.dstEid).to.equal(0)
+        expect(config.rewardsContract).to.equal(ethers.ZeroAddress)
+        expect(config.configured).to.equal(false)
+      })
+
+      it('should return empty config after removing chain', async () => {
+        const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
+
+        const chainId = 56
+        const dstEid = 30102
+        const rewardsContract = ethers.Wallet.createRandom().address
+
+        await aegisRewardsV2Contract.configureChain(chainId, dstEid, rewardsContract, true)
+        await aegisRewardsV2Contract.configureChain(chainId, 0, ethers.ZeroAddress, false)
+
+        const config = await aegisRewardsV2Contract.getChainConfig(chainId)
+        expect(config.configured).to.equal(false)
       })
     })
   })
@@ -973,14 +1298,15 @@ describe('AegisRewardsV2', () => {
         const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
 
         const bnbChainId = 56
+        const bnbDstEid = 30102
         const bnbRewardsContract = ethers.Wallet.createRandom().address
 
         // Add chain first time
-        await aegisRewardsV2Contract.configureChain(bnbChainId, bnbRewardsContract, true)
+        await aegisRewardsV2Contract.configureChain(bnbChainId, bnbDstEid, bnbRewardsContract, true)
 
         // Try to add same chain again
         await expect(
-          aegisRewardsV2Contract.configureChain(bnbChainId, bnbRewardsContract, true),
+          aegisRewardsV2Contract.configureChain(bnbChainId, bnbDstEid, bnbRewardsContract, true),
         ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'ChainAlreadyConfigured')
       })
 
@@ -991,7 +1317,7 @@ describe('AegisRewardsV2', () => {
 
         // Try to remove chain that was never added
         await expect(
-          aegisRewardsV2Contract.configureChain(bnbChainId, ethers.ZeroAddress, false),
+          aegisRewardsV2Contract.configureChain(bnbChainId, 0, ethers.ZeroAddress, false),
         ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'InvalidChain')
       })
     })

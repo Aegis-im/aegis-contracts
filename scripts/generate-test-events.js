@@ -143,6 +143,19 @@ async function main() {
     console.log('AegisRewardsV2:', deployment.newContracts.aegisRewardsV2)
   }
 
+  // Impersonate minter addresses (AegisMinting has YUSD minter role, AegisMintingJUSD has JUSD minter role)
+  const yusdMinterAddress = deployment.yusdSystem.aegisMinting
+  const jusdMinterAddress = deployment.jusdSystem.aegisMintingJUSD
+  await ethers.provider.send('hardhat_impersonateAccount', [yusdMinterAddress])
+  await ethers.provider.send('hardhat_impersonateAccount', [jusdMinterAddress])
+  // Fund impersonated accounts with ETH for gas
+  await ethers.provider.send('hardhat_setBalance', [yusdMinterAddress, ethers.toQuantity(ethers.parseEther('10'))])
+  await ethers.provider.send('hardhat_setBalance', [jusdMinterAddress, ethers.toQuantity(ethers.parseEther('10'))])
+  const yusdMinter = await ethers.getSigner(yusdMinterAddress)
+  const jusdMinter = await ethers.getSigner(jusdMinterAddress)
+  console.log('Impersonating YUSD minter:', yusdMinterAddress)
+  console.log('Impersonating JUSD minter:', jusdMinterAddress)
+
   const events = []
 
   // ============================================
@@ -150,23 +163,23 @@ async function main() {
   // ============================================
   console.log('\n========== PHASE 1: Token Events ==========')
 
-  // Mint tokens to users
-  let tx = await yusd.mint(user1.address, ethers.parseUnits('50000', 18))
+  // Mint tokens to users (using impersonated minter accounts)
+  let tx = await yusd.connect(yusdMinter).mint(user1.address, ethers.parseUnits('50000', 18))
   await tx.wait()
   events.push({ type: 'yusd_mint', block: tx.blockNumber })
   console.log(`[Block ${tx.blockNumber}] YUSD Mint: 50,000 to user1`)
 
-  tx = await yusd.mint(user2.address, ethers.parseUnits('30000', 18))
+  tx = await yusd.connect(yusdMinter).mint(user2.address, ethers.parseUnits('30000', 18))
   await tx.wait()
   events.push({ type: 'yusd_mint', block: tx.blockNumber })
   console.log(`[Block ${tx.blockNumber}] YUSD Mint: 30,000 to user2`)
 
-  tx = await jusd.mint(user1.address, ethers.parseUnits('40000', 18))
+  tx = await jusd.connect(jusdMinter).mint(user1.address, ethers.parseUnits('40000', 18))
   await tx.wait()
   events.push({ type: 'jusd_mint', block: tx.blockNumber })
   console.log(`[Block ${tx.blockNumber}] JUSD Mint: 40,000 to user1`)
 
-  tx = await jusd.mint(user2.address, ethers.parseUnits('20000', 18))
+  tx = await jusd.connect(jusdMinter).mint(user2.address, ethers.parseUnits('20000', 18))
   await tx.wait()
   events.push({ type: 'jusd_mint', block: tx.blockNumber })
   console.log(`[Block ${tx.blockNumber}] JUSD Mint: 20,000 to user2`)
@@ -214,7 +227,7 @@ async function main() {
   console.log('\n========== PHASE 3: Cooldown Events ==========')
 
   try {
-    tx = await syusd.connect(user1).cooldownShares(ethers.parseUnits('5000', 18))
+    tx = await syusd.connect(user1).cooldownShares(ethers.parseUnits('5000', 18), user1.address)
     await tx.wait()
     events.push({ type: 'cooldown_started', block: tx.blockNumber })
     console.log(`[Block ${tx.blockNumber}] sYUSD CooldownStarted: user1 (5,000 shares)`)
@@ -223,7 +236,7 @@ async function main() {
   }
 
   try {
-    tx = await sjusd.connect(user2).cooldownShares(ethers.parseUnits('3000', 18))
+    tx = await sjusd.connect(user2).cooldownShares(ethers.parseUnits('3000', 18), user2.address)
     await tx.wait()
     events.push({ type: 'cooldown_started', block: tx.blockNumber })
     console.log(`[Block ${tx.blockNumber}] sJUSD CooldownStarted: user2 (3,000 shares)`)
@@ -236,20 +249,21 @@ async function main() {
   // ============================================
   console.log('\n========== PHASE 4: Oracle Price Updates ==========')
 
-  tx = await aegisOracle.updateYUSDPrice(ethers.parseUnits('1.005', 8))
-  await tx.wait()
-  events.push({ type: 'update_yusd_price', block: tx.blockNumber })
-  console.log(`[Block ${tx.blockNumber}] YUSD Price Update: $1.005`)
-
-  tx = await aegisOracle.updateYUSDPrice(ethers.parseUnits('1.01', 8))
-  await tx.wait()
-  events.push({ type: 'update_yusd_price', block: tx.blockNumber })
-  console.log(`[Block ${tx.blockNumber}] YUSD Price Update: $1.01`)
-
-  tx = await aegisOracleJUSD.updateJUSDPrice(ethers.parseUnits('1.015', 8))
-  await tx.wait()
-  events.push({ type: 'update_jusd_price', block: tx.blockNumber })
-  console.log(`[Block ${tx.blockNumber}] JUSD Price Update: $1.015`)
+  const priceUpdates = [
+    { contract: aegisOracle, fn: 'updateYUSDPrice', price: '1.005', label: 'YUSD', type: 'update_yusd_price' },
+    { contract: aegisOracle, fn: 'updateYUSDPrice', price: '1.01', label: 'YUSD', type: 'update_yusd_price' },
+    { contract: aegisOracleJUSD, fn: 'updateJUSDPrice', price: '1.015', label: 'JUSD', type: 'update_jusd_price' },
+  ]
+  for (const update of priceUpdates) {
+    try {
+      tx = await update.contract[update.fn](ethers.parseUnits(update.price, 8))
+      await tx.wait()
+      events.push({ type: update.type, block: tx.blockNumber })
+      console.log(`[Block ${tx.blockNumber}] ${update.label} Price Update: $${update.price}`)
+    } catch (e) {
+      console.log(`${update.label} Price Update ($${update.price}) skipped:`, e.shortMessage || e.message.slice(0, 80))
+    }
+  }
 
   // ============================================
   // PHASE 5: AegisRewardsV2 Testing
@@ -279,7 +293,7 @@ async function main() {
         }
 
         // Set aegisMinting to allow deposits (IMPORTANT for depositRewards)
-        tx = await aegisRewardsV2.setAegisMinting(deployer.address) // Temporarily set deployer
+        tx = await aegisRewardsV2.setAegisMintingAddress(deployer.address) // Temporarily set deployer
         await tx.wait()
         console.log(`[Block ${tx.blockNumber}] Set aegisMinting to deployer (for testing)`)
 
@@ -287,12 +301,12 @@ async function main() {
         const now = Math.floor(Date.now() / 1000)
         const weekStart = now - (now % (7 * 24 * 60 * 60))
         const snapshotIdString = `week-${weekStart}`
-        const snapshotId = ethers.keccak256(ethers.toUtf8Bytes(snapshotIdString))
+        const snapshotId = ethers.encodeBytes32String(snapshotIdString)
         console.log(`Snapshot ID: ${snapshotIdString}`)
 
         // Mint YUSD rewards and transfer to AegisRewardsV2
         const rewardAmount = ethers.parseUnits('10000', 18) // 10,000 YUSD rewards
-        await yusd.mint(deployer.address, rewardAmount)
+        await yusd.connect(yusdMinter).mint(deployer.address, rewardAmount)
         await yusd.approve(aegisRewardsV2.target, rewardAmount)
         await yusd.transfer(aegisRewardsV2.target, rewardAmount)
         console.log('Transferred 10,000 YUSD to AegisRewardsV2')
@@ -358,7 +372,7 @@ async function main() {
         console.log(`[Block ${tx.blockNumber}] ClaimOnChainRewards: user2 claimed rewards`)
 
         // Reset aegisMinting to actual contract
-        await aegisRewardsV2.setAegisMinting(aegisMinting.target)
+        await aegisRewardsV2.setAegisMintingAddress(aegisMinting.target)
         console.log('Reset aegisMinting to actual contract')
 
       } else {
@@ -376,7 +390,7 @@ async function main() {
 
   // Add more YUSD yield to sYUSD
   const yusdYield = ethers.parseUnits('1000', 18)
-  await yusd.mint(deployer.address, yusdYield)
+  await yusd.connect(yusdMinter).mint(deployer.address, yusdYield)
   tx = await yusd.transfer(syusd.target, yusdYield)
   await tx.wait()
   events.push({ type: 'yield_distribution', block: tx.blockNumber })
@@ -384,7 +398,7 @@ async function main() {
 
   // Add JUSD yield to sJUSD
   const jusdYield = ethers.parseUnits('800', 18)
-  await jusd.mint(deployer.address, jusdYield)
+  await jusd.connect(jusdMinter).mint(deployer.address, jusdYield)
   tx = await jusd.transfer(sjusd.target, jusdYield)
   await tx.wait()
   events.push({ type: 'yield_distribution', block: tx.blockNumber })
