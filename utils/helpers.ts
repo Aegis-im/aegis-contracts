@@ -533,12 +533,34 @@ export function cleanOldDeploymentFile(networkName: string, contractName: string
     const deploymentPath = path.join(__dirname, '..', 'deployments', networkName, `${contractName}.json`)
     if (fs.existsSync(deploymentPath)) {
       fs.unlinkSync(deploymentPath)
-      console.log(`🗑️ Removed old deployment file: ${contractName}.json`)
+      console.log(`Removed old deployment file: ${contractName}.json`)
       return true
     }
     return false
   } catch (error) {
-    console.log(`⚠️ Error removing old deployment file ${contractName}: ${(error as Error).message}`)
+    console.log(`Error removing old deployment file ${contractName}: ${(error as Error).message}`)
     return false
   }
+}
+
+// ============================================
+// Merkle tree helpers
+// ============================================
+
+import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
+
+export function buildRewardsTree(rewards: Array<[string, bigint]>): StandardMerkleTree<[string, bigint]> {
+  return StandardMerkleTree.of(
+    rewards.map(([addr, amount]) => [addr, amount.toString()]),
+    ['address', 'uint256'],
+  ) as unknown as StandardMerkleTree<[string, bigint]>
+}
+
+export function getMerkleProof(tree: StandardMerkleTree<[string, bigint]>, address: string): string[] {
+  for (const [i, v] of tree.entries()) {
+    if ((v[0] as string).toLowerCase() === address.toLowerCase()) {
+      return tree.getProof(i)
+    }
+  }
+  throw new Error(`Address ${address} not found in tree`)
 }

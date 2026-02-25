@@ -1,40 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
-import { Context } from "@openzeppelin/contracts/utils/Context.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IERC165, ERC165 } from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
-import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 import { IOFT, SendParam } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
 import { MessagingFee } from "@layerzerolabs/oapp-evm/contracts/oapp/OAppSender.sol";
 
-import { ClaimRewardsLib } from "./lib/ClaimRewardsLib.sol";
-
 import { IYUSD } from "./interfaces/IYUSD.sol";
-import { IAegisConfig } from "./interfaces/IAegisConfig.sol";
 import { IAegisRewardsEvents, IAegisRewardsErrors } from "./interfaces/IAegisRewards.sol";
 
 /**
  * @title AegisRewardsV2
- * @notice Refactored rewards contract with daily updates and cross-chain distribution support
- * @dev Key changes from AegisRewards:
- *      - Rewards deposited to current week snapshot (not previous)
- *      - Daily reward updates without closing snapshot
- *      - On-chain storage of user rewards data
- *      - Rescue function for admin to recover stuck rewards
- *      - Cross-chain distribution support via LayerZero OFT bridging
+ * @notice Rewards contract with cumulative Merkle distribution, daily updates,
+ *         and cross-chain support via LayerZero OFT bridging
  */
 contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessControlDefaultAdminRules, ReentrancyGuard {
-    using EnumerableMap for EnumerableMap.Bytes32ToUintMap;
     using SafeERC20 for IYUSD;
     using SafeERC20 for IERC20;
-    using ClaimRewardsLib for ClaimRewardsLib.ClaimRequest;
 
     struct Reward {
         uint256 amount;
@@ -80,20 +66,8 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     /// @dev role for cross-chain distribution
     bytes32 private constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
 
-    /// @dev EIP712 domain
-    bytes32 private constant EIP712_DOMAIN = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
-
-    /// @dev EIP712 name
-    bytes32 private constant EIP712_NAME = keccak256("AegisRewardsV2");
-
-    /// @dev holds EIP712 revision
-    bytes32 private constant EIP712_REVISION = keccak256("1");
-
     /// @notice YUSD token contract
     IYUSD public immutable yusd;
-
-    /// @notice Aegis config contract
-    IAegisConfig public aegisConfig;
 
     /// @notice AegisMinting contract address
     address public aegisMinting;
@@ -107,11 +81,11 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     /// @notice OFT adapter for cross-chain bridging
     IOFT public oftAdapter;
 
+    /// @dev Flag to indicate if this is the main chain (ETH)
+    bool public immutable isMainChain;
+
     /// @dev Map of reward ids to rewards amounts
     mapping(bytes32 => Reward) private _rewards;
-
-    /// @dev Mapping of user addresses to reward ids to bool indicating if user already claimed
-    mapping(address => mapping(bytes32 => bool)) private _addressClaimedRewards;
 
     /// @dev Total amount of YUSD reserved for rewards (prevent double spending)
     uint256 private _totalReservedRewards;
@@ -134,14 +108,14 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     /// @dev Chain configurations: chainId => ChainConfig
     mapping(uint32 => ChainConfig) private _chainConfigs;
 
-    /// @dev holds computable chain id
-    uint256 private immutable _chainId;
+    /// @dev Current cumulative Merkle root (covers all user rewards across all time)
+    bytes32 private _currentMerkleRoot;
 
-    /// @dev holds computable domain separator
-    bytes32 private immutable _domainSeparator;
+    /// @dev Cumulative amount already claimed per user via Merkle
+    mapping(address => uint256) private _cumulativeClaimed;
 
-    /// @dev Flag to indicate if this is the main chain (ETH)
-    bool public immutable isMainChain;
+    /// @dev Total YUSD reserved for unclaimed Merkle rewards
+    uint256 private _merklePoolBalance;
 
     // ============================================
     // EVENTS
@@ -180,6 +154,18 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     /// @dev Event emitted when OFT adapter is set
     event SetOFTAdapter(address indexed oftAdapter);
 
+    /// @dev Event emitted when cumulative Merkle root is updated
+    event SetMerkleRoot(bytes32 merkleRoot);
+
+    /// @dev Event emitted when funds are moved to the Merkle pool
+    event FundMerklePool(bytes32 indexed snapshotId, uint256 amount);
+
+    /// @dev Event emitted when user claims via cumulative Merkle proof
+    event ClaimMerkleRewards(address indexed wallet, uint256 amount);
+
+    /// @dev Event emitted when admin rescues Merkle rewards for a user
+    event RescueMerkleRewards(address indexed user, address indexed to, uint256 amount);
+
     // ============================================
     // ERRORS
     // ============================================
@@ -193,6 +179,9 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     error ChainAlreadyConfigured();
     error InvalidSnapshotId();
     error OFTAdapterNotSet();
+    error MerkleRootNotSet();
+    error InvalidMerkleProof();
+    error NothingToClaim();
 
     // ============================================
     // CONSTRUCTOR
@@ -200,33 +189,18 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
 
     constructor(
         IYUSD _yusd,
-        IAegisConfig _aegisConfig,
         address _admin,
         bool _isMainChain
     ) AccessControlDefaultAdminRules(3 days, _admin) {
         if (address(_yusd) == address(0)) revert ZeroAddress();
-        if (address(_aegisConfig) == address(0)) revert ZeroAddress();
 
         yusd = _yusd;
-        _setAegisConfigAddress(_aegisConfig);
         isMainChain = _isMainChain;
-
-        _chainId = block.chainid;
-        _domainSeparator = _computeDomainSeparator();
     }
 
     // ============================================
     // VIEW FUNCTIONS
     // ============================================
-
-    /// @dev Return cached value if chainId matches cache, otherwise recomputes separator
-    /// @return The domain separator at current chain
-    function getDomainSeparator() public view returns (bytes32) {
-        if (block.chainid == _chainId) {
-            return _domainSeparator;
-        }
-        return _computeDomainSeparator();
-    }
 
     /// @dev Returns reward amount for provided id
     function rewardById(string calldata id) public view returns (Reward memory) {
@@ -271,6 +245,21 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     /// @dev Returns chain configuration
     function getChainConfig(uint32 chainId) public view returns (ChainConfig memory) {
         return _chainConfigs[chainId];
+    }
+
+    /// @dev Returns the current cumulative Merkle root
+    function getMerkleRoot() public view returns (bytes32) {
+        return _currentMerkleRoot;
+    }
+
+    /// @dev Returns cumulative amount already claimed by a user via Merkle
+    function getCumulativeClaimed(address user) public view returns (uint256) {
+        return _cumulativeClaimed[user];
+    }
+
+    /// @dev Returns total YUSD reserved for unclaimed Merkle rewards
+    function getMerklePoolBalance() public view returns (uint256) {
+        return _merklePoolBalance;
     }
 
     /// @dev Returns fee quote for bridging rewards to a chain
@@ -410,7 +399,6 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
 
     /**
      * @notice Claim rewards using on-chain stored data
-     * @dev Alternative to signature-based claiming - uses on-chain storage
      * @param snapshotId The snapshot identifier
      */
     function claimOnChainRewards(bytes32 snapshotId) external nonReentrant {
@@ -438,47 +426,111 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     }
 
     // ============================================
-    // SIGNATURE-BASED CLAIMING (legacy compatible)
+    // CUMULATIVE MERKLE REWARDS
     // ============================================
 
-    /// @dev Transfers rewards at ids to a caller
-    function claimRewards(ClaimRewardsLib.ClaimRequest calldata claimRequest, bytes calldata signature) external nonReentrant {
-        claimRequest.verify(getDomainSeparator(), aegisConfig.trustedSigner(), signature);
+    /**
+     * @notice Set the cumulative Merkle root
+     * @dev Each leaf is (address, cumulativeTotalRewards). Updated periodically
+     *      as new rewards are computed. O(1) gas regardless of user count.
+     * @param merkleRoot The new cumulative Merkle root
+     */
+    function setMerkleRoot(
+        bytes32 merkleRoot
+    ) external onlyRole(REWARDS_MANAGER_ROLE) {
+        if (merkleRoot == bytes32(0)) revert ZeroRewards();
 
-        uint256 count = 0;
-        uint256 totalAmount = 0;
-        bytes32[] memory claimedIds = new bytes32[](claimRequest.ids.length);
-        uint256 len = claimRequest.ids.length;
-        for (uint256 i = 0; i < len; i++) {
-            if (
-                !_rewards[claimRequest.ids[i]].finalized ||
-                _rewards[claimRequest.ids[i]].amount == 0 ||
-                (_rewards[claimRequest.ids[i]].expiry > 0 && _rewards[claimRequest.ids[i]].expiry < block.timestamp) ||
-                _addressClaimedRewards[_msgSender()][claimRequest.ids[i]]
-            ) {
-                continue;
-            }
+        _currentMerkleRoot = merkleRoot;
 
-            _addressClaimedRewards[_msgSender()][claimRequest.ids[i]] = true;
-            _rewards[claimRequest.ids[i]].amount -= claimRequest.amounts[i];
-            _totalReservedRewards -= claimRequest.amounts[i];
-            totalAmount += claimRequest.amounts[i];
-            claimedIds[count] = claimRequest.ids[i];
-            count++;
+        emit SetMerkleRoot(merkleRoot);
+    }
+
+    /**
+     * @notice Move funds from a snapshot pool into the Merkle reward pool
+     * @dev Transfers reserved balance from a per-snapshot pool to the cumulative
+     *      Merkle pool. Total reserved rewards stays unchanged.
+     * @param snapshotId The snapshot to draw from
+     * @param amount Amount to move
+     */
+    function fundMerklePool(
+        bytes32 snapshotId,
+        uint256 amount
+    ) external onlyRole(REWARDS_MANAGER_ROLE) {
+        if (amount == 0) revert ZeroRewards();
+        if (amount > _rewards[snapshotId].amount) revert InsufficientContractBalance();
+
+        _rewards[snapshotId].amount -= amount;
+        _merklePoolBalance += amount;
+        // _totalReservedRewards unchanged — funds move between pools
+
+        emit FundMerklePool(snapshotId, amount);
+    }
+
+    /**
+     * @notice Claim rewards using a cumulative Merkle proof
+     * @dev User provides their total cumulative entitlement and proof.
+     *      Contract pays out the delta between entitlement and previously claimed.
+     *      One proof, one tx — covers all unclaimed rewards regardless of how many
+     *      days/weeks have passed.
+     * @param cumulativeAmount The user's total cumulative reward entitlement
+     * @param proof The Merkle proof
+     */
+    function claimMerkleRewards(
+        uint256 cumulativeAmount,
+        bytes32[] calldata proof
+    ) external nonReentrant {
+        if (_currentMerkleRoot == bytes32(0)) revert MerkleRootNotSet();
+
+        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(_msgSender(), cumulativeAmount))));
+        if (!MerkleProof.verifyCalldata(proof, _currentMerkleRoot, leaf)) {
+            revert InvalidMerkleProof();
         }
 
-        if (totalAmount == 0) {
-            revert ZeroRewards();
+        uint256 claimable = cumulativeAmount - _cumulativeClaimed[_msgSender()];
+        if (claimable == 0) revert NothingToClaim();
+
+        _cumulativeClaimed[_msgSender()] = cumulativeAmount;
+        _merklePoolBalance -= claimable;
+        _totalReservedRewards -= claimable;
+
+        yusd.safeTransfer(_msgSender(), claimable);
+
+        emit ClaimMerkleRewards(_msgSender(), claimable);
+    }
+
+    /**
+     * @notice Rescue cumulative Merkle rewards for a user (e.g., lost wallet)
+     * @dev Admin provides the user's cumulative entitlement and proof.
+     *      Pays out the delta to a destination address.
+     * @param user The user whose rewards to rescue
+     * @param to The destination address
+     * @param cumulativeAmount The user's total cumulative entitlement
+     * @param proof The Merkle proof for the user
+     */
+    function rescueMerkleRewards(
+        address user,
+        address to,
+        uint256 cumulativeAmount,
+        bytes32[] calldata proof
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (to == address(0)) revert ZeroAddress();
+        if (_currentMerkleRoot == bytes32(0)) revert MerkleRootNotSet();
+
+        bytes32 leaf = keccak256(bytes.concat(keccak256(abi.encode(user, cumulativeAmount))));
+        if (!MerkleProof.verifyCalldata(proof, _currentMerkleRoot, leaf)) {
+            revert InvalidMerkleProof();
         }
 
-        yusd.safeTransfer(_msgSender(), totalAmount);
+        uint256 claimable = cumulativeAmount - _cumulativeClaimed[user];
+        if (claimable == 0) revert NothingToClaim();
 
-        /// @solidity memory-safe-assembly
-        assembly {
-            mstore(claimedIds, count)
-        }
+        _cumulativeClaimed[user] = cumulativeAmount;
+        _merklePoolBalance -= claimable;
+        _totalReservedRewards -= claimable;
 
-        emit ClaimRewards(_msgSender(), claimedIds, totalAmount);
+        yusd.safeTransfer(to, claimable);
+
+        emit RescueMerkleRewards(user, to, claimable);
     }
 
     // ============================================
@@ -553,7 +605,6 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
 
     /**
      * @notice Bridge YUSD to a destination chain via LayerZero OFT adapter
-     * @dev Replaces withdrawForBridging - actually bridges tokens cross-chain
      * @param snapshotId The snapshot identifier
      * @param chainId The chain ID to bridge to
      * @param extraOptions Additional LayerZero options
@@ -682,11 +733,6 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
         emit RescueAssets(address(token), admin, balance);
     }
 
-    /// @dev Sets new AegisConfig address
-    function setAegisConfigAddress(IAegisConfig _aegisConfig) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _setAegisConfigAddress(_aegisConfig);
-    }
-
     /// @dev Sets new AegisMinting address
     function setAegisMintingAddress(address _aegisMinting) external onlyRole(DEFAULT_ADMIN_ROLE) {
         aegisMinting = _aegisMinting;
@@ -715,15 +761,6 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     // INTERNAL FUNCTIONS
     // ============================================
 
-    function _setAegisConfigAddress(IAegisConfig _aegisConfig) internal {
-        if (address(_aegisConfig) != address(0) && !IERC165(address(_aegisConfig)).supportsInterface(type(IAegisConfig).interfaceId)) {
-            revert InvalidAddress();
-        }
-
-        aegisConfig = _aegisConfig;
-        emit SetAegisConfigAddress(address(aegisConfig));
-    }
-
     function _stringToBytes32(string memory source) private pure returns (bytes32 result) {
         bytes memory str = bytes(source);
         if (str.length == 0) {
@@ -733,9 +770,5 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
         assembly {
             result := mload(add(source, 32))
         }
-    }
-
-    function _computeDomainSeparator() internal view returns (bytes32) {
-        return keccak256(abi.encode(EIP712_DOMAIN, EIP712_NAME, EIP712_REVISION, block.chainid, address(this)));
     }
 }
