@@ -8,8 +8,6 @@ import {
   DISTRIBUTOR_ROLE,
   deployRewardsV2Fixture,
   encodeString,
-  signClaimRequestV2,
-  signClaimRequestV2ByWallet,
 } from '../utils/helpers'
 
 describe('AegisRewardsV2', () => {
@@ -368,99 +366,6 @@ describe('AegisRewardsV2', () => {
     })
   })
 
-  describe('#claimRewards (signature-based)', () => {
-    describe('success', () => {
-      it('should claim rewards using signature', async () => {
-        const [owner] = await ethers.getSigners()
-        const { aegisRewardsV2Contract, yusdContract } = await loadFixture(deployRewardsV2Fixture)
-
-        await aegisRewardsV2Contract.grantRole(REWARDS_MANAGER_ROLE, owner.address)
-        await aegisRewardsV2Contract.setAegisMintingAddress(owner.address)
-
-        const snapshotId = 'week-2024-01'
-        const bytes32SnapshotId = ethers.encodeBytes32String(snapshotId)
-        const amount = ethers.parseEther('1000')
-
-        await yusdContract.mint(owner, amount)
-        await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), amount)
-        await aegisRewardsV2Contract.depositRewards(encodeString(snapshotId), amount)
-        await aegisRewardsV2Contract.finalizeRewards(bytes32SnapshotId, 0)
-
-        const contractAddress = await aegisRewardsV2Contract.getAddress()
-        const claimRequest = {
-          claimer: owner.address,
-          ids: [bytes32SnapshotId],
-          amounts: [amount],
-        }
-        const signature = await signClaimRequestV2(claimRequest, contractAddress)
-
-        const balanceBefore = await yusdContract.balanceOf(owner.address)
-
-        await expect(aegisRewardsV2Contract.claimRewards(claimRequest, signature))
-          .to.emit(aegisRewardsV2Contract, 'ClaimRewards')
-          .withArgs(owner.address, [bytes32SnapshotId], amount)
-
-        const balanceAfter = await yusdContract.balanceOf(owner.address)
-        expect(balanceAfter - balanceBefore).to.equal(amount)
-      })
-    })
-
-    describe('error', () => {
-      it('should revert when caller is not a claimer', async () => {
-        const [owner, sender] = await ethers.getSigners()
-        const { aegisRewardsV2Contract, yusdContract } = await loadFixture(deployRewardsV2Fixture)
-
-        await aegisRewardsV2Contract.grantRole(REWARDS_MANAGER_ROLE, owner.address)
-        await aegisRewardsV2Contract.setAegisMintingAddress(owner.address)
-
-        const snapshotId = 'week-2024-01'
-        const amount = ethers.parseEther('1000')
-
-        await yusdContract.mint(owner, amount)
-        await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), amount)
-        await aegisRewardsV2Contract.depositRewards(encodeString(snapshotId), amount)
-
-        const contractAddress = await aegisRewardsV2Contract.getAddress()
-        const claimRequest = {
-          claimer: owner.address,
-          ids: [ethers.encodeBytes32String(snapshotId)],
-          amounts: [amount],
-        }
-        const signature = await signClaimRequestV2(claimRequest, contractAddress)
-
-        await expect(
-          aegisRewardsV2Contract.connect(sender).claimRewards(claimRequest, signature),
-        ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'InvalidClaimer')
-      })
-
-      it('should revert when signed by unknown account', async () => {
-        const [owner] = await ethers.getSigners()
-        const { aegisRewardsV2Contract, yusdContract } = await loadFixture(deployRewardsV2Fixture)
-
-        await aegisRewardsV2Contract.grantRole(REWARDS_MANAGER_ROLE, owner.address)
-        await aegisRewardsV2Contract.setAegisMintingAddress(owner.address)
-
-        const snapshotId = 'week-2024-01'
-        const amount = ethers.parseEther('1000')
-
-        await yusdContract.mint(owner, amount)
-        await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), amount)
-        await aegisRewardsV2Contract.depositRewards(encodeString(snapshotId), amount)
-
-        const unknownSigner = await ethers.Wallet.createRandom()
-        const contractAddress = await aegisRewardsV2Contract.getAddress()
-        const claimRequest = {
-          claimer: owner.address,
-          ids: [ethers.encodeBytes32String(snapshotId)],
-          amounts: [amount],
-        }
-        const signature = await signClaimRequestV2ByWallet(claimRequest, contractAddress, unknownSigner)
-
-        await expect(aegisRewardsV2Contract.claimRewards(claimRequest, signature))
-          .to.be.revertedWithCustomError(aegisRewardsV2Contract, 'InvalidSignature')
-      })
-    })
-  })
 
   describe('#rescueRewards', () => {
     describe('success', () => {
@@ -682,12 +587,11 @@ describe('AegisRewardsV2', () => {
     describe('error', () => {
       it('should revert when not on main chain', async () => {
         const [owner] = await ethers.getSigners()
-        const { yusdContract, aegisConfig } = await loadFixture(deployRewardsV2Fixture)
+        const { yusdContract } = await loadFixture(deployRewardsV2Fixture)
 
         // Deploy as secondary chain (NOT main chain)
         const secondaryRewardsContract = await ethers.deployContract('AegisRewardsV2', [
           await yusdContract.getAddress(),
-          await aegisConfig.getAddress(),
           owner.address,
           false, // isMainChain = false
         ])
@@ -858,12 +762,11 @@ describe('AegisRewardsV2', () => {
 
       it('should revert when not on main chain', async () => {
         const [owner] = await ethers.getSigners()
-        const { yusdContract, aegisConfig } = await loadFixture(deployRewardsV2Fixture)
+        const { yusdContract } = await loadFixture(deployRewardsV2Fixture)
 
         // Deploy as secondary chain
         const secondaryRewards = await ethers.deployContract('AegisRewardsV2', [
           await yusdContract.getAddress(),
-          await aegisConfig.getAddress(),
           owner.address,
           false, // isMainChain = false
         ])
@@ -877,12 +780,11 @@ describe('AegisRewardsV2', () => {
 
       it('should revert when OFT adapter is not set', async () => {
         const [owner] = await ethers.getSigners()
-        const { yusdContract, aegisConfig } = await loadFixture(deployRewardsV2Fixture)
+        const { yusdContract } = await loadFixture(deployRewardsV2Fixture)
 
         // Deploy a fresh contract without OFT adapter set
         const rewardsNoAdapter = await ethers.deployContract('AegisRewardsV2', [
           await yusdContract.getAddress(),
-          await aegisConfig.getAddress(),
           owner.address,
           true,
         ])
@@ -988,11 +890,10 @@ describe('AegisRewardsV2', () => {
     describe('error', () => {
       it('should revert when OFT adapter is not set', async () => {
         const [owner] = await ethers.getSigners()
-        const { yusdContract, aegisConfig } = await loadFixture(deployRewardsV2Fixture)
+        const { yusdContract } = await loadFixture(deployRewardsV2Fixture)
 
         const rewardsNoAdapter = await ethers.deployContract('AegisRewardsV2', [
           await yusdContract.getAddress(),
-          await aegisConfig.getAddress(),
           owner.address,
           true,
         ])
@@ -1184,17 +1085,6 @@ describe('AegisRewardsV2', () => {
     })
   })
 
-  describe('#getDomainSeparator', () => {
-    describe('success', () => {
-      it('should return correct domain separator', async () => {
-        const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
-
-        const domainSeparator = await aegisRewardsV2Contract.getDomainSeparator()
-        expect(domainSeparator).to.not.equal(ethers.ZeroHash)
-        expect(domainSeparator.length).to.equal(66) // 0x + 32 bytes
-      })
-    })
-  })
 
   describe('#claimOnChainRewards with expiry', () => {
     describe('error', () => {

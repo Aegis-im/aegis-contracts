@@ -95,13 +95,9 @@ export async function deployRewardsV2Fixture() {
   const yusdContract = await ethers.deployContract('YUSD', [owner.address])
   const yusdAddress = await yusdContract.getAddress()
 
-  const aegisConfig = await ethers.deployContract('AegisConfig', [trustedSignerAccount, [owner], owner])
-  const aegisConfigAddress = await aegisConfig.getAddress()
-
   // Deploy as main chain (ETH)
   const aegisRewardsV2Contract = await ethers.deployContract('AegisRewardsV2', [
     yusdAddress,
-    aegisConfigAddress,
     owner.address,
     true, // isMainChain
   ])
@@ -122,8 +118,6 @@ export async function deployRewardsV2Fixture() {
     yusdAddress,
     aegisRewardsV2Contract,
     aegisRewardsV2Address,
-    aegisConfig,
-    aegisConfigAddress,
     mockOFTAdapterContract,
     mockOFTAdapterAddress,
   }
