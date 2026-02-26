@@ -3,6 +3,8 @@ pragma solidity 0.8.26;
 
 import { IAegisRewardsEvents, IAegisRewardsErrors } from "./IAegisRewards.sol";
 import { IAegisConfig } from "./IAegisConfig.sol";
+import { IOFT } from "@layerzerolabs/oft-evm/contracts/interfaces/IOFT.sol";
+import { MessagingFee } from "@layerzerolabs/oapp-evm/contracts/oapp/OAppSender.sol";
 
 /**
  * @title IAegisRewardsV2
@@ -31,6 +33,13 @@ interface IAegisRewardsV2 {
         uint256 usersShare;
     }
 
+    /// @notice Configuration for a supported chain
+    struct ChainConfig {
+        uint32 dstEid;
+        address rewardsContract;
+        bool configured;
+    }
+
     // ============================================
     // VIEW FUNCTIONS
     // ============================================
@@ -52,6 +61,10 @@ interface IAegisRewardsV2 {
     function getSupportedChains() external view returns (uint32[] memory);
 
     function isMainChain() external view returns (bool);
+
+    function getChainConfig(uint32 chainId) external view returns (ChainConfig memory);
+
+    function quoteBridging(bytes32 snapshotId, uint32 chainId, bytes calldata extraOptions) external view returns (MessagingFee memory);
 
     // ============================================
     // DEPOSIT FUNCTIONS
@@ -87,7 +100,7 @@ interface IAegisRewardsV2 {
     // CROSS-CHAIN DISTRIBUTION
     // ============================================
 
-    function configureChain(uint32 chainId, address rewardsContract, bool add) external;
+    function configureChain(uint32 chainId, uint32 dstEid, address rewardsContract, bool add) external;
 
     function setChainDistribution(
         bytes32 snapshotId,
@@ -96,7 +109,7 @@ interface IAegisRewardsV2 {
         uint256[] calldata amounts
     ) external;
 
-    function markAsBridged(bytes32 snapshotId, uint32 chainId) external;
+    function bridgeToChain(bytes32 snapshotId, uint32 chainId, bytes calldata extraOptions) external payable;
 
     // ============================================
     // ADMIN FUNCTIONS
@@ -115,6 +128,8 @@ interface IAegisRewardsV2 {
     function setAegisIncomeRouterAddress(address _aegisIncomeRouter) external;
 
     function setStakingContract(address _stakingContract) external;
+
+    function setOFTAdapter(IOFT _oftAdapter) external;
 }
 
 /**
@@ -150,7 +165,10 @@ interface IAegisRewardsV2Events is IAegisRewardsEvents {
     event SetStakingContract(address indexed stakingContract);
 
     /// @dev Event emitted when chain is added/removed for distribution
-    event ChainConfigured(uint32 indexed chainId, address rewardsContract, bool added);
+    event ChainConfigured(uint32 indexed chainId, uint32 dstEid, address rewardsContract, bool added);
+
+    /// @dev Event emitted when OFT adapter is set
+    event SetOFTAdapter(address indexed oftAdapter);
 }
 
 /**
@@ -166,4 +184,5 @@ interface IAegisRewardsV2Errors is IAegisRewardsErrors {
     error UserRewardsNotSet();
     error ChainAlreadyConfigured();
     error InvalidSnapshotId();
+    error OFTAdapterNotSet();
 }

@@ -211,8 +211,8 @@ async function main() {
     const aegisRewardsV2Contract = await AegisRewardsV2.deploy(
       yusdAddress,
       aegisConfigAddress,
-      syusdAddress,
-      initialOwner
+      initialOwner,
+      true // isMainChain
     )
     await aegisRewardsV2Contract.waitForDeployment()
     aegisRewardsV2Address = await aegisRewardsV2Contract.getAddress()

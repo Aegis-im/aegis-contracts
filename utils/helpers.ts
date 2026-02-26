@@ -95,13 +95,9 @@ export async function deployRewardsV2Fixture() {
   const yusdContract = await ethers.deployContract('YUSD', [owner.address])
   const yusdAddress = await yusdContract.getAddress()
 
-  const aegisConfig = await ethers.deployContract('AegisConfig', [trustedSignerAccount, [owner], owner])
-  const aegisConfigAddress = await aegisConfig.getAddress()
-
   // Deploy as main chain (ETH)
   const aegisRewardsV2Contract = await ethers.deployContract('AegisRewardsV2', [
     yusdAddress,
-    aegisConfigAddress,
     owner.address,
     true, // isMainChain
   ])
@@ -110,13 +106,20 @@ export async function deployRewardsV2Fixture() {
   // Setup YUSD minting
   await yusdContract.setMinter(owner.address)
 
+  // Deploy MockOFTAdapter
+  const mockOFTAdapterContract = await ethers.deployContract('MockOFTAdapter', [yusdAddress])
+  const mockOFTAdapterAddress = await mockOFTAdapterContract.getAddress()
+
+  // Set OFT adapter on rewards contract
+  await aegisRewardsV2Contract.setOFTAdapter(mockOFTAdapterAddress)
+
   return {
     yusdContract,
     yusdAddress,
     aegisRewardsV2Contract,
     aegisRewardsV2Address,
-    aegisConfig,
-    aegisConfigAddress,
+    mockOFTAdapterContract,
+    mockOFTAdapterAddress,
   }
 }
 
@@ -524,12 +527,34 @@ export function cleanOldDeploymentFile(networkName: string, contractName: string
     const deploymentPath = path.join(__dirname, '..', 'deployments', networkName, `${contractName}.json`)
     if (fs.existsSync(deploymentPath)) {
       fs.unlinkSync(deploymentPath)
-      console.log(`🗑️ Removed old deployment file: ${contractName}.json`)
+      console.log(`Removed old deployment file: ${contractName}.json`)
       return true
     }
     return false
   } catch (error) {
-    console.log(`⚠️ Error removing old deployment file ${contractName}: ${(error as Error).message}`)
+    console.log(`Error removing old deployment file ${contractName}: ${(error as Error).message}`)
     return false
   }
+}
+
+// ============================================
+// Merkle tree helpers
+// ============================================
+
+import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
+
+export function buildRewardsTree(rewards: Array<[string, bigint]>): StandardMerkleTree<[string, bigint]> {
+  return StandardMerkleTree.of(
+    rewards.map(([addr, amount]) => [addr, amount.toString()]),
+    ['address', 'uint256'],
+  ) as unknown as StandardMerkleTree<[string, bigint]>
+}
+
+export function getMerkleProof(tree: StandardMerkleTree<[string, bigint]>, address: string): string[] {
+  for (const [i, v] of tree.entries()) {
+    if ((v[0] as string).toLowerCase() === address.toLowerCase()) {
+      return tree.getProof(i)
+    }
+  }
+  throw new Error(`Address ${address} not found in tree`)
 }
