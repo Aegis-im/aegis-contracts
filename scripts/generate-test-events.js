@@ -274,15 +274,13 @@ async function main() {
     try {
       // Role constants
       const REWARDS_MANAGER_ROLE = ethers.keccak256(ethers.toUtf8Bytes('REWARDS_MANAGER_ROLE'))
-      const DAILY_UPDATER_ROLE = ethers.keccak256(ethers.toUtf8Bytes('DAILY_UPDATER_ROLE'))
       const DEFAULT_ADMIN_ROLE = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
       // Grant roles
       const hasAdmin = await aegisRewardsV2.hasRole(DEFAULT_ADMIN_ROLE, deployer.address)
       if (hasAdmin) {
         await aegisRewardsV2.grantRole(REWARDS_MANAGER_ROLE, deployer.address)
-        await aegisRewardsV2.grantRole(DAILY_UPDATER_ROLE, deployer.address)
-        console.log('Granted REWARDS_MANAGER_ROLE and DAILY_UPDATER_ROLE to deployer')
+        console.log('Granted REWARDS_MANAGER_ROLE to deployer')
 
         // Set staking contract
         const currentStaking = await aegisRewardsV2.stakingContract()
@@ -318,26 +316,7 @@ async function main() {
         events.push({ type: 'deposit_rewards', block: tx.blockNumber })
         console.log(`[Block ${tx.blockNumber}] DepositRewards: 10,000 YUSD`)
 
-        // Update daily rewards
-        const stakingBalance = await syusd.totalAssets() // Total YUSD in sYUSD
-        const totalEligible = stakingBalance + ethers.parseUnits('50000', 18) // staking + estimated user holdings
-        tx = await aegisRewardsV2.updateDailyRewards(snapshotId, stakingBalance, totalEligible)
-        await tx.wait()
-        events.push({ type: 'daily_rewards_update', block: tx.blockNumber })
-        console.log(`[Block ${tx.blockNumber}] DailyRewardsUpdate`)
-
-        // Set user rewards
-        const rewardUsers = [user1.address, user2.address]
-        const rewardAmounts = [
-          ethers.parseUnits('2000', 18), // 2,000 YUSD for user1
-          ethers.parseUnits('1500', 18)  // 1,500 YUSD for user2
-        ]
-        tx = await aegisRewardsV2.setUserRewards(snapshotId, rewardUsers, rewardAmounts)
-        await tx.wait()
-        events.push({ type: 'set_user_rewards', block: tx.blockNumber })
-        console.log(`[Block ${tx.blockNumber}] SetUserRewards: user1=2000, user2=1500`)
-
-        // Send staking rewards to sYUSD
+        // Send staking rewards to sYUSD (must be done before setUserRewards which auto-finalizes)
         const stakingRewardAmount = ethers.parseUnits('3000', 18) // 3,000 YUSD to staking
         tx = await aegisRewardsV2.sendToStaking(snapshotId, stakingRewardAmount)
         await tx.wait()
@@ -348,12 +327,17 @@ async function main() {
         const newSharePrice = await syusd.convertToAssets(ethers.parseUnits('1', 18))
         console.log(`sYUSD share price after rewards: ${ethers.formatUnits(newSharePrice, 18)} YUSD`)
 
-        // Finalize rewards
+        // Set user rewards (auto-finalizes with 30-day claim window)
+        const rewardUsers = [user1.address, user2.address]
+        const rewardAmounts = [
+          ethers.parseUnits('2000', 18), // 2,000 YUSD for user1
+          ethers.parseUnits('1500', 18)  // 1,500 YUSD for user2
+        ]
         const claimDuration = 30 * 24 * 60 * 60 // 30 days to claim
-        tx = await aegisRewardsV2.finalizeRewards(snapshotId, claimDuration)
+        tx = await aegisRewardsV2.setUserRewards(snapshotId, rewardUsers, rewardAmounts, claimDuration)
         await tx.wait()
-        events.push({ type: 'finalize_rewards', block: tx.blockNumber })
-        console.log(`[Block ${tx.blockNumber}] FinalizeRewards: snapshot finalized`)
+        events.push({ type: 'set_user_rewards', block: tx.blockNumber })
+        console.log(`[Block ${tx.blockNumber}] SetUserRewards: user1=2000, user2=1500 (auto-finalized)`)
 
         // User1 claims on-chain rewards
         tx = await aegisRewardsV2.connect(user1).claimOnChainRewards(snapshotId)

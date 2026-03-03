@@ -4,7 +4,6 @@ import { expect } from 'chai'
 
 import {
   REWARDS_MANAGER_ROLE,
-  DAILY_UPDATER_ROLE,
   DISTRIBUTOR_ROLE,
   deployRewardsV2Fixture,
   encodeString,
@@ -44,115 +43,13 @@ describe('AegisRewardsV2', () => {
     })
   })
 
-  describe('#updateDailyRewards', () => {
-    describe('success', () => {
-      it('should update daily rewards distribution', async () => {
-        const [owner] = await ethers.getSigners()
-        const { aegisRewardsV2Contract, yusdContract } = await loadFixture(deployRewardsV2Fixture)
-
-        await aegisRewardsV2Contract.grantRole(DAILY_UPDATER_ROLE, owner.address)
-        await aegisRewardsV2Contract.setAegisMintingAddress(owner.address)
-
-        const snapshotId = 'week-2024-01'
-        const amount = ethers.parseEther('10000')
-
-        // Transfer tokens to contract and deposit
-        await yusdContract.mint(owner, amount)
-        await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), amount)
-        await aegisRewardsV2Contract.depositRewards(encodeString(snapshotId), amount)
-
-        const bytes32SnapshotId = ethers.encodeBytes32String(snapshotId)
-        const stakingBalance = ethers.parseEther('10000000') // 10M staking
-        const totalEligible = ethers.parseEther('20000000') // 20M total (10M staking + 10M users)
-
-        await expect(aegisRewardsV2Contract.updateDailyRewards(bytes32SnapshotId, stakingBalance, totalEligible))
-          .to.emit(aegisRewardsV2Contract, 'DailyRewardsUpdate')
-
-        const dailyUpdate = await aegisRewardsV2Contract.getDailyUpdate(bytes32SnapshotId, 0)
-        expect(dailyUpdate.totalDeposited).to.equal(amount)
-        // stakingShare should be 50% of total (10M/20M)
-        expect(dailyUpdate.stakingShare).to.equal(amount / 2n)
-        expect(dailyUpdate.usersShare).to.equal(amount / 2n)
-
-        // Day counter should be incremented
-        expect(await aegisRewardsV2Contract.getCurrentDay(bytes32SnapshotId)).to.equal(1)
-      })
-
-      it('should handle changing staking balance ratio', async () => {
-        const [owner] = await ethers.getSigners()
-        const { aegisRewardsV2Contract, yusdContract } = await loadFixture(deployRewardsV2Fixture)
-
-        await aegisRewardsV2Contract.grantRole(DAILY_UPDATER_ROLE, owner.address)
-        await aegisRewardsV2Contract.setAegisMintingAddress(owner.address)
-
-        const snapshotId = 'week-2024-01'
-        const amount = ethers.parseEther('10000')
-
-        await yusdContract.mint(owner, amount)
-        await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), amount)
-        await aegisRewardsV2Contract.depositRewards(encodeString(snapshotId), amount)
-
-        const bytes32SnapshotId = ethers.encodeBytes32String(snapshotId)
-
-        // Day 1: 50-50 split
-        await aegisRewardsV2Contract.updateDailyRewards(
-          bytes32SnapshotId,
-          ethers.parseEther('10000000'), // 10M staking
-          ethers.parseEther('20000000'),  // 20M total
-        )
-
-        // Day 2: Staking increased to 20M (66.67% of 30M total)
-        await aegisRewardsV2Contract.updateDailyRewards(
-          bytes32SnapshotId,
-          ethers.parseEther('20000000'), // 20M staking
-          ethers.parseEther('30000000'),  // 30M total
-        )
-
-        const dailyUpdate = await aegisRewardsV2Contract.getDailyUpdate(bytes32SnapshotId, 1)
-        // stakingShare should be ~66.67% of total (20M/30M)
-        const expectedStakingShare = (amount * 20000000n) / 30000000n
-        expect(dailyUpdate.stakingShare).to.equal(expectedStakingShare)
-      })
-    })
-
-    describe('error', () => {
-      it('should revert when caller does not have DAILY_UPDATER_ROLE', async () => {
-        const [, user] = await ethers.getSigners()
-        const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
-
-        await expect(
-          aegisRewardsV2Contract.connect(user).updateDailyRewards(
-            ethers.encodeBytes32String('test'),
-            ethers.parseEther('10000000'),
-            ethers.parseEther('20000000'),
-          ),
-        ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'AccessControlUnauthorizedAccount')
-      })
-
-      it('should revert when totalEligibleBalance is zero', async () => {
-        const [owner] = await ethers.getSigners()
-        const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
-
-        await aegisRewardsV2Contract.grantRole(DAILY_UPDATER_ROLE, owner.address)
-
-        await expect(
-          aegisRewardsV2Contract.updateDailyRewards(
-            ethers.encodeBytes32String('test'),
-            ethers.parseEther('10000000'),
-            0,
-          ),
-        ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'ZeroRewards')
-      })
-    })
-  })
-
   describe('#sendToStaking', () => {
     describe('success', () => {
       it('should send staking portion to staking contract', async () => {
         const [owner, stakingContract] = await ethers.getSigners()
         const { aegisRewardsV2Contract, yusdContract } = await loadFixture(deployRewardsV2Fixture)
 
-        await aegisRewardsV2Contract.grantRole(DAILY_UPDATER_ROLE, owner.address)
+        await aegisRewardsV2Contract.grantRole(REWARDS_MANAGER_ROLE, owner.address)
         await aegisRewardsV2Contract.setAegisMintingAddress(owner.address)
         await aegisRewardsV2Contract.setStakingContract(stakingContract.address)
 
@@ -182,7 +79,7 @@ describe('AegisRewardsV2', () => {
         const [owner] = await ethers.getSigners()
         const { aegisRewardsV2Contract, yusdContract } = await loadFixture(deployRewardsV2Fixture)
 
-        await aegisRewardsV2Contract.grantRole(DAILY_UPDATER_ROLE, owner.address)
+        await aegisRewardsV2Contract.grantRole(REWARDS_MANAGER_ROLE, owner.address)
         await aegisRewardsV2Contract.setAegisMintingAddress(owner.address)
 
         const snapshotId = 'week-2024-01'
@@ -201,7 +98,7 @@ describe('AegisRewardsV2', () => {
 
   describe('#setUserRewards', () => {
     describe('success', () => {
-      it('should set user rewards on-chain', async () => {
+      it('should set user rewards on-chain and auto-finalize', async () => {
         const [owner, user1, user2] = await ethers.getSigners()
         const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
 
@@ -211,7 +108,7 @@ describe('AegisRewardsV2', () => {
         const users = [user1.address, user2.address]
         const amounts = [ethers.parseEther('100'), ethers.parseEther('200')]
 
-        await expect(aegisRewardsV2Contract.setUserRewards(snapshotId, users, amounts))
+        await expect(aegisRewardsV2Contract.setUserRewards(snapshotId, users, amounts, 0))
           .to.emit(aegisRewardsV2Contract, 'SetUserRewards')
           .withArgs(snapshotId, user1.address, amounts[0])
 
@@ -222,6 +119,10 @@ describe('AegisRewardsV2', () => {
         const user2Rewards = await aegisRewardsV2Contract.getUserRewards(snapshotId, user2.address)
         expect(user2Rewards.amount).to.equal(amounts[1])
         expect(user2Rewards.claimed).to.equal(false)
+
+        // Verify auto-finalization
+        const reward = await aegisRewardsV2Contract.rewardById('week-2024-01')
+        expect(reward.finalized).to.equal(true)
       })
     })
 
@@ -236,7 +137,7 @@ describe('AegisRewardsV2', () => {
         const users = [user1.address]
         const amounts = [ethers.parseEther('100'), ethers.parseEther('200')]
 
-        await expect(aegisRewardsV2Contract.setUserRewards(snapshotId, users, amounts))
+        await expect(aegisRewardsV2Contract.setUserRewards(snapshotId, users, amounts, 0))
           .to.be.revertedWithCustomError(aegisRewardsV2Contract, 'InvalidAddress')
       })
 
@@ -249,6 +150,7 @@ describe('AegisRewardsV2', () => {
             ethers.encodeBytes32String('test'),
             [user.address],
             [ethers.parseEther('100')],
+            0,
           ),
         ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'AccessControlUnauthorizedAccount')
       })
@@ -274,11 +176,8 @@ describe('AegisRewardsV2', () => {
         await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), totalAmount)
         await aegisRewardsV2Contract.depositRewards(encodeString(snapshotId), totalAmount)
 
-        // Set user rewards
-        await aegisRewardsV2Contract.setUserRewards(bytes32SnapshotId, [user1.address], [userAmount])
-
-        // Finalize rewards
-        await aegisRewardsV2Contract.finalizeRewards(bytes32SnapshotId, 0)
+        // Set user rewards (auto-finalizes)
+        await aegisRewardsV2Contract.setUserRewards(bytes32SnapshotId, [user1.address], [userAmount], 0)
 
         const userBalanceBefore = await yusdContract.balanceOf(user1.address)
 
@@ -301,7 +200,6 @@ describe('AegisRewardsV2', () => {
         const [owner, user1] = await ethers.getSigners()
         const { aegisRewardsV2Contract, yusdContract } = await loadFixture(deployRewardsV2Fixture)
 
-        await aegisRewardsV2Contract.grantRole(REWARDS_MANAGER_ROLE, owner.address)
         await aegisRewardsV2Contract.setAegisMintingAddress(owner.address)
 
         const snapshotId = 'week-2024-01'
@@ -311,9 +209,8 @@ describe('AegisRewardsV2', () => {
         await yusdContract.mint(owner, totalAmount)
         await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), totalAmount)
         await aegisRewardsV2Contract.depositRewards(encodeString(snapshotId), totalAmount)
-        await aegisRewardsV2Contract.setUserRewards(bytes32SnapshotId, [user1.address], [ethers.parseEther('100')])
 
-        // Try to claim without finalizing
+        // Try to claim without finalizing (no setUserRewards called, which would auto-finalize)
         await expect(aegisRewardsV2Contract.connect(user1).claimOnChainRewards(bytes32SnapshotId))
           .to.be.revertedWithCustomError(aegisRewardsV2Contract, 'SnapshotNotFinalized')
       })
@@ -333,8 +230,7 @@ describe('AegisRewardsV2', () => {
         await yusdContract.mint(owner, totalAmount)
         await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), totalAmount)
         await aegisRewardsV2Contract.depositRewards(encodeString(snapshotId), totalAmount)
-        await aegisRewardsV2Contract.setUserRewards(bytes32SnapshotId, [user1.address], [userAmount])
-        await aegisRewardsV2Contract.finalizeRewards(bytes32SnapshotId, 0)
+        await aegisRewardsV2Contract.setUserRewards(bytes32SnapshotId, [user1.address], [userAmount], 0)
 
         // First claim succeeds
         await aegisRewardsV2Contract.connect(user1).claimOnChainRewards(bytes32SnapshotId)
@@ -384,7 +280,7 @@ describe('AegisRewardsV2', () => {
         await yusdContract.mint(owner, totalAmount)
         await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), totalAmount)
         await aegisRewardsV2Contract.depositRewards(encodeString(snapshotId), totalAmount)
-        await aegisRewardsV2Contract.setUserRewards(bytes32SnapshotId, [user1.address], [userAmount])
+        await aegisRewardsV2Contract.setUserRewards(bytes32SnapshotId, [user1.address], [userAmount], 0)
 
         const user2BalanceBefore = await yusdContract.balanceOf(user2.address)
 
@@ -1103,10 +999,7 @@ describe('AegisRewardsV2', () => {
         await yusdContract.mint(owner, totalAmount)
         await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), totalAmount)
         await aegisRewardsV2Contract.depositRewards(encodeString(snapshotId), totalAmount)
-        await aegisRewardsV2Contract.setUserRewards(bytes32SnapshotId, [user1.address], [userAmount])
-
-        // Finalize with short expiry (1 second)
-        await aegisRewardsV2Contract.finalizeRewards(bytes32SnapshotId, 1)
+        await aegisRewardsV2Contract.setUserRewards(bytes32SnapshotId, [user1.address], [userAmount], 1)
 
         // Wait for expiry
         await time.increase(2)
@@ -1119,29 +1012,6 @@ describe('AegisRewardsV2', () => {
   })
 
   describe('#setUserRewards validation', () => {
-    describe('success', () => {
-      it('should overwrite existing user rewards', async () => {
-        const [owner, user1] = await ethers.getSigners()
-        const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
-
-        await aegisRewardsV2Contract.grantRole(REWARDS_MANAGER_ROLE, owner.address)
-
-        const snapshotId = ethers.encodeBytes32String('week-2024-01')
-        const initialAmount = ethers.parseEther('100')
-        const updatedAmount = ethers.parseEther('200')
-
-        // Set initial rewards
-        await aegisRewardsV2Contract.setUserRewards(snapshotId, [user1.address], [initialAmount])
-        let userRewards = await aegisRewardsV2Contract.getUserRewards(snapshotId, user1.address)
-        expect(userRewards.amount).to.equal(initialAmount)
-
-        // Overwrite with new amount
-        await aegisRewardsV2Contract.setUserRewards(snapshotId, [user1.address], [updatedAmount])
-        userRewards = await aegisRewardsV2Contract.getUserRewards(snapshotId, user1.address)
-        expect(userRewards.amount).to.equal(updatedAmount)
-      })
-    })
-
     describe('error', () => {
       it('should revert when user address is zero', async () => {
         const [owner] = await ethers.getSigners()
@@ -1152,7 +1022,7 @@ describe('AegisRewardsV2', () => {
         const snapshotId = ethers.encodeBytes32String('week-2024-01')
 
         await expect(
-          aegisRewardsV2Contract.setUserRewards(snapshotId, [ethers.ZeroAddress], [ethers.parseEther('100')]),
+          aegisRewardsV2Contract.setUserRewards(snapshotId, [ethers.ZeroAddress], [ethers.parseEther('100')], 0),
         ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'ZeroAddress')
       })
 
@@ -1163,7 +1033,7 @@ describe('AegisRewardsV2', () => {
         await aegisRewardsV2Contract.grantRole(REWARDS_MANAGER_ROLE, owner.address)
 
         await expect(
-          aegisRewardsV2Contract.setUserRewards(ethers.ZeroHash, [user1.address], [ethers.parseEther('100')]),
+          aegisRewardsV2Contract.setUserRewards(ethers.ZeroHash, [user1.address], [ethers.parseEther('100')], 0),
         ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'InvalidSnapshotId')
       })
 
@@ -1176,8 +1046,25 @@ describe('AegisRewardsV2', () => {
         const snapshotId = ethers.encodeBytes32String('week-2024-01')
 
         await expect(
-          aegisRewardsV2Contract.setUserRewards(snapshotId, [], []),
+          aegisRewardsV2Contract.setUserRewards(snapshotId, [], [], 0),
         ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'InvalidAddress')
+      })
+
+      it('should revert when snapshot is already finalized', async () => {
+        const [owner, user1] = await ethers.getSigners()
+        const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
+
+        await aegisRewardsV2Contract.grantRole(REWARDS_MANAGER_ROLE, owner.address)
+
+        const snapshotId = ethers.encodeBytes32String('week-2024-01')
+
+        // First call sets rewards and auto-finalizes
+        await aegisRewardsV2Contract.setUserRewards(snapshotId, [user1.address], [ethers.parseEther('100')], 0)
+
+        // Second call should revert
+        await expect(
+          aegisRewardsV2Contract.setUserRewards(snapshotId, [user1.address], [ethers.parseEther('200')], 0),
+        ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'AlreadyFinalized')
       })
     })
   })
@@ -1314,15 +1201,13 @@ describe('AegisRewardsV2', () => {
         await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), totalAmount)
         await aegisRewardsV2Contract.depositRewards(encodeString(snapshotId), totalAmount)
 
-        // Set user rewards
+        // Set user rewards (auto-finalizes)
         await aegisRewardsV2Contract.setUserRewards(
           bytes32SnapshotId,
           [user1.address, user2.address, user3.address],
           [user1Amount, user2Amount, user3Amount],
+          0,
         )
-
-        // Finalize
-        await aegisRewardsV2Contract.finalizeRewards(bytes32SnapshotId, 0)
 
         // All users claim
         const user1BalanceBefore = await yusdContract.balanceOf(user1.address)
@@ -1374,63 +1259,29 @@ describe('AegisRewardsV2', () => {
     })
   })
 
-  describe('#edge cases in proportion calculations', () => {
-    describe('success', () => {
-      it('should handle very small amounts correctly', async () => {
+  describe('#depositRewards finalization guard', () => {
+    describe('error', () => {
+      it('should revert when depositing to a finalized snapshot', async () => {
         const [owner] = await ethers.getSigners()
         const { aegisRewardsV2Contract, yusdContract } = await loadFixture(deployRewardsV2Fixture)
 
-        await aegisRewardsV2Contract.grantRole(DAILY_UPDATER_ROLE, owner.address)
-        await aegisRewardsV2Contract.setAegisMintingAddress(owner.address)
-
-        const snapshotId = 'week-2024-01'
-        const smallAmount = 1n // 1 wei
-
-        await yusdContract.mint(owner, smallAmount)
-        await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), smallAmount)
-        await aegisRewardsV2Contract.depositRewards(encodeString(snapshotId), smallAmount)
-
-        const bytes32SnapshotId = ethers.encodeBytes32String(snapshotId)
-
-        // Update with 50-50 split
-        await aegisRewardsV2Contract.updateDailyRewards(
-          bytes32SnapshotId,
-          ethers.parseEther('1'),
-          ethers.parseEther('2'),
-        )
-
-        const dailyUpdate = await aegisRewardsV2Contract.getDailyUpdate(bytes32SnapshotId, 0)
-        // With 1 wei, stakingShare should be 0 (1 * 1 / 2 = 0)
-        expect(dailyUpdate.stakingShare).to.equal(0n)
-        expect(dailyUpdate.usersShare).to.equal(smallAmount)
-      })
-
-      it('should handle 100% staking allocation', async () => {
-        const [owner] = await ethers.getSigners()
-        const { aegisRewardsV2Contract, yusdContract } = await loadFixture(deployRewardsV2Fixture)
-
-        await aegisRewardsV2Contract.grantRole(DAILY_UPDATER_ROLE, owner.address)
+        await aegisRewardsV2Contract.grantRole(REWARDS_MANAGER_ROLE, owner.address)
         await aegisRewardsV2Contract.setAegisMintingAddress(owner.address)
 
         const snapshotId = 'week-2024-01'
         const amount = ethers.parseEther('1000')
 
-        await yusdContract.mint(owner, amount)
-        await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), amount)
+        await yusdContract.mint(owner, amount * 2n)
+        await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), amount * 2n)
         await aegisRewardsV2Contract.depositRewards(encodeString(snapshotId), amount)
 
-        const bytes32SnapshotId = ethers.encodeBytes32String(snapshotId)
+        // Finalize the snapshot
+        await aegisRewardsV2Contract.finalizeRewards(ethers.encodeBytes32String(snapshotId), 0)
 
-        // 100% to staking (staking balance equals total)
-        await aegisRewardsV2Contract.updateDailyRewards(
-          bytes32SnapshotId,
-          ethers.parseEther('10000000'),
-          ethers.parseEther('10000000'),
-        )
-
-        const dailyUpdate = await aegisRewardsV2Contract.getDailyUpdate(bytes32SnapshotId, 0)
-        expect(dailyUpdate.stakingShare).to.equal(amount)
-        expect(dailyUpdate.usersShare).to.equal(0)
+        // Try to deposit to finalized snapshot
+        await expect(
+          aegisRewardsV2Contract.depositRewards(encodeString(snapshotId), amount),
+        ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'AlreadyFinalized')
       })
     })
   })

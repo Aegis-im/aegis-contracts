@@ -8,7 +8,7 @@ import { MessagingFee } from "@layerzerolabs/oapp-evm/contracts/oapp/OAppSender.
 
 /**
  * @title IAegisRewardsV2
- * @notice Interface for the refactored rewards contract with daily updates
+ * @notice Interface for the refactored rewards contract
  */
 interface IAegisRewardsV2 {
     /// @notice On-chain user rewards data for a snapshot
@@ -23,14 +23,6 @@ interface IAegisRewardsV2 {
         address rewardsContract;
         uint256 amount;
         bool bridged;
-    }
-
-    /// @notice Daily update data
-    struct DailyUpdate {
-        uint256 timestamp;
-        uint256 totalDeposited;
-        uint256 stakingShare;
-        uint256 usersShare;
     }
 
     /// @notice Configuration for a supported chain
@@ -52,10 +44,6 @@ interface IAegisRewardsV2 {
 
     function getUserRewards(bytes32 snapshotId, address user) external view returns (UserRewardData memory);
 
-    function getDailyUpdate(bytes32 snapshotId, uint256 day) external view returns (DailyUpdate memory);
-
-    function getCurrentDay(bytes32 snapshotId) external view returns (uint256);
-
     function getChainDistribution(bytes32 snapshotId, uint32 chainId) external view returns (ChainDistribution memory);
 
     function getSupportedChains() external view returns (uint32[] memory);
@@ -73,14 +61,8 @@ interface IAegisRewardsV2 {
     function depositRewards(bytes calldata requestId, uint256 amount) external;
 
     // ============================================
-    // DAILY UPDATE FUNCTIONS
+    // STAKING FUNCTIONS
     // ============================================
-
-    function updateDailyRewards(
-        bytes32 snapshotId,
-        uint256 stakingBalance,
-        uint256 totalEligibleBalance
-    ) external;
 
     function sendToStaking(bytes32 snapshotId, uint256 amount) external;
 
@@ -91,7 +73,8 @@ interface IAegisRewardsV2 {
     function setUserRewards(
         bytes32 snapshotId,
         address[] calldata users,
-        uint256[] calldata amounts
+        uint256[] calldata amounts,
+        uint256 claimDuration
     ) external;
 
     function claimOnChainRewards(bytes32 snapshotId) external;
@@ -137,16 +120,6 @@ interface IAegisRewardsV2 {
  * @notice Events specific to AegisRewardsV2
  */
 interface IAegisRewardsV2Events is IAegisRewardsEvents {
-    /// @dev Event emitted when daily rewards update is performed
-    event DailyRewardsUpdate(
-        bytes32 indexed id,
-        uint256 day,
-        uint256 totalDeposited,
-        uint256 stakingShare,
-        uint256 usersShare,
-        uint256 timestamp
-    );
-
     /// @dev Event emitted when user rewards are set on-chain
     event SetUserRewards(bytes32 indexed id, address indexed user, uint256 amount);
 
@@ -177,6 +150,7 @@ interface IAegisRewardsV2Events is IAegisRewardsEvents {
  */
 interface IAegisRewardsV2Errors is IAegisRewardsErrors {
     error AlreadyClaimed();
+    error AlreadyFinalized();
     error InvalidChain();
     error AlreadyBridged();
     error NotMainChain();

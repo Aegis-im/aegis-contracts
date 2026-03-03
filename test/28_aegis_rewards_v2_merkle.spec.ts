@@ -367,9 +367,8 @@ describe('AegisRewardsV2 — Cumulative Merkle Rewards', function () {
       const { rewardsContract, yusdContract, owner, user1, user2, bytes32SnapshotId } =
         await loadFixture(deployFixture)
 
-      // --- Old path: setUserRewards + claimOnChainRewards ---
-      await rewardsContract.setUserRewards(bytes32SnapshotId, [user1.address], [ethers.parseEther('50')])
-      await rewardsContract.finalizeRewards(bytes32SnapshotId, 0)
+      // --- Old path: setUserRewards (auto-finalizes) + claimOnChainRewards ---
+      await rewardsContract.setUserRewards(bytes32SnapshotId, [user1.address], [ethers.parseEther('50')], 0)
       await rewardsContract.connect(user1).claimOnChainRewards(bytes32SnapshotId)
       expect(await yusdContract.balanceOf(user1.address)).to.equal(ethers.parseEther('50'))
 
@@ -420,6 +419,7 @@ describe('AegisRewardsV2 — Cumulative Merkle Rewards', function () {
         otherSnapshotId,
         [user1.address, user2.address, user3.address],
         [ethers.parseEther('100'), ethers.parseEther('200'), ethers.parseEther('300')],
+        0,
       )
       const userRewardsReceipt = await userRewardsTx.wait()
       const userRewardsGas = userRewardsReceipt!.gasUsed

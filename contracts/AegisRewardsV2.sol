@@ -15,7 +15,7 @@ import { IAegisRewardsEvents, IAegisRewardsErrors } from "./interfaces/IAegisRew
 
 /**
  * @title AegisRewardsV2
- * @notice Rewards contract with cumulative Merkle distribution, daily updates,
+ * @notice Rewards contract with cumulative Merkle distribution
  *         and cross-chain support via LayerZero OFT bridging
  */
 contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessControlDefaultAdminRules, ReentrancyGuard {
@@ -42,14 +42,6 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
         bool bridged;
     }
 
-    /// @notice Daily update data
-    struct DailyUpdate {
-        uint256 timestamp;
-        uint256 totalDeposited;
-        uint256 stakingShare;
-        uint256 usersShare;
-    }
-
     /// @notice Configuration for a supported chain
     struct ChainConfig {
         uint32 dstEid;
@@ -59,9 +51,6 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
 
     /// @dev role enabling to finalize and withdraw expired rewards
     bytes32 private constant REWARDS_MANAGER_ROLE = keccak256("REWARDS_MANAGER_ROLE");
-
-    /// @dev role for daily updates
-    bytes32 private constant DAILY_UPDATER_ROLE = keccak256("DAILY_UPDATER_ROLE");
 
     /// @dev role for cross-chain distribution
     bytes32 private constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
@@ -93,12 +82,6 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     /// @dev On-chain user rewards storage: snapshotId => user => UserRewardData
     mapping(bytes32 => mapping(address => UserRewardData)) private _userRewards;
 
-    /// @dev Snapshot daily updates: snapshotId => day => DailyUpdate
-    mapping(bytes32 => mapping(uint256 => DailyUpdate)) private _dailyUpdates;
-
-    /// @dev Current day index for each snapshot
-    mapping(bytes32 => uint256) private _currentDay;
-
     /// @dev Cross-chain distribution: snapshotId => chainId => ChainDistribution
     mapping(bytes32 => mapping(uint32 => ChainDistribution)) private _chainDistributions;
 
@@ -120,16 +103,6 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     // ============================================
     // EVENTS
     // ============================================
-
-    /// @dev Event emitted when daily rewards update is performed
-    event DailyRewardsUpdate(
-        bytes32 indexed id,
-        uint256 day,
-        uint256 totalDeposited,
-        uint256 stakingShare,
-        uint256 usersShare,
-        uint256 timestamp
-    );
 
     /// @dev Event emitted when user rewards are set on-chain
     event SetUserRewards(bytes32 indexed id, address indexed user, uint256 amount);
@@ -171,6 +144,7 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     // ============================================
 
     error AlreadyClaimed();
+    error AlreadyFinalized();
     error InvalidChain();
     error AlreadyBridged();
     error NotMainChain();
@@ -220,16 +194,6 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     /// @dev Returns user rewards for a snapshot
     function getUserRewards(bytes32 snapshotId, address user) public view returns (UserRewardData memory) {
         return _userRewards[snapshotId][user];
-    }
-
-    /// @dev Returns daily update for a snapshot
-    function getDailyUpdate(bytes32 snapshotId, uint256 day) public view returns (DailyUpdate memory) {
-        return _dailyUpdates[snapshotId][day];
-    }
-
-    /// @dev Returns current day for a snapshot
-    function getCurrentDay(bytes32 snapshotId) public view returns (uint256) {
-        return _currentDay[snapshotId];
     }
 
     /// @dev Returns chain distribution for a snapshot
@@ -299,6 +263,7 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
         require(_msgSender() == aegisMinting || _msgSender() == aegisIncomeRouter, "Unauthorized");
 
         bytes32 id = _stringToBytes32(abi.decode(requestId, (string)));
+        if (_rewards[id].finalized) revert AlreadyFinalized();
         _rewards[id].amount += amount;
         _totalReservedRewards += amount;
 
@@ -306,59 +271,15 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     }
 
     // ============================================
-    // DAILY UPDATE FUNCTIONS
+    // STAKING FUNCTIONS
     // ============================================
 
     /**
-     * @notice Perform daily rewards update
-     * @dev Updates rewards distribution for today based on current balances
-     *      Does NOT finalize the snapshot - allows continuous updates
-     * @param snapshotId The snapshot identifier
-     * @param stakingBalance Current staking balance
-     * @param totalEligibleBalance Total balance eligible for rewards (staking + users)
-     */
-    function updateDailyRewards(
-        bytes32 snapshotId,
-        uint256 stakingBalance,
-        uint256 totalEligibleBalance
-    ) external onlyRole(DAILY_UPDATER_ROLE) {
-        if (totalEligibleBalance == 0) revert ZeroRewards();
-
-        uint256 currentDayIndex = _currentDay[snapshotId];
-        uint256 totalDeposited = _rewards[snapshotId].amount;
-
-        // Calculate proportional distribution
-        uint256 stakingShare = (totalDeposited * stakingBalance) / totalEligibleBalance;
-        uint256 usersShare = totalDeposited - stakingShare;
-
-        // Store daily update
-        _dailyUpdates[snapshotId][currentDayIndex] = DailyUpdate({
-            timestamp: block.timestamp,
-            totalDeposited: totalDeposited,
-            stakingShare: stakingShare,
-            usersShare: usersShare
-        });
-
-        // Increment day counter
-        _currentDay[snapshotId] = currentDayIndex + 1;
-
-        emit DailyRewardsUpdate(
-            snapshotId,
-            currentDayIndex,
-            totalDeposited,
-            stakingShare,
-            usersShare,
-            block.timestamp
-        );
-    }
-
-    /**
      * @notice Send staking rewards to staking contract
-     * @dev Called after daily update to distribute staking portion
      * @param snapshotId The snapshot identifier
      * @param amount Amount to send to staking
      */
-    function sendToStaking(bytes32 snapshotId, uint256 amount) external onlyRole(DAILY_UPDATER_ROLE) {
+    function sendToStaking(bytes32 snapshotId, uint256 amount) external onlyRole(REWARDS_MANAGER_ROLE) {
         if (stakingContract == address(0)) revert ZeroAddress();
         if (amount > _rewards[snapshotId].amount) revert InsufficientContractBalance();
 
@@ -372,18 +293,22 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
     // ============================================
 
     /**
-     * @notice Set user rewards on-chain
-     * @dev Allows storing rewards data on-chain so backend is not required for claiming
+     * @notice Set user rewards on-chain and finalize the snapshot
+     * @dev Allows storing rewards data on-chain so backend is not required for claiming.
+     *      Automatically finalizes the snapshot so users can claim immediately.
      * @param snapshotId The snapshot identifier
      * @param users Array of user addresses
      * @param amounts Array of reward amounts
+     * @param claimDuration Duration in seconds for the claim window (0 = no expiry)
      */
     function setUserRewards(
         bytes32 snapshotId,
         address[] calldata users,
-        uint256[] calldata amounts
+        uint256[] calldata amounts,
+        uint256 claimDuration
     ) external onlyRole(REWARDS_MANAGER_ROLE) {
         if (snapshotId == bytes32(0)) revert InvalidSnapshotId();
+        if (_rewards[snapshotId].finalized) revert AlreadyFinalized();
         if (users.length != amounts.length) revert InvalidAddress();
         if (users.length == 0) revert InvalidAddress();
 
@@ -395,6 +320,12 @@ contract AegisRewardsV2 is IAegisRewardsEvents, IAegisRewardsErrors, AccessContr
             });
             emit SetUserRewards(snapshotId, users[i], amounts[i]);
         }
+
+        _rewards[snapshotId].finalized = true;
+        if (claimDuration > 0) {
+            _rewards[snapshotId].expiry = block.timestamp + claimDuration;
+        }
+        emit FinalizeRewards(snapshotId, _rewards[snapshotId].expiry);
     }
 
     /**
