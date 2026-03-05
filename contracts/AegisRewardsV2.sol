@@ -223,10 +223,15 @@ contract AegisRewardsV2 is IAegisRewardsErrors, AccessControlDefaultAdminRules, 
     // ============================================
 
     /// @notice Set the cumulative Merkle root
+    /// @param merkleRoot New cumulative Merkle root
+    /// @param totalUnclaimedAmount Sum of (cumulativeAmount - cumulativeClaimed) for all users in the tree.
+    ///        Used as a sanity check: reverts if the merkle pool cannot cover total unclaimed rewards.
     function setMerkleRoot(
-        bytes32 merkleRoot
+        bytes32 merkleRoot,
+        uint256 totalUnclaimedAmount
     ) external onlyRole(TRUSTED_SIGNER_ROLE) {
         if (merkleRoot == bytes32(0)) revert ZeroRewards();
+        if (totalUnclaimedAmount > _merklePoolBalance) revert InsufficientContractBalance();
 
         _currentMerkleRoot = merkleRoot;
 
@@ -334,8 +339,12 @@ contract AegisRewardsV2 is IAegisRewardsErrors, AccessControlDefaultAdminRules, 
     }
 
     /// @notice Combined daily operations: set merkle root and execute bridges
+    /// @param merkleRoot New cumulative Merkle root (bytes32(0) to skip)
+    /// @param totalUnclaimedAmount Sum of unclaimed rewards in the tree (0 when skipping root)
+    /// @param bridges Array of bridge operations to execute
     function performDailyOperations(
         bytes32 merkleRoot,
+        uint256 totalUnclaimedAmount,
         BridgeOperation[] calldata bridges
     ) external payable onlyRole(TRUSTED_SIGNER_ROLE) {
         if (merkleRoot != bytes32(0)) {
@@ -352,6 +361,11 @@ contract AegisRewardsV2 is IAegisRewardsErrors, AccessControlDefaultAdminRules, 
                 bridges[i].nativeFee,
                 bridges[i].extraOptions
             );
+        }
+
+        // Validate after bridges so _merklePoolBalance reflects post-bridge state
+        if (merkleRoot != bytes32(0)) {
+            if (totalUnclaimedAmount > _merklePoolBalance) revert InsufficientContractBalance();
         }
 
         if (msg.value != totalNativeFee) revert InvalidNativeFee();

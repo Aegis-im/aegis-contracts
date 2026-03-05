@@ -25,8 +25,8 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
   this.timeout(240_000)
 
   // Chain IDs and LayerZero endpoint IDs for simulated chains
-  const ARBITRUM = { chainId: 42161, dstEid: 30110 }
-  const OPTIMISM = { chainId: 10, dstEid: 30111 }
+  const BNB = { chainId: 56, dstEid: 30102 }
+  const AVALANCHE = { chainId: 43114, dstEid: 30106 }
 
   async function deployE2EFixture() {
     const [owner, depositor, signer, user1, user2, user3, claimer1, claimer2, stakingAddr] =
@@ -44,19 +44,19 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
     const mainRewardsAddr = await mainRewards.getAddress()
 
     // Destination chain rewards contracts (simulated — same Hardhat network)
-    const destArbitrum = await ethers.deployContract('AegisRewardsV2', [
+    const destBnb = await ethers.deployContract('AegisRewardsV2', [
       yusdAddress,
       owner.address,
       false, // not main chain
     ])
-    const destArbitrumAddr = await destArbitrum.getAddress()
+    const destBnbAddr = await destBnb.getAddress()
 
-    const destOptimism = await ethers.deployContract('AegisRewardsV2', [
+    const destAvax = await ethers.deployContract('AegisRewardsV2', [
       yusdAddress,
       owner.address,
       false,
     ])
-    const destOptimismAddr = await destOptimism.getAddress()
+    const destAvaxAddr = await destAvax.getAddress()
 
     // Setup YUSD
     await yusdContract.setMinter(owner.address)
@@ -66,10 +66,10 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
     await mainRewards.grantRole(TRUSTED_SIGNER_ROLE, signer.address)
 
     // Grant roles on destination chains
-    await destArbitrum.grantRole(DEPOSITOR_ROLE, owner.address)
-    await destArbitrum.grantRole(TRUSTED_SIGNER_ROLE, signer.address)
-    await destOptimism.grantRole(DEPOSITOR_ROLE, owner.address)
-    await destOptimism.grantRole(TRUSTED_SIGNER_ROLE, signer.address)
+    await destBnb.grantRole(DEPOSITOR_ROLE, owner.address)
+    await destBnb.grantRole(TRUSTED_SIGNER_ROLE, signer.address)
+    await destAvax.grantRole(DEPOSITOR_ROLE, owner.address)
+    await destAvax.grantRole(TRUSTED_SIGNER_ROLE, signer.address)
 
     // Deploy MockOFTAdapter
     const mockOFTAdapter = await ethers.deployContract('MockOFTAdapter', [yusdAddress])
@@ -77,8 +77,8 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
     await mainRewards.setOFTAdapter(mockOFTAdapterAddr)
 
     // Configure chains on main contract
-    await mainRewards.configureChain(ARBITRUM.chainId, ARBITRUM.dstEid, destArbitrumAddr, true)
-    await mainRewards.configureChain(OPTIMISM.chainId, OPTIMISM.dstEid, destOptimismAddr, true)
+    await mainRewards.configureChain(BNB.chainId, BNB.dstEid, destBnbAddr, true)
+    await mainRewards.configureChain(AVALANCHE.chainId, AVALANCHE.dstEid, destAvaxAddr, true)
 
     // Set staking
     await mainRewards.setStakingContract(stakingAddr.address)
@@ -88,10 +88,10 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
       yusdAddress,
       mainRewards,
       mainRewardsAddr,
-      destArbitrum,
-      destArbitrumAddr,
-      destOptimism,
-      destOptimismAddr,
+      destBnb,
+      destBnbAddr,
+      destAvax,
+      destAvaxAddr,
       mockOFTAdapter,
       mockOFTAdapterAddr,
       owner,
@@ -123,7 +123,7 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
       const fixture = await loadFixture(deployE2EFixture)
       const {
         yusdContract, mainRewards, mainRewardsAddr,
-        destArbitrum, destArbitrumAddr, destOptimism, destOptimismAddr,
+        destBnb, destBnbAddr, destAvax, destAvaxAddr,
         mockOFTAdapter,
         owner, depositor, signer,
         user1, user2, user3, claimer1, claimer2,
@@ -157,47 +157,49 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
         [user3.address, user3.address, ethers.parseEther('5000')],
       ])
 
-      // --- Bridge to Arbitrum and Optimism, set merkle root — all in performDailyOperations ---
-      const arbBridgeAmount = ethers.parseEther('25000')
-      const optBridgeAmount = ethers.parseEther('15000')
+      // --- Bridge to BNB and Avalanche, set merkle root — all in performDailyOperations ---
+      const bnbBridgeAmount = ethers.parseEther('25000')
+      const avaxBridgeAmount = ethers.parseEther('15000')
       const nativeFee = ethers.parseEther('0.01')
 
+      // Total tree unclaimed = 10000 + 15000 + 5000 = 30000; pool after bridges = 40000
       await mainRewards.connect(signer).performDailyOperations(
         week1Tree.root,
+        ethers.parseEther('30000'),
         [
-          { chainId: ARBITRUM.chainId, amount: arbBridgeAmount, nativeFee, extraOptions: '0x' },
-          { chainId: OPTIMISM.chainId, amount: optBridgeAmount, nativeFee, extraOptions: '0x' },
+          { chainId: BNB.chainId, amount: bnbBridgeAmount, nativeFee, extraOptions: '0x' },
+          { chainId: AVALANCHE.chainId, amount: avaxBridgeAmount, nativeFee, extraOptions: '0x' },
         ],
         { value: nativeFee * 2n },
       )
 
       // Verify main chain state after daily ops
-      const expectedMainPool = week1Total - stakingAmount - arbBridgeAmount - optBridgeAmount
+      const expectedMainPool = week1Total - stakingAmount - bnbBridgeAmount - avaxBridgeAmount
       expect(await mainRewards.getMerklePoolBalance()).to.equal(expectedMainPool)
       expect(await mainRewards.getMerkleRoot()).to.equal(week1Tree.root)
 
       // Verify bridge calls recorded on MockOFTAdapter
       const bridgeCall0 = await mockOFTAdapter.getBridgeCall(0)
-      expect(bridgeCall0.dstEid).to.equal(ARBITRUM.dstEid)
-      expect(bridgeCall0.amountLD).to.equal(arbBridgeAmount)
+      expect(bridgeCall0.dstEid).to.equal(BNB.dstEid)
+      expect(bridgeCall0.amountLD).to.equal(bnbBridgeAmount)
       expect(bridgeCall0.to).to.equal(
-        ethers.zeroPadValue(destArbitrumAddr, 32),
+        ethers.zeroPadValue(destBnbAddr, 32),
       )
 
       const bridgeCall1 = await mockOFTAdapter.getBridgeCall(1)
-      expect(bridgeCall1.dstEid).to.equal(OPTIMISM.dstEid)
-      expect(bridgeCall1.amountLD).to.equal(optBridgeAmount)
+      expect(bridgeCall1.dstEid).to.equal(AVALANCHE.dstEid)
+      expect(bridgeCall1.amountLD).to.equal(avaxBridgeAmount)
 
       // --- Simulate destination chains receiving bridged tokens ---
-      await simulateBridgeReceive(fixture, destArbitrum, arbBridgeAmount)
-      await simulateBridgeReceive(fixture, destOptimism, optBridgeAmount)
+      await simulateBridgeReceive(fixture, destBnb, bnbBridgeAmount)
+      await simulateBridgeReceive(fixture, destAvax, avaxBridgeAmount)
 
       // Set same merkle root on destination chains
-      await destArbitrum.connect(signer).setMerkleRoot(week1Tree.root)
-      await destOptimism.connect(signer).setMerkleRoot(week1Tree.root)
+      await destBnb.connect(signer).setMerkleRoot(week1Tree.root, bnbBridgeAmount)
+      await destAvax.connect(signer).setMerkleRoot(week1Tree.root, avaxBridgeAmount)
 
-      expect(await destArbitrum.getMerklePoolBalance()).to.equal(arbBridgeAmount)
-      expect(await destOptimism.getMerklePoolBalance()).to.equal(optBridgeAmount)
+      expect(await destBnb.getMerklePoolBalance()).to.equal(bnbBridgeAmount)
+      expect(await destAvax.getMerklePoolBalance()).to.equal(avaxBridgeAmount)
 
       // --- User1 claims on main chain (self-claim) ---
       const user1Week1 = ethers.parseEther('10000')
@@ -207,19 +209,19 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
       expect(await yusdContract.balanceOf(user1.address)).to.equal(user1Week1)
       expect(await mainRewards.getCumulativeClaimed(user1.address)).to.equal(user1Week1)
 
-      // --- Claimer1 claims for user2 on Arbitrum ---
+      // --- Claimer1 claims for user2 on BNB ---
       const user2Week1 = ethers.parseEther('15000')
       const proof2 = getMerkleProof(week1Tree, user2.address, claimer1.address)
-      await destArbitrum.connect(claimer1).claimMerkleRewards(user2.address, user2Week1, proof2)
+      await destBnb.connect(claimer1).claimMerkleRewards(user2.address, user2Week1, proof2)
 
       // Funds go to claimer1, cumulative tracked under user2's account
       expect(await yusdContract.balanceOf(claimer1.address)).to.equal(user2Week1)
-      expect(await destArbitrum.getCumulativeClaimed(user2.address)).to.equal(user2Week1)
+      expect(await destBnb.getCumulativeClaimed(user2.address)).to.equal(user2Week1)
 
-      // --- User3 claims on Optimism ---
+      // --- User3 claims on Avalanche ---
       const user3Week1 = ethers.parseEther('5000')
       const proof3 = getMerkleProof(week1Tree, user3.address, user3.address)
-      await destOptimism.connect(user3).claimMerkleRewards(user3.address, user3Week1, proof3)
+      await destAvax.connect(user3).claimMerkleRewards(user3.address, user3Week1, proof3)
 
       expect(await yusdContract.balanceOf(user3.address)).to.equal(user3Week1)
 
@@ -240,13 +242,21 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
       ])
 
       // --- performDailyOperations: only root update, no bridges this week ---
-      await mainRewards.connect(signer).performDailyOperations(week2Tree.root, [])
+      // Unclaimed on main: (25000-10000) + (30000-0) + (12000-0) = 57000
+      await mainRewards.connect(signer).performDailyOperations(week2Tree.root, ethers.parseEther('57000'), [])
 
       expect(await mainRewards.getMerkleRoot()).to.equal(week2Tree.root)
 
-      // Update destination chains too
-      await destArbitrum.connect(signer).setMerkleRoot(week2Tree.root)
-      await destOptimism.connect(signer).setMerkleRoot(week2Tree.root)
+      // Fund BNB with tokens to cover user2's delta before setting root
+      const user2Week2 = ethers.parseEther('30000')
+      const bnbDelta = user2Week2 - user2Week1
+      await simulateBridgeReceive(fixture, destBnb, bnbDelta)
+
+      // Update destination chains (bridge first, then set root)
+      // BNB pool: 25000 - 15000 (week1 claim) + 15000 (delta deposit) = 25000; user2 unclaimed = 15000
+      await destBnb.connect(signer).setMerkleRoot(week2Tree.root, ethers.parseEther('15000'))
+      // AVAX pool: 15000 - 5000 (week1 claim) = 10000; user3 unclaimed = 7000
+      await destAvax.connect(signer).setMerkleRoot(week2Tree.root, ethers.parseEther('7000'))
 
       // --- User1 delta claim on main chain: 25000 - 10000 = 15000 ---
       const user1Week2 = ethers.parseEther('25000')
@@ -262,17 +272,12 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
         mainRewards.connect(user1).claimMerkleRewards(user1.address, user1Week2, proof1w2),
       ).to.be.revertedWithCustomError(mainRewards, 'NothingToClaim')
 
-      // --- User2 hasn't claimed week2 yet — claimer1 does delta claim on Arbitrum ---
-      const user2Week2 = ethers.parseEther('30000')
+      // --- User2 delta claim on BNB ---
       const proof2w2 = getMerkleProof(week2Tree, user2.address, claimer1.address)
 
-      // Fund Arbitrum with more tokens to cover delta
-      const arbDelta = user2Week2 - user2Week1
-      await simulateBridgeReceive(fixture, destArbitrum, arbDelta)
-
-      await destArbitrum.connect(claimer1).claimMerkleRewards(user2.address, user2Week2, proof2w2)
+      await destBnb.connect(claimer1).claimMerkleRewards(user2.address, user2Week2, proof2w2)
       expect(await yusdContract.balanceOf(claimer1.address)).to.equal(user2Week2)
-      expect(await destArbitrum.getCumulativeClaimed(user2.address)).to.equal(user2Week2)
+      expect(await destBnb.getCumulativeClaimed(user2.address)).to.equal(user2Week2)
 
       // ================================================================
       // WEEK 3: Claimer rotation + multi-chain bridge + new user
@@ -291,81 +296,87 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
       ])
 
       // Bridge to both chains and set root atomically
-      const week3ArbBridge = ethers.parseEther('10000')
-      const week3OptBridge = ethers.parseEther('10000')
+      const week3BnbBridge = ethers.parseEther('10000')
+      const week3AvaxBridge = ethers.parseEther('10000')
 
+      // Main pool before bridges: 110000 - 15000 (user1 delta claim) + 60000 (deposit) = 155000
+      // After bridges: 155000 - 10000 - 10000 = 135000
+      // Unclaimed on main: (40000-25000) + (45000-0) + (20000-0) = 80000
       await mainRewards.connect(signer).performDailyOperations(
         week3Tree.root,
+        ethers.parseEther('80000'),
         [
-          { chainId: ARBITRUM.chainId, amount: week3ArbBridge, nativeFee, extraOptions: '0x' },
-          { chainId: OPTIMISM.chainId, amount: week3OptBridge, nativeFee, extraOptions: '0x' },
+          { chainId: BNB.chainId, amount: week3BnbBridge, nativeFee, extraOptions: '0x' },
+          { chainId: AVALANCHE.chainId, amount: week3AvaxBridge, nativeFee, extraOptions: '0x' },
         ],
         { value: nativeFee * 2n },
       )
 
       // Simulate bridge receive on destinations
-      await simulateBridgeReceive(fixture, destArbitrum, week3ArbBridge)
-      await simulateBridgeReceive(fixture, destOptimism, week3OptBridge)
-      await destArbitrum.connect(signer).setMerkleRoot(week3Tree.root)
-      await destOptimism.connect(signer).setMerkleRoot(week3Tree.root)
+      await simulateBridgeReceive(fixture, destBnb, week3BnbBridge)
+      await simulateBridgeReceive(fixture, destAvax, week3AvaxBridge)
+      // Arb: pool = 25000 - 15000 (week2 claim) + 10000 (bridge) = 20000; user2 unclaimed = 45000 - 30000 = 15000
+      await destBnb.connect(signer).setMerkleRoot(week3Tree.root, ethers.parseEther('15000'))
+      // Opt: pool = 10000 + 10000 (bridge) = 20000; user3 unclaimed = 20000 - 5000 = 15000
+      await destAvax.connect(signer).setMerkleRoot(week3Tree.root, ethers.parseEther('15000'))
 
       // --- Old claimer1 is rejected for user2 ---
       const oldProof = getMerkleProof(week2Tree, user2.address, claimer1.address)
       await expect(
-        destArbitrum.connect(claimer1).claimMerkleRewards(user2.address, ethers.parseEther('45000'), oldProof),
-      ).to.be.revertedWithCustomError(destArbitrum, 'InvalidMerkleProof')
+        destBnb.connect(claimer1).claimMerkleRewards(user2.address, ethers.parseEther('45000'), oldProof),
+      ).to.be.revertedWithCustomError(destBnb, 'InvalidMerkleProof')
 
-      // --- New claimer2 succeeds for user2 on Arbitrum ---
+      // --- New claimer2 succeeds for user2 on BNB ---
       const user2Week3 = ethers.parseEther('45000')
       const proof2w3 = getMerkleProof(week3Tree, user2.address, claimer2.address)
-      await destArbitrum.connect(claimer2).claimMerkleRewards(user2.address, user2Week3, proof2w3)
+      await destBnb.connect(claimer2).claimMerkleRewards(user2.address, user2Week3, proof2w3)
 
       // Delta: 45000 - 30000 = 15000 (30000 was already claimed in week 2)
       const user2Week3Delta = user2Week3 - user2Week2
       expect(await yusdContract.balanceOf(claimer2.address)).to.equal(user2Week3Delta)
-      expect(await destArbitrum.getCumulativeClaimed(user2.address)).to.equal(user2Week3)
+      expect(await destBnb.getCumulativeClaimed(user2.address)).to.equal(user2Week3)
 
-      // --- User3 skipped week 2, claims everything in week 3 on Optimism ---
+      // --- User3 skipped week 2, claims everything in week 3 on Avalanche ---
       const user3Week3 = ethers.parseEther('20000')
       const proof3w3 = getMerkleProof(week3Tree, user3.address, user3.address)
 
-      // Need more tokens on Optimism to cover delta
-      const optDelta = user3Week3 - user3Week1
-      await simulateBridgeReceive(fixture, destOptimism, optDelta)
+      // Need more tokens on Avalanche to cover delta
+      const avaxDelta = user3Week3 - user3Week1
+      await simulateBridgeReceive(fixture, destAvax, avaxDelta)
 
-      await destOptimism.connect(user3).claimMerkleRewards(user3.address, user3Week3, proof3w3)
+      await destAvax.connect(user3).claimMerkleRewards(user3.address, user3Week3, proof3w3)
       // Total received: 5000 (week1) + 15000 (week2+3 delta) = 20000
       expect(await yusdContract.balanceOf(user3.address)).to.equal(user3Week3)
-      expect(await destOptimism.getCumulativeClaimed(user3.address)).to.equal(user3Week3)
+      expect(await destAvax.getCumulativeClaimed(user3.address)).to.equal(user3Week3)
     })
   })
 
   describe('Rescue flow across chains', () => {
     it('should rescue rewards on destination chain when user loses access', async () => {
       const fixture = await loadFixture(deployE2EFixture)
-      const { yusdContract, destArbitrum, signer, user1, user2, owner } = fixture
+      const { yusdContract, destBnb, signer, user1, user2, owner } = fixture
 
       // Setup destination chain with funds
       const amount = ethers.parseEther('5000')
-      await simulateBridgeReceive(fixture, destArbitrum, amount)
+      await simulateBridgeReceive(fixture, destBnb, amount)
 
       // user1 has rewards with self-claim
       const tree = buildRewardsTree([
         [user1.address, user1.address, amount],
       ])
-      await destArbitrum.connect(signer).setMerkleRoot(tree.root)
+      await destBnb.connect(signer).setMerkleRoot(tree.root, amount)
 
       // Admin rescues to user2 (e.g., user1 lost wallet)
       const proof = getMerkleProof(tree, user1.address, user1.address)
-      await destArbitrum.rescueMerkleRewards(user1.address, user1.address, user2.address, amount, proof)
+      await destBnb.rescueMerkleRewards(user1.address, user1.address, user2.address, amount, proof)
 
       expect(await yusdContract.balanceOf(user2.address)).to.equal(amount)
-      expect(await destArbitrum.getCumulativeClaimed(user1.address)).to.equal(amount)
+      expect(await destBnb.getCumulativeClaimed(user1.address)).to.equal(amount)
 
       // user1 can't claim anymore
       await expect(
-        destArbitrum.connect(user1).claimMerkleRewards(user1.address, amount, proof),
-      ).to.be.revertedWithCustomError(destArbitrum, 'NothingToClaim')
+        destBnb.connect(user1).claimMerkleRewards(user1.address, amount, proof),
+      ).to.be.revertedWithCustomError(destBnb, 'NothingToClaim')
     })
 
     it('should rescue rewards with separate claimer leaf', async () => {
@@ -381,7 +392,7 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
       const tree = buildRewardsTree([
         [user1.address, user2.address, amount],
       ])
-      await mainRewards.connect(signer).setMerkleRoot(tree.root)
+      await mainRewards.connect(signer).setMerkleRoot(tree.root, amount)
 
       // Both user1 and user2 lost access — admin rescues to user3
       const proof = getMerkleProof(tree, user1.address, user2.address)
@@ -396,7 +407,7 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
       const fixture = await loadFixture(deployE2EFixture)
       const {
         yusdContract, mainRewards, mainRewardsAddr,
-        mockOFTAdapter, destArbitrumAddr,
+        mockOFTAdapter, destBnbAddr,
         depositor, signer,
       } = fixture
 
@@ -409,7 +420,7 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
       const nativeFee = ethers.parseEther('0.01')
 
       await mainRewards.connect(signer).bridgeToChain(
-        ARBITRUM.chainId, bridgeAmount, '0x',
+        BNB.chainId, bridgeAmount, '0x',
         { value: nativeFee },
       )
 
@@ -421,18 +432,18 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
 
       // Verify bridge call recorded
       const call = await mockOFTAdapter.getBridgeCall(0)
-      expect(call.dstEid).to.equal(ARBITRUM.dstEid)
+      expect(call.dstEid).to.equal(BNB.dstEid)
       expect(call.amountLD).to.equal(bridgeAmount)
-      expect(call.to).to.equal(ethers.zeroPadValue(destArbitrumAddr, 32))
+      expect(call.to).to.equal(ethers.zeroPadValue(destBnbAddr, 32))
     })
 
     it('should not allow bridging on non-main chain', async () => {
       const fixture = await loadFixture(deployE2EFixture)
-      const { destArbitrum, signer } = fixture
+      const { destBnb, signer } = fixture
 
       await expect(
-        destArbitrum.connect(signer).bridgeToChain(OPTIMISM.chainId, ethers.parseEther('100'), '0x'),
-      ).to.be.revertedWithCustomError(destArbitrum, 'NotMainChain')
+        destBnb.connect(signer).bridgeToChain(AVALANCHE.chainId, ethers.parseEther('100'), '0x'),
+      ).to.be.revertedWithCustomError(destBnb, 'NotMainChain')
     })
   })
 
@@ -441,7 +452,7 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
       const fixture = await loadFixture(deployE2EFixture)
       const { mainRewards } = fixture
 
-      const fee = await mainRewards.quoteBridging(ARBITRUM.chainId, ethers.parseEther('1000'), '0x')
+      const fee = await mainRewards.quoteBridging(BNB.chainId, ethers.parseEther('1000'), '0x')
       expect(fee.nativeFee).to.equal(ethers.parseEther('0.01')) // MockOFTAdapter default
     })
   })
@@ -501,7 +512,7 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
 
       // After claiming
       const tree = buildRewardsTree([[user1.address, user1.address, ethers.parseEther('5000')]])
-      await mainRewards.connect(signer).setMerkleRoot(tree.root)
+      await mainRewards.connect(signer).setMerkleRoot(tree.root, ethers.parseEther('5000'))
       const proof = getMerkleProof(tree, user1.address, user1.address)
       await mainRewards.connect(user1).claimMerkleRewards(user1.address, ethers.parseEther('5000'), proof)
 

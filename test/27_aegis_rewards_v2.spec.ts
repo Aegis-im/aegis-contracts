@@ -207,8 +207,8 @@ describe('AegisRewardsV2', () => {
         const fixture = await loadFixture(deployRewardsV2Fixture)
         const { aegisRewardsV2Contract } = fixture
 
-        const chainId = 42161 // Arbitrum
-        const dstEid = 30110
+        const chainId = 56 // BNB
+        const dstEid = 30102
         const rewardsAddr = ethers.Wallet.createRandom().address
 
         await aegisRewardsV2Contract.configureChain(chainId, dstEid, rewardsAddr, true)
@@ -232,7 +232,7 @@ describe('AegisRewardsV2', () => {
         const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
 
         await expect(
-          aegisRewardsV2Contract.connect(user).bridgeToChain(42161, ethers.parseEther('100'), '0x'),
+          aegisRewardsV2Contract.connect(user).bridgeToChain(56, ethers.parseEther('100'), '0x'),
         ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'AccessControlUnauthorizedAccount')
       })
 
@@ -252,8 +252,8 @@ describe('AegisRewardsV2', () => {
         const fixture = await loadFixture(deployRewardsV2Fixture)
         const { aegisRewardsV2Contract } = fixture
 
-        const chainId = 42161
-        const dstEid = 30110
+        const chainId = 56
+        const dstEid = 30102
         const rewardsAddr = ethers.Wallet.createRandom().address
         await aegisRewardsV2Contract.configureChain(chainId, dstEid, rewardsAddr, true)
 
@@ -274,8 +274,8 @@ describe('AegisRewardsV2', () => {
         const fixture = await loadFixture(deployRewardsV2Fixture)
         const { aegisRewardsV2Contract } = fixture
 
-        const chainId = 42161
-        const dstEid = 30110
+        const chainId = 56
+        const dstEid = 30102
         const rewardsAddr = ethers.Wallet.createRandom().address
         await aegisRewardsV2Contract.configureChain(chainId, dstEid, rewardsAddr, true)
 
@@ -289,6 +289,7 @@ describe('AegisRewardsV2', () => {
 
         const tx = aegisRewardsV2Contract.performDailyOperations(
           tree.root,
+          ethers.parseEther('100'),
           [{ chainId, amount: bridgeAmount, nativeFee, extraOptions: '0x' }],
           { value: nativeFee },
         )
@@ -307,7 +308,7 @@ describe('AegisRewardsV2', () => {
         const amount = ethers.parseEther('10000')
         await depositAndFund(fixture, amount)
 
-        const tx = aegisRewardsV2Contract.performDailyOperations(ethers.ZeroHash, [])
+        const tx = aegisRewardsV2Contract.performDailyOperations(ethers.ZeroHash, 0, [])
 
         await expect(tx).to.not.emit(aegisRewardsV2Contract, 'SetMerkleRoot')
       })
@@ -322,7 +323,7 @@ describe('AegisRewardsV2', () => {
 
         const tree = buildRewardsTree([[user1.address, user1.address, ethers.parseEther('100')]])
 
-        await aegisRewardsV2Contract.performDailyOperations(tree.root, [])
+        await aegisRewardsV2Contract.performDailyOperations(tree.root, ethers.parseEther('100'), [])
 
         expect(await aegisRewardsV2Contract.getMerkleRoot()).to.equal(tree.root)
         expect(await aegisRewardsV2Contract.getMerklePoolBalance()).to.equal(amount)
@@ -335,7 +336,7 @@ describe('AegisRewardsV2', () => {
         const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
 
         await expect(
-          aegisRewardsV2Contract.connect(user).performDailyOperations(ethers.ZeroHash, []),
+          aegisRewardsV2Contract.connect(user).performDailyOperations(ethers.ZeroHash, 0, []),
         ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'AccessControlUnauthorizedAccount')
       })
 
@@ -347,7 +348,7 @@ describe('AegisRewardsV2', () => {
         await depositAndFund(fixture, amount)
 
         await expect(
-          aegisRewardsV2Contract.performDailyOperations(ethers.ZeroHash, [
+          aegisRewardsV2Contract.performDailyOperations(ethers.ZeroHash, 0, [
             { chainId: 99999, amount: ethers.parseEther('100'), nativeFee: 0, extraOptions: '0x' },
           ]),
         ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'InvalidChain')
@@ -357,8 +358,8 @@ describe('AegisRewardsV2', () => {
         const fixture = await loadFixture(deployRewardsV2Fixture)
         const { aegisRewardsV2Contract } = fixture
 
-        const chainId = 42161
-        const dstEid = 30110
+        const chainId = 56
+        const dstEid = 30102
         const rewardsAddr = ethers.Wallet.createRandom().address
         await aegisRewardsV2Contract.configureChain(chainId, dstEid, rewardsAddr, true)
 
@@ -370,6 +371,7 @@ describe('AegisRewardsV2', () => {
         await expect(
           aegisRewardsV2Contract.performDailyOperations(
             ethers.ZeroHash,
+            0,
             [{ chainId, amount: ethers.parseEther('2000'), nativeFee, extraOptions: '0x' }],
             { value: nativeFee * 2n },
           ),
@@ -383,8 +385,8 @@ describe('AegisRewardsV2', () => {
       const fixture = await loadFixture(deployRewardsV2Fixture)
       const { aegisRewardsV2Contract } = fixture
 
-      const chainId = 42161
-      const dstEid = 30110
+      const chainId = 56
+      const dstEid = 30102
       const rewardsAddr = ethers.Wallet.createRandom().address
       await aegisRewardsV2Contract.configureChain(chainId, dstEid, rewardsAddr, true)
 
@@ -407,7 +409,7 @@ describe('AegisRewardsV2', () => {
       ])
 
       await expect(
-        contract.quoteBridging(42161, ethers.parseEther('100'), '0x'),
+        contract.quoteBridging(56, ethers.parseEther('100'), '0x'),
       ).to.be.revertedWithCustomError(contract, 'OFTAdapterNotSet')
     })
 
@@ -424,8 +426,8 @@ describe('AegisRewardsV2', () => {
     it('should add a chain configuration', async () => {
       const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
 
-      const chainId = 42161
-      const dstEid = 30110
+      const chainId = 56
+      const dstEid = 30102
       const rewardsAddr = ethers.Wallet.createRandom().address
 
       await expect(aegisRewardsV2Contract.configureChain(chainId, dstEid, rewardsAddr, true))
@@ -445,8 +447,8 @@ describe('AegisRewardsV2', () => {
     it('should remove a chain configuration', async () => {
       const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
 
-      const chainId = 42161
-      const dstEid = 30110
+      const chainId = 56
+      const dstEid = 30102
       const rewardsAddr = ethers.Wallet.createRandom().address
 
       await aegisRewardsV2Contract.configureChain(chainId, dstEid, rewardsAddr, true)
@@ -463,7 +465,7 @@ describe('AegisRewardsV2', () => {
       const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
 
       await expect(
-        aegisRewardsV2Contract.configureChain(42161, 30110, ethers.ZeroAddress, true),
+        aegisRewardsV2Contract.configureChain(56, 30102, ethers.ZeroAddress, true),
       ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'ZeroAddress')
     })
 
@@ -471,10 +473,10 @@ describe('AegisRewardsV2', () => {
       const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
 
       const rewardsAddr = ethers.Wallet.createRandom().address
-      await aegisRewardsV2Contract.configureChain(42161, 30110, rewardsAddr, true)
+      await aegisRewardsV2Contract.configureChain(56, 30102, rewardsAddr, true)
 
       await expect(
-        aegisRewardsV2Contract.configureChain(42161, 30110, rewardsAddr, true),
+        aegisRewardsV2Contract.configureChain(56, 30102, rewardsAddr, true),
       ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'ChainAlreadyConfigured')
     })
 
@@ -483,7 +485,7 @@ describe('AegisRewardsV2', () => {
 
       const rewardsAddr = ethers.Wallet.createRandom().address
       await expect(
-        aegisRewardsV2Contract.configureChain(42161, 0, rewardsAddr, true),
+        aegisRewardsV2Contract.configureChain(56, 0, rewardsAddr, true),
       ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'InvalidChain')
     })
 
@@ -491,7 +493,7 @@ describe('AegisRewardsV2', () => {
       const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
 
       await expect(
-        aegisRewardsV2Contract.configureChain(42161, 0, ethers.ZeroAddress, false),
+        aegisRewardsV2Contract.configureChain(56, 0, ethers.ZeroAddress, false),
       ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'InvalidChain')
     })
 
@@ -500,7 +502,7 @@ describe('AegisRewardsV2', () => {
       const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
 
       await expect(
-        aegisRewardsV2Contract.connect(user).configureChain(42161, 30110, user.address, true),
+        aegisRewardsV2Contract.connect(user).configureChain(56, 30102, user.address, true),
       ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'AccessControlUnauthorizedAccount')
     })
   })

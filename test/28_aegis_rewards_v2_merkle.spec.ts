@@ -53,7 +53,8 @@ describe('AegisRewardsV2 — Cumulative Merkle Rewards', function () {
   ) {
     const { rewardsContract } = fixture
     const tree = buildRewardsTree(rewards)
-    await rewardsContract.setMerkleRoot(tree.root)
+    const totalUnclaimed = rewards.reduce((sum, [, , amount]) => sum + amount, 0n)
+    await rewardsContract.setMerkleRoot(tree.root, totalUnclaimed)
     return tree
   }
 
@@ -68,7 +69,7 @@ describe('AegisRewardsV2 — Cumulative Merkle Rewards', function () {
         [user1.address, user1.address, ethers.parseEther('100')],
       ])
 
-      await expect(rewardsContract.setMerkleRoot(tree.root))
+      await expect(rewardsContract.setMerkleRoot(tree.root, ethers.parseEther('100')))
         .to.emit(rewardsContract, 'SetMerkleRoot')
         .withArgs(tree.root)
 
@@ -79,13 +80,13 @@ describe('AegisRewardsV2 — Cumulative Merkle Rewards', function () {
       const { rewardsContract, user1, user2 } = await loadFixture(deployFixture)
 
       const tree1 = buildRewardsTree([[user1.address, user1.address, ethers.parseEther('100')]])
-      await rewardsContract.setMerkleRoot(tree1.root)
+      await rewardsContract.setMerkleRoot(tree1.root, ethers.parseEther('100'))
 
       const tree2 = buildRewardsTree([
         [user1.address, user1.address, ethers.parseEther('250')],
         [user2.address, user2.address, ethers.parseEther('200')],
       ])
-      await rewardsContract.setMerkleRoot(tree2.root)
+      await rewardsContract.setMerkleRoot(tree2.root, ethers.parseEther('450'))
 
       expect(await rewardsContract.getMerkleRoot()).to.equal(tree2.root)
     })
@@ -94,13 +95,24 @@ describe('AegisRewardsV2 — Cumulative Merkle Rewards', function () {
       const { rewardsContract, user1 } = await loadFixture(deployFixture)
 
       const tree = buildRewardsTree([[user1.address, user1.address, ethers.parseEther('100')]])
-      await expect(rewardsContract.connect(user1).setMerkleRoot(tree.root)).to.be.reverted
+      await expect(rewardsContract.connect(user1).setMerkleRoot(tree.root, ethers.parseEther('100'))).to.be.reverted
+    })
+
+    it('should revert when totalUnclaimedAmount exceeds merkle pool balance', async () => {
+      const { rewardsContract, user1 } = await loadFixture(deployFixture)
+
+      const tree = buildRewardsTree([[user1.address, user1.address, ethers.parseEther('100')]])
+
+      // Pool has 10000 ether, declare 20000 unclaimed
+      await expect(
+        rewardsContract.setMerkleRoot(tree.root, ethers.parseEther('20000')),
+      ).to.be.revertedWithCustomError(rewardsContract, 'InsufficientContractBalance')
     })
 
     it('should revert with zero merkleRoot', async () => {
       const { rewardsContract } = await loadFixture(deployFixture)
 
-      await expect(rewardsContract.setMerkleRoot(ethers.ZeroHash)).to.be.revertedWithCustomError(
+      await expect(rewardsContract.setMerkleRoot(ethers.ZeroHash, 0)).to.be.revertedWithCustomError(
         rewardsContract,
         'ZeroRewards',
       )
@@ -194,7 +206,8 @@ describe('AegisRewardsV2 — Cumulative Merkle Rewards', function () {
 
       const week2CumulativeAmount = ethers.parseEther('350')
       const tree2 = buildRewardsTree([[user1.address, user1.address, week2CumulativeAmount]])
-      await rewardsContract.setMerkleRoot(tree2.root)
+      // user1 already claimed 100, so unclaimed = 350 - 100 = 250
+      await rewardsContract.setMerkleRoot(tree2.root, ethers.parseEther('250'))
 
       // Claim delta: 350 - 100 = 250
       await rewardsContract.connect(user1).claimMerkleRewards(user1.address, week2CumulativeAmount, getMerkleProof(tree2, user1.address, user1.address))
@@ -216,7 +229,7 @@ describe('AegisRewardsV2 — Cumulative Merkle Rewards', function () {
       // Now change claimer to user3 via new root
       const newAmount = ethers.parseEther('200')
       const tree2 = buildRewardsTree([[user1.address, user3.address, newAmount]])
-      await rewardsContract.setMerkleRoot(tree2.root)
+      await rewardsContract.setMerkleRoot(tree2.root, newAmount)
 
       // Old claimer (user2) should be rejected
       const oldProof = getMerkleProof(tree1, user1.address, user2.address)
@@ -388,6 +401,14 @@ describe('AegisRewardsV2 — Cumulative Merkle Rewards', function () {
       await expect(
         rewardsContract.rescueMerkleRewards(user1.address, user1.address, user2.address, amount, proof),
       ).to.be.revertedWithCustomError(rewardsContract, 'NothingToClaim')
+    })
+
+    it('should revert when no Merkle root is set', async () => {
+      const { rewardsContract, user1, user2 } = await loadFixture(deployFixture)
+
+      await expect(
+        rewardsContract.rescueMerkleRewards(user1.address, user1.address, user2.address, ethers.parseEther('100'), []),
+      ).to.be.revertedWithCustomError(rewardsContract, 'MerkleRootNotSet')
     })
 
     it('should revert with zero destination address', async () => {

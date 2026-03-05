@@ -61,7 +61,7 @@ interface IAegisRewardsV2 {
     // MERKLE REWARDS
     // ============================================
 
-    function setMerkleRoot(bytes32 merkleRoot) external;
+    function setMerkleRoot(bytes32 merkleRoot, uint256 totalUnclaimedAmount) external;
 
     function claimMerkleRewards(address account, uint256 cumulativeAmount, bytes32[] calldata proof) external;
 
@@ -75,7 +75,7 @@ interface IAegisRewardsV2 {
 
     function bridgeToChain(uint32 chainId, uint256 amount, bytes calldata extraOptions) external payable;
 
-    function performDailyOperations(bytes32 merkleRoot, BridgeOperation[] calldata bridges) external payable;
+    function performDailyOperations(bytes32 merkleRoot, uint256 totalUnclaimedAmount, BridgeOperation[] calldata bridges) external payable;
 
     // ============================================
     // ADMIN FUNCTIONS
