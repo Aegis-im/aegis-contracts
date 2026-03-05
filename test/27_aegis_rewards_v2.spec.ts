@@ -81,6 +81,46 @@ describe('AegisRewardsV2', () => {
           aegisRewardsV2Contract.connect(user).depositRewards(encodeString('test'), ethers.parseEther('1')),
         ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'AccessControlUnauthorizedAccount')
       })
+
+      it('should revert when no tokens were transferred before deposit', async () => {
+        const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
+
+        await expect(
+          aegisRewardsV2Contract.depositRewards(encodeString('no-transfer'), ethers.parseEther('1000')),
+        ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'InsufficientContractBalance')
+      })
+
+      it('should revert when transferred amount is less than deposit amount', async () => {
+        const [owner] = await ethers.getSigners()
+        const { aegisRewardsV2Contract, yusdContract } = await loadFixture(deployRewardsV2Fixture)
+
+        const transferAmount = ethers.parseEther('500')
+        const depositAmount = ethers.parseEther('1000')
+
+        await yusdContract.mint(owner, transferAmount)
+        await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), transferAmount)
+
+        await expect(
+          aegisRewardsV2Contract.depositRewards(encodeString('partial'), depositAmount),
+        ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'InsufficientContractBalance')
+      })
+
+      it('should revert on second deposit without additional transfer', async () => {
+        const [owner] = await ethers.getSigners()
+        const fixture = await loadFixture(deployRewardsV2Fixture)
+        const { aegisRewardsV2Contract, yusdContract } = fixture
+
+        const amount = ethers.parseEther('1000')
+        await yusdContract.mint(owner, amount)
+        await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), amount)
+
+        await aegisRewardsV2Contract.depositRewards(encodeString('deposit-1'), amount)
+
+        // Second deposit without transferring more tokens
+        await expect(
+          aegisRewardsV2Contract.depositRewards(encodeString('deposit-2'), ethers.parseEther('1')),
+        ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'InsufficientContractBalance')
+      })
     })
   })
 
@@ -312,6 +352,29 @@ describe('AegisRewardsV2', () => {
           ]),
         ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'InvalidChain')
       })
+
+      it('should revert when msg.value does not match total native fees', async () => {
+        const fixture = await loadFixture(deployRewardsV2Fixture)
+        const { aegisRewardsV2Contract } = fixture
+
+        const chainId = 42161
+        const dstEid = 30110
+        const rewardsAddr = ethers.Wallet.createRandom().address
+        await aegisRewardsV2Contract.configureChain(chainId, dstEid, rewardsAddr, true)
+
+        const amount = ethers.parseEther('10000')
+        await depositAndFund(fixture, amount)
+
+        const nativeFee = ethers.parseEther('0.01')
+
+        await expect(
+          aegisRewardsV2Contract.performDailyOperations(
+            ethers.ZeroHash,
+            [{ chainId, amount: ethers.parseEther('2000'), nativeFee, extraOptions: '0x' }],
+            { value: nativeFee * 2n },
+          ),
+        ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'InvalidNativeFee')
+      })
     })
   })
 
@@ -415,6 +478,15 @@ describe('AegisRewardsV2', () => {
       ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'ChainAlreadyConfigured')
     })
 
+    it('should revert when adding with zero dstEid', async () => {
+      const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
+
+      const rewardsAddr = ethers.Wallet.createRandom().address
+      await expect(
+        aegisRewardsV2Contract.configureChain(42161, 0, rewardsAddr, true),
+      ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'InvalidChain')
+    })
+
     it('should revert when removing non-configured chain', async () => {
       const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
 
@@ -491,6 +563,19 @@ describe('AegisRewardsV2', () => {
 
       expect(await aegisRewardsV2Contract.availableBalanceForDeposits()).to.equal(total - deposited)
     })
+
+    it('should return 0 when balance equals merkle pool', async () => {
+      const [owner] = await ethers.getSigners()
+      const fixture = await loadFixture(deployRewardsV2Fixture)
+      const { aegisRewardsV2Contract, yusdContract } = fixture
+
+      const amount = ethers.parseEther('1000')
+      await yusdContract.mint(owner, amount)
+      await yusdContract.transfer(await aegisRewardsV2Contract.getAddress(), amount)
+      await aegisRewardsV2Contract.depositRewards(encodeString('deposit-1'), amount)
+
+      expect(await aegisRewardsV2Contract.availableBalanceForDeposits()).to.equal(0n)
+    })
   })
 
   describe('#admin setters', () => {
@@ -512,6 +597,74 @@ describe('AegisRewardsV2', () => {
       await expect(aegisRewardsV2Contract.setOFTAdapter(newAdapter))
         .to.emit(aegisRewardsV2Contract, 'SetOFTAdapter')
         .withArgs(newAdapter)
+    })
+  })
+
+  describe('#receive', () => {
+    it('should accept ETH sent to contract', async () => {
+      const [owner] = await ethers.getSigners()
+      const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
+
+      const amount = ethers.parseEther('1')
+      await owner.sendTransaction({
+        to: await aegisRewardsV2Contract.getAddress(),
+        value: amount,
+      })
+
+      expect(await ethers.provider.getBalance(await aegisRewardsV2Contract.getAddress())).to.equal(amount)
+    })
+  })
+
+  describe('#rescueETH', () => {
+    it('should rescue ETH sent to contract', async () => {
+      const [owner] = await ethers.getSigners()
+      const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
+
+      const amount = ethers.parseEther('1')
+      await owner.sendTransaction({
+        to: await aegisRewardsV2Contract.getAddress(),
+        value: amount,
+      })
+
+      const balanceBefore = await ethers.provider.getBalance(owner.address)
+      const tx = await aegisRewardsV2Contract.rescueETH()
+      const receipt = await tx.wait()
+      const gasCost = receipt!.gasUsed * receipt!.gasPrice
+      const balanceAfter = await ethers.provider.getBalance(owner.address)
+
+      expect(balanceAfter - balanceBefore + gasCost).to.equal(amount)
+    })
+
+    it('should emit RescueAssets event with zero address for ETH', async () => {
+      const [owner] = await ethers.getSigners()
+      const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
+
+      const amount = ethers.parseEther('1')
+      await owner.sendTransaction({
+        to: await aegisRewardsV2Contract.getAddress(),
+        value: amount,
+      })
+
+      await expect(aegisRewardsV2Contract.rescueETH())
+        .to.emit(aegisRewardsV2Contract, 'RescueAssets')
+        .withArgs(ethers.ZeroAddress, owner.address, amount)
+    })
+
+    it('should revert when no ETH to rescue', async () => {
+      const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
+
+      await expect(
+        aegisRewardsV2Contract.rescueETH(),
+      ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'NoTokensToRescue')
+    })
+
+    it('should revert when caller is not admin', async () => {
+      const [, user] = await ethers.getSigners()
+      const { aegisRewardsV2Contract } = await loadFixture(deployRewardsV2Fixture)
+
+      await expect(
+        aegisRewardsV2Contract.connect(user).rescueETH(),
+      ).to.be.revertedWithCustomError(aegisRewardsV2Contract, 'AccessControlUnauthorizedAccount')
     })
   })
 })

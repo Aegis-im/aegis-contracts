@@ -83,6 +83,8 @@ interface IAegisRewardsV2 {
 
     function rescueAssets(IERC20 token) external;
 
+    function rescueETH() external;
+
     function setStakingContract(address _stakingContract) external;
 
     function setOFTAdapter(IOFT _oftAdapter) external;

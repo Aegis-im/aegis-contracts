@@ -115,6 +115,7 @@ contract AegisRewardsV2 is IAegisRewardsErrors, AccessControlDefaultAdminRules, 
     error MerkleRootNotSet();
     error InvalidMerkleProof();
     error NothingToClaim();
+    error InvalidNativeFee();
 
     // ============================================
     // CONSTRUCTOR
@@ -137,7 +138,9 @@ contract AegisRewardsV2 is IAegisRewardsErrors, AccessControlDefaultAdminRules, 
 
     /// @dev Returns available balance for new deposits
     function availableBalanceForDeposits() public view returns (uint256) {
-        return yusd.balanceOf(address(this)) - _merklePoolBalance;
+        uint256 balance = yusd.balanceOf(address(this));
+        if (balance <= _merklePoolBalance) return 0;
+        return balance - _merklePoolBalance;
     }
 
     /// @dev Returns list of supported chains
@@ -196,6 +199,7 @@ contract AegisRewardsV2 is IAegisRewardsErrors, AccessControlDefaultAdminRules, 
     /// @dev Adds rewards directly to the merkle pool
     function depositRewards(bytes calldata requestId, uint256 amount) external onlyRole(DEPOSITOR_ROLE) {
         _merklePoolBalance += amount;
+        if (yusd.balanceOf(address(this)) < _merklePoolBalance) revert InsufficientContractBalance();
         emit DepositRewards(requestId, amount, block.timestamp);
     }
 
@@ -231,7 +235,8 @@ contract AegisRewardsV2 is IAegisRewardsErrors, AccessControlDefaultAdminRules, 
 
     /// @notice Claim rewards using a cumulative Merkle proof
     /// @dev Leaf = keccak256(bytes.concat(keccak256(abi.encode(account, msg.sender, cumulativeAmount))))
-    ///      _cumulativeClaimed keyed by account, funds sent to msg.sender (claimer)
+    ///      _cumulativeClaimed keyed by account, funds sent to msg.sender (claimer).
+    ///      The Merkle tree must contain only one entry per account to prevent claim conflicts.
     function claimMerkleRewards(
         address account,
         uint256 cumulativeAmount,
@@ -246,6 +251,7 @@ contract AegisRewardsV2 is IAegisRewardsErrors, AccessControlDefaultAdminRules, 
 
         uint256 claimable = cumulativeAmount - _cumulativeClaimed[account];
         if (claimable == 0) revert NothingToClaim();
+        if (claimable > _merklePoolBalance) revert InsufficientContractBalance();
 
         _cumulativeClaimed[account] = cumulativeAmount;
         _merklePoolBalance -= claimable;
@@ -273,6 +279,7 @@ contract AegisRewardsV2 is IAegisRewardsErrors, AccessControlDefaultAdminRules, 
 
         uint256 claimable = cumulativeAmount - _cumulativeClaimed[account];
         if (claimable == 0) revert NothingToClaim();
+        if (claimable > _merklePoolBalance) revert InsufficientContractBalance();
 
         _cumulativeClaimed[account] = cumulativeAmount;
         _merklePoolBalance -= claimable;
@@ -295,6 +302,7 @@ contract AegisRewardsV2 is IAegisRewardsErrors, AccessControlDefaultAdminRules, 
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (add) {
             if (rewardsContract == address(0)) revert ZeroAddress();
+            if (dstEid == 0) revert InvalidChain();
             if (_chainConfigs[chainId].configured) revert ChainAlreadyConfigured();
             _chainConfigs[chainId] = ChainConfig({
                 dstEid: dstEid,
@@ -335,7 +343,9 @@ contract AegisRewardsV2 is IAegisRewardsErrors, AccessControlDefaultAdminRules, 
             emit SetMerkleRoot(merkleRoot);
         }
 
+        uint256 totalNativeFee;
         for (uint256 i = 0; i < bridges.length; i++) {
+            totalNativeFee += bridges[i].nativeFee;
             _executeBridge(
                 bridges[i].chainId,
                 bridges[i].amount,
@@ -343,6 +353,8 @@ contract AegisRewardsV2 is IAegisRewardsErrors, AccessControlDefaultAdminRules, 
                 bridges[i].extraOptions
             );
         }
+
+        if (msg.value != totalNativeFee) revert InvalidNativeFee();
     }
 
     // ============================================
@@ -367,7 +379,7 @@ contract AegisRewardsV2 is IAegisRewardsErrors, AccessControlDefaultAdminRules, 
         emit RescueAssets(address(token), admin, balance);
     }
 
-    /// @dev Sets staking contract address
+    /// @dev Sets staking contract address. Set to address(0) to disable staking.
     function setStakingContract(address _stakingContract) external onlyRole(DEFAULT_ADMIN_ROLE) {
         stakingContract = _stakingContract;
         emit SetStakingContract(_stakingContract);
@@ -377,6 +389,20 @@ contract AegisRewardsV2 is IAegisRewardsErrors, AccessControlDefaultAdminRules, 
     function setOFTAdapter(IOFT _oftAdapter) external onlyRole(DEFAULT_ADMIN_ROLE) {
         oftAdapter = _oftAdapter;
         emit SetOFTAdapter(address(_oftAdapter));
+    }
+
+    /// @dev Allow contract to receive native ETH (e.g., LayerZero fee refunds)
+    receive() external payable {}
+
+    /// @dev Rescue native ETH from contract
+    function rescueETH() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 balance = address(this).balance;
+        if (balance == 0) revert NoTokensToRescue();
+
+        (bool success, ) = _msgSender().call{value: balance}("");
+        require(success);
+
+        emit RescueAssets(address(0), _msgSender(), balance);
     }
 
     // ============================================

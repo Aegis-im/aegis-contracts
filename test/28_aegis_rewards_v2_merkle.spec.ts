@@ -231,6 +231,23 @@ describe('AegisRewardsV2 — Cumulative Merkle Rewards', function () {
       expect(await rewardsContract.getCumulativeClaimed(user1.address)).to.equal(newAmount)
     })
 
+    it('should revert when claimable exceeds merkle pool balance', async () => {
+      const fixture = await loadFixture(deployFixture)
+      const { rewardsContract, user1, user3 } = fixture
+
+      const amount = ethers.parseEther('10000')
+      const tree = await setupMerklePool(fixture, [[user1.address, user1.address, amount]])
+
+      // Drain most of the pool via sendToStaking
+      await rewardsContract.setStakingContract(user3.address)
+      await rewardsContract.sendToStaking(amount - 1n)
+
+      const proof = getMerkleProof(tree, user1.address, user1.address)
+      await expect(
+        rewardsContract.connect(user1).claimMerkleRewards(user1.address, amount, proof),
+      ).to.be.revertedWithCustomError(rewardsContract, 'InsufficientContractBalance')
+    })
+
     it('should revert when nothing to claim (already fully claimed)', async () => {
       const fixture = await loadFixture(deployFixture)
       const { rewardsContract, user1 } = fixture
@@ -337,6 +354,23 @@ describe('AegisRewardsV2 — Cumulative Merkle Rewards', function () {
       await expect(
         rewardsContract.connect(user1).rescueMerkleRewards(user1.address, user1.address, user2.address, amount, proof),
       ).to.be.reverted
+    })
+
+    it('should revert when claimable exceeds merkle pool balance', async () => {
+      const fixture = await loadFixture(deployFixture)
+      const { rewardsContract, user1, user2, user3 } = fixture
+
+      const amount = ethers.parseEther('10000')
+      const tree = await setupMerklePool(fixture, [[user1.address, user1.address, amount]])
+
+      // Drain most of the pool via sendToStaking
+      await rewardsContract.setStakingContract(user3.address)
+      await rewardsContract.sendToStaking(amount - 1n)
+
+      const proof = getMerkleProof(tree, user1.address, user1.address)
+      await expect(
+        rewardsContract.rescueMerkleRewards(user1.address, user1.address, user2.address, amount, proof),
+      ).to.be.revertedWithCustomError(rewardsContract, 'InsufficientContractBalance')
     })
 
     it('should revert when nothing to rescue (already claimed)', async () => {
