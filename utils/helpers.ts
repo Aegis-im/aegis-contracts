@@ -11,8 +11,9 @@ export const FUNDS_MANAGER_ROLE = ethers.id('FUNDS_MANAGER_ROLE')
 export const COLLATERAL_MANAGER_ROLE = ethers.id('COLLATERAL_MANAGER_ROLE')
 export const REWARDS_MANAGER_ROLE = ethers.id('REWARDS_MANAGER_ROLE')
 export const OPERATOR_ROLE = ethers.id('OPERATOR_ROLE')
-export const DAILY_UPDATER_ROLE = ethers.id('DAILY_UPDATER_ROLE')
 export const DISTRIBUTOR_ROLE = ethers.id('DISTRIBUTOR_ROLE')
+export const DEPOSITOR_ROLE = ethers.id('DEPOSITOR_ROLE')
+export const TRUSTED_SIGNER_ROLE = ethers.id('TRUSTED_SIGNER_ROLE')
 
 export const USD_FEED_ADDRESS = '0x0000000000000000000000000000000000000348'
 
@@ -105,6 +106,10 @@ export async function deployRewardsV2Fixture() {
 
   // Setup YUSD minting
   await yusdContract.setMinter(owner.address)
+
+  // Grant roles
+  await aegisRewardsV2Contract.grantRole(DEPOSITOR_ROLE, owner.address)
+  await aegisRewardsV2Contract.grantRole(TRUSTED_SIGNER_ROLE, owner.address)
 
   // Deploy MockOFTAdapter
   const mockOFTAdapterContract = await ethers.deployContract('MockOFTAdapter', [yusdAddress])
@@ -543,18 +548,18 @@ export function cleanOldDeploymentFile(networkName: string, contractName: string
 
 import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
 
-export function buildRewardsTree(rewards: Array<[string, bigint]>): StandardMerkleTree<[string, bigint]> {
+export function buildRewardsTree(rewards: Array<[string, string, bigint]>): StandardMerkleTree<[string, string, bigint]> {
   return StandardMerkleTree.of(
-    rewards.map(([addr, amount]) => [addr, amount.toString()]),
-    ['address', 'uint256'],
-  ) as unknown as StandardMerkleTree<[string, bigint]>
+    rewards.map(([account, claimer, amount]) => [account, claimer, amount.toString()]),
+    ['address', 'address', 'uint256'],
+  ) as unknown as StandardMerkleTree<[string, string, bigint]>
 }
 
-export function getMerkleProof(tree: StandardMerkleTree<[string, bigint]>, address: string): string[] {
+export function getMerkleProof(tree: StandardMerkleTree<[string, string, bigint]>, account: string, claimer: string): string[] {
   for (const [i, v] of tree.entries()) {
-    if ((v[0] as string).toLowerCase() === address.toLowerCase()) {
+    if ((v[0] as string).toLowerCase() === account.toLowerCase() && (v[1] as string).toLowerCase() === claimer.toLowerCase()) {
       return tree.getProof(i)
     }
   }
-  throw new Error(`Address ${address} not found in tree`)
+  throw new Error(`(${account}, ${claimer}) not found in tree`)
 }
