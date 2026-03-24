@@ -6,12 +6,12 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./interfaces/AggregatorV3Interface.sol";
 
 contract AegisChainlinkOracleV3 is Ownable2Step, AggregatorV3Interface {
-  struct YUSDUSDPriceData {
+  struct USDPriceData {
     int256 price;
     uint32 timestamp;
   }
 
-  YUSDUSDPriceData private _priceData;
+  USDPriceData private _priceData;
 
   mapping(address => bool) private _operators;
 
@@ -25,7 +25,7 @@ contract AegisChainlinkOracleV3 is Ownable2Step, AggregatorV3Interface {
   mapping(uint80 => RoundData) private _rounds;
   uint80 private _latestRoundId;
 
-  event UpdateYUSDPrice(int256 price, uint32 timestamp);
+  event UpdatePrice(int256 price, uint32 timestamp);
   event SetOperator(address indexed operator, bool allowed);
 
   error ZeroAddress();
@@ -51,15 +51,15 @@ contract AegisChainlinkOracleV3 is Ownable2Step, AggregatorV3Interface {
   }
 
   function description() external pure override returns (string memory) {
-    return "Aegis Oracle sYUSD / YUSD";
+    return "Aegis Oracle jUSD / USD";
   }
 
   function version() external pure override returns (uint256) {
     return 1;
   }
 
-  /// @dev Returns current YUSD/USD price
-  function yusdUSDPrice() public view returns (int256) {
+  /// @dev Returns current jUSD/USD price
+  function USDPrice() public view returns (int256) {
     return _priceData.price;
   }
 
@@ -69,10 +69,10 @@ contract AegisChainlinkOracleV3 is Ownable2Step, AggregatorV3Interface {
   }
 
   /**
-   * @dev Updates YUSD/USD price.
+   * @dev Updates price.
    * @dev Price should have 8 decimals
    */
-  function updateYUSDPrice(int256 price) external onlyOperator {
+  function updatePrice(int256 price) external onlyOperator {
     _priceData.price = price;
     _priceData.timestamp = uint32(block.timestamp);
 
@@ -85,7 +85,7 @@ contract AegisChainlinkOracleV3 is Ownable2Step, AggregatorV3Interface {
       updatedAt: block.timestamp,
       answeredInRound: newRoundId
     });
-    emit UpdateYUSDPrice(_priceData.price, _priceData.timestamp);
+    emit UpdatePrice(_priceData.price, _priceData.timestamp);
   }
 
   function getRoundData(uint80 _roundId)
