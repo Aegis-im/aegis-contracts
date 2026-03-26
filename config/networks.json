@@ -11,7 +11,7 @@
     "mainnet": {
       "chainId": 1,
       "rpcUrl": "https://mainnet.gateway.tenderly.co",
-      "gasPrice": 77000000,
+      "gasPrice": 177000000,
       "description": "Ethereum Mainnet",
       "explorer": "https://etherscan.io",
       "contracts": {
@@ -30,7 +30,8 @@
         "aegisOracleJUSDAddress": "0xfA449DC17194Fdaca1dd2237C828938f1917e0E7",
         "aegisMintingJUSDAddress": "0xBB0F32D176590faEdC7bc552b7EAD7A86809b520",
         "sJUSDAddress": "0x4AA8949bb47da4b4F27345404Ba1e5E7EA90bdb3",
-        "sJUSDSiloAddress": "0x22daCEEd48d7eE53f964A5aa3bDB6e4D3d688d9A"
+        "sJUSDSiloAddress": "0x22daCEEd48d7eE53f964A5aa3bDB6e4D3d688d9A",
+        "aegisJUSDChainlinkOracleV3Address": "0x8417a3077D8F7bDB348c8b109330f9A50c6ab9d3"
       },
       "layerzero": {
         "targetEid": 30101,

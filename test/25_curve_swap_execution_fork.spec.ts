@@ -227,7 +227,14 @@ describe('Test 25: Curve Swap Execution (Fork)', () => {
       await aegisMinting.getAddress(),
       await aegisRewards.getAddress(),
       admin.address,
-      3 * 24 * 60 * 60 // 3 day delay
+      3 * 24 * 60 * 60, // 3 day delay
+      '0x000000000022D473030F116dDEE9F6B43aC78BA3', // Permit2
+      ethers.ZeroAddress,                  // Uniswap V4 Router (not used in Curve tests)
+      CURVE_YUSD_USDC,                     // Curve YUSD/USDC pool
+      CURVE_YUSD_USDT,                     // Curve YUSD/USDT pool
+      USDT_ADDRESS,                        // USDT
+      USDC_ADDRESS,                        // USDC
+      ethers.parseUnits('10000', 6),       // USDT Curve max amount
     )
     await router.waitForDeployment()
     console.log('   ✅ AegisIncomeRouter deployed at:', await router.getAddress())

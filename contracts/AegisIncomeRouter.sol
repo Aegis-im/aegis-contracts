@@ -54,10 +54,25 @@ contract AegisIncomeRouter is AccessControlDefaultAdminRules, ReentrancyGuard {
     mapping(address => bool) public approvedDexRouters;
 
     /// @notice Permit2 contract address (used by Uniswap V4)
-    address public constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
+    address public immutable permit2;
 
     /// @notice Uniswap V4 Universal Router address
-    address public constant UNISWAP_V4_ROUTER = 0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af;
+    address public immutable uniswapV4Router;
+
+    /// @notice Curve YUSD/USDC pool address
+    address public immutable curveYusdUsdc;
+
+    /// @notice Curve YUSD/USDT pool address
+    address public immutable curveYusdUsdt;
+
+    /// @notice USDT token address
+    address public immutable usdt;
+
+    /// @notice USDC token address
+    address public immutable usdc;
+
+    /// @notice Max USDT amount for Curve pool safety check
+    uint256 public immutable usdtCurveMaxAmount;
 
     // ============================================
     // STRUCTS
@@ -131,13 +146,27 @@ contract AegisIncomeRouter is AccessControlDefaultAdminRules, ReentrancyGuard {
      * @param _aegisRewards AegisRewards contract address
      * @param _admin Admin address
      * @param _initialDelay Delay for admin role transfer (3 days recommended)
+     * @param _permit2 Permit2 contract address
+     * @param _uniswapV4Router Uniswap V4 Universal Router address
+     * @param _curveYusdUsdc Curve YUSD/USDC pool address
+     * @param _curveYusdUsdt Curve YUSD/USDT pool address
+     * @param _usdt USDT token address
+     * @param _usdc USDC token address
+     * @param _usdtCurveMaxAmount Max USDT amount for Curve pool safety check
      */
     constructor(
         address _yusd,
         address _aegisMinting,
         address _aegisRewards,
         address _admin,
-        uint48 _initialDelay
+        uint48 _initialDelay,
+        address _permit2,
+        address _uniswapV4Router,
+        address _curveYusdUsdc,
+        address _curveYusdUsdt,
+        address _usdt,
+        address _usdc,
+        uint256 _usdtCurveMaxAmount
     ) AccessControlDefaultAdminRules(_initialDelay, _admin) {
         if (_yusd == address(0) || _aegisMinting == address(0) || _aegisRewards == address(0)) {
             revert InvalidAddress();
@@ -146,6 +175,13 @@ contract AegisIncomeRouter is AccessControlDefaultAdminRules, ReentrancyGuard {
         yusd = IYUSD(_yusd);
         aegisMinting = IAegisMinting(_aegisMinting);
         aegisRewards = IAegisRewards(_aegisRewards);
+        permit2 = _permit2;
+        uniswapV4Router = _uniswapV4Router;
+        curveYusdUsdc = _curveYusdUsdc;
+        curveYusdUsdt = _curveYusdUsdt;
+        usdt = _usdt;
+        usdc = _usdc;
+        usdtCurveMaxAmount = _usdtCurveMaxAmount;
         paused = false;
     }
 
@@ -213,14 +249,9 @@ contract AegisIncomeRouter is AccessControlDefaultAdminRules, ReentrancyGuard {
         if (collateralAmount == 0) revert InvalidAmount();
 
         // SAFETY: Prevent large USDT swaps through Curve YUSD/USDT pool
-        // Pool has limited liquidity (~40k LP tokens) and becomes unusable >$10k
-        address CURVE_YUSD_USDT = 0xCF908d925b21594f9a92b264167A85B0649051a8;
-        address USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
-        uint256 USDT_CURVE_MAX_AMOUNT = 10000e6; // $10,000 max for Curve USDT pool
-
-        if (collateralAsset == USDT &&
-            dexRouter == CURVE_YUSD_USDT &&
-            collateralAmount > USDT_CURVE_MAX_AMOUNT) {
+        if (collateralAsset == usdt &&
+            dexRouter == curveYusdUsdt &&
+            collateralAmount > usdtCurveMaxAmount) {
             revert InvalidAmount(); // Prevent pool drainage - use minting instead
         }
 
@@ -232,14 +263,14 @@ contract AegisIncomeRouter is AccessControlDefaultAdminRules, ReentrancyGuard {
         );
 
         // For Uniswap V4, approve via Permit2 system
-        if (dexRouter == UNISWAP_V4_ROUTER) {
+        if (dexRouter == uniswapV4Router) {
             // Approve Permit2 to spend collateral (max approval for efficiency)
-            IERC20(collateralAsset).forceApprove(PERMIT2, type(uint256).max);
+            IERC20(collateralAsset).forceApprove(permit2, type(uint256).max);
 
             // Approve Universal Router via Permit2.approve()
-            IPermit2(PERMIT2).approve(
+            IPermit2(permit2).approve(
                 collateralAsset,
-                UNISWAP_V4_ROUTER,
+                uniswapV4Router,
                 type(uint160).max,
                 uint48(block.timestamp + 1 hours)
             );
@@ -430,24 +461,16 @@ contract AegisIncomeRouter is AccessControlDefaultAdminRules, ReentrancyGuard {
      * @return router Router address (address(0) if not found)
      */
     function _findRouterByType(bool isCurve, address collateralAsset) internal view returns (address router) {
-        // Mainnet addresses (checksummed)
-        // REAL Curve YUSD pools (factory-stable-ng)
-        address CURVE_YUSD_USDC = 0x9804C30875127246AC92D72D5CDF0630aA356861; // factory-stable-ng-407
-        address CURVE_YUSD_USDT = 0xCF908d925b21594f9a92b264167A85B0649051a8; // factory-stable-ng-360
-
-        // USDC address for comparison
-        address USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-
         if (isCurve) {
             // Return appropriate Curve pool based on collateral asset
-            if (collateralAsset == USDC && approvedDexRouters[CURVE_YUSD_USDC]) {
-                return CURVE_YUSD_USDC;
-            } else if (approvedDexRouters[CURVE_YUSD_USDT]) {
+            if (collateralAsset == usdc && approvedDexRouters[curveYusdUsdc]) {
+                return curveYusdUsdc;
+            } else if (approvedDexRouters[curveYusdUsdt]) {
                 // For USDT and any other stablecoins, use USDT pool
-                return CURVE_YUSD_USDT;
+                return curveYusdUsdt;
             }
-        } else if (!isCurve && approvedDexRouters[UNISWAP_V4_ROUTER]) {
-            return UNISWAP_V4_ROUTER;
+        } else if (!isCurve && approvedDexRouters[uniswapV4Router]) {
+            return uniswapV4Router;
         }
 
         return address(0);

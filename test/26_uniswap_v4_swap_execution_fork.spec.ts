@@ -196,7 +196,14 @@ describe('Test 26: Uniswap V4 Swap Execution (Fork)', () => {
       await aegisMinting.getAddress(),
       await aegisRewards.getAddress(),
       admin.address,
-      3 * 24 * 60 * 60 // 3 day delay
+      3 * 24 * 60 * 60, // 3 day delay
+      PERMIT2,                             // Permit2
+      UNIVERSAL_ROUTER,                    // Uniswap V4 Router
+      ethers.ZeroAddress,                  // Curve YUSD/USDC (not used in Uniswap tests)
+      ethers.ZeroAddress,                  // Curve YUSD/USDT (not used in Uniswap tests)
+      USDT_ADDRESS,                        // USDT
+      USDC_ADDRESS,                        // USDC
+      ethers.parseUnits('10000', 6),       // USDT Curve max amount
     )
     await router.waitForDeployment()
 
