@@ -76,6 +76,12 @@ const config: HardhatUserConfig = {
       gasPrice: networksConfig.networks.hedera.gasPrice,
       chainId: networksConfig.networks.hedera.chainId,
     },
+    monad: {
+      url: buildRpcUrl(networksConfig.networks.monad.rpcUrl),
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gasPrice: networksConfig.networks.monad.gasPrice,
+      chainId: networksConfig.networks.monad.chainId,
+    },
     bnbTestnet: {
       url: networksConfig.networks.bnbTestnet.rpcUrl,
       chainId: networksConfig.networks.bnbTestnet.chainId,
