@@ -30,21 +30,24 @@ contract YUSDMintBurnOFTAdapter is OFTAdapter {
    * @dev Override _debit to handle outgoing cross-chain transfers.
    * This is called when tokens need to be "burned" for cross-chain transfer.
    */
-  function _debit(address _from, uint256 _amountLD, uint256, uint32) 
-    internal 
-    override 
-    returns (uint256 amountSentLD, uint256 amountReceivedLD) 
+  function _debit(address _from, uint256 _amountLD, uint256 _minAmountLD, uint32 _dstEid)
+    internal
+    override
+    returns (uint256 amountSentLD, uint256 amountReceivedLD)
   {
+    // Calculate amounts with dust removed
+    (amountSentLD, amountReceivedLD) = _debitView(_amountLD, _minAmountLD, _dstEid);
+
     // Transfer tokens from user to this contract first
-    IERC20(this.token()).safeTransferFrom(_from, address(this), _amountLD);
-    
+    IERC20(this.token()).safeTransferFrom(_from, address(this), amountSentLD);
+
     // Approve AegisMinting to spend our tokens
-    IERC20(this.token()).approve(address(aegisMinting), _amountLD);
-    
+    IERC20(this.token()).approve(address(aegisMinting), amountSentLD);
+
     // Call AegisMinting to burn tokens from this contract (this contract must be a cross-chain operator)
-    aegisMinting.burnForCrossChain(address(this), _amountLD);
-    
-    return (_amountLD, _amountLD);
+    aegisMinting.burnForCrossChain(address(this), amountSentLD);
+
+    return (amountSentLD, amountReceivedLD);
   }
 
   /**

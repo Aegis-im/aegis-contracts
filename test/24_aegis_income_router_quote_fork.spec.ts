@@ -233,6 +233,13 @@ describe('AegisIncomeRouter - Comprehensive Quote & Route Testing (Fork)', () =>
       await aegisRewards.getAddress(),      // AegisRewards
       admin.address,                        // Admin
       3 * 24 * 60 * 60,                     // 3 day delay
+      '0x000000000022D473030F116dDEE9F6B43aC78BA3', // Permit2
+      UNISWAP_V4_ROUTER,                   // Uniswap V4 Router
+      CURVE_YUSD_USDC,                     // Curve YUSD/USDC pool
+      CURVE_YUSD_USDT,                     // Curve YUSD/USDT pool
+      USDT_ADDRESS,                        // USDT
+      USDC_ADDRESS,                        // USDC
+      ethers.parseUnits('10000', 6),       // USDT Curve max amount
     )
     await router.waitForDeployment()
     console.log('   ✅ AegisIncomeRouter deployed at:', await router.getAddress())
