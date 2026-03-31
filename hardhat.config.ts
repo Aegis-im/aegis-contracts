@@ -162,6 +162,14 @@ const config: HardhatUserConfig = {
           browserURL: 'https://plasmascan.to/',
         },
       },
+      {
+        network: 'monad',
+        chainId: networksConfig.networks.monad.chainId,
+        urls: {
+          apiURL: 'https://monad.socialscan.io/api',
+          browserURL: networksConfig.networks.monad.explorer,
+        },
+      },
     ],
   },
 }

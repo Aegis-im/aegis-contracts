@@ -84,6 +84,38 @@ const monadsYUSDContract: OmniPointHardhat = {
 //   contractName: 'sYUSDOFT',
 // }
 
+// ---- JUSD ----
+const mainnetJUSDContract: OmniPointHardhat = {
+  eid: EndpointId.ETHEREUM_V2_MAINNET as any,
+  contractName: 'JUSDMintBurnOFTAdapter',
+}
+
+const monadJUSDContract: OmniPointHardhat = {
+  eid: EndpointId.MONAD_V2_MAINNET as any,
+  contractName: 'JUSDOFT',
+}
+
+const katanaJUSDContract: OmniPointHardhat = {
+  eid: EndpointId.KATANA_V2_MAINNET as any,
+  contractName: 'JUSDOFT',
+}
+
+// ---- sJUSD ----
+const mainnetSJUSDContract: OmniPointHardhat = {
+  eid: EndpointId.ETHEREUM_V2_MAINNET as any,
+  contractName: 'sJUSDOFTAdapter',
+}
+
+const monadSJUSDContract: OmniPointHardhat = {
+  eid: EndpointId.MONAD_V2_MAINNET as any,
+  contractName: 'sJUSDOFT',
+}
+
+const katanaSJUSDContract: OmniPointHardhat = {
+  eid: EndpointId.KATANA_V2_MAINNET as any,
+  contractName: 'sJUSDOFT',
+}
+
 // UNCOMMENT FOR TESTNETS
 // const sepoliaContract: OmniPointHardhat = {
 //   eid: EndpointId.SEPOLIA_V2_TESTNET,
@@ -382,13 +414,13 @@ export default async function () {
       [15, 20], // [A to B confirmations, B to A confirmations]
       [MONAD_ENFORCED_OPTIONS, BASE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
-    // [
-    //   katanaContract, // Chain A contract
-    //   monadContract, // Chain B contract
-    //   [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-    //   [15, 20], // [A to B confirmations, B to A confirmations]
-    //   [MONAD_ENFORCED_OPTIONS, KATANA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
-    // ],
+    [
+      katanaContract, // Chain A contract
+      monadContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [MONAD_ENFORCED_OPTIONS, KATANA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
     [
       plasmaContract, // Chain B contract
       monadContract, // Chain A contract
@@ -466,13 +498,13 @@ export default async function () {
       [15, 20], // [A to B confirmations, B to A confirmations]
       [PLASMA_ENFORCED_OPTIONS, BNB_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
-    // [
-    //   katanasYUSDContract, // Chain A contract
-    //   monadsYUSDContract, // Chain B contract
-    //   [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-    //   [15, 20], // [A to B confirmations, B to A confirmations]
-    //   [MONAD_ENFORCED_OPTIONS, KATANA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
-    // ],
+    [
+      katanasYUSDContract, // Chain A contract
+      monadsYUSDContract, // Chain B contract
+      [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
+      [15, 20], // [A to B confirmations, B to A confirmations]
+      [MONAD_ENFORCED_OPTIONS, KATANA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
     [
       bnbMainnetsYUSDContract, // Chain A contract
       monadsYUSDContract, // Chain B contract
@@ -500,6 +532,50 @@ export default async function () {
       [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
       [15, 20], // [A to B confirmations, B to A confirmations]
       [MONAD_ENFORCED_OPTIONS, PLASMA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
+    ],
+    // ---- JUSD connections ----
+    [
+      mainnetJUSDContract,
+      monadJUSDContract,
+      [['LayerZero Labs'], []],
+      [15, 20],
+      [MONAD_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS],
+    ],
+    [
+      mainnetJUSDContract,
+      katanaJUSDContract,
+      [['LayerZero Labs'], []],
+      [15, 20],
+      [KATANA_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS],
+    ],
+    [
+      monadJUSDContract,
+      katanaJUSDContract,
+      [['LayerZero Labs'], []],
+      [15, 20],
+      [KATANA_ENFORCED_OPTIONS, MONAD_ENFORCED_OPTIONS],
+    ],
+    // ---- sJUSD connections ----
+    [
+      mainnetSJUSDContract,
+      monadSJUSDContract,
+      [['LayerZero Labs'], []],
+      [15, 20],
+      [MONAD_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS],
+    ],
+    [
+      mainnetSJUSDContract,
+      katanaSJUSDContract,
+      [['LayerZero Labs'], []],
+      [15, 20],
+      [KATANA_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS],
+    ],
+    [
+      monadSJUSDContract,
+      katanaSJUSDContract,
+      [['LayerZero Labs'], []],
+      [15, 20],
+      [KATANA_ENFORCED_OPTIONS, MONAD_ENFORCED_OPTIONS],
     ],
     // UNCOMMENT FOR TESTNETS
     // [
@@ -546,6 +622,12 @@ export default async function () {
       { contract: plasmasYUSDContract },
       { contract: monadsYUSDContract },
       // { contract: hederasYUSDContract },
+      { contract: mainnetJUSDContract },
+      { contract: monadJUSDContract },
+      { contract: katanaJUSDContract },
+      { contract: mainnetSJUSDContract },
+      { contract: monadSJUSDContract },
+      { contract: katanaSJUSDContract },
     ],
     connections,
   }
