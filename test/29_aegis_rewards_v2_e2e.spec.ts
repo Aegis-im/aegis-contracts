@@ -40,6 +40,7 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
       yusdAddress,
       owner.address,
       true, // isMainChain
+      owner.address, // rescueTo
     ])
     const mainRewardsAddr = await mainRewards.getAddress()
 
@@ -48,6 +49,7 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
       yusdAddress,
       owner.address,
       false, // not main chain
+      owner.address, // rescueTo
     ])
     const destBnbAddr = await destBnb.getAddress()
 
@@ -55,6 +57,7 @@ describe('AegisRewardsV2 — E2E Multichain & Daily Operations', function () {
       yusdAddress,
       owner.address,
       false,
+      owner.address, // rescueTo
     ])
     const destAvaxAddr = await destAvax.getAddress()
 

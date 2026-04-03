@@ -406,6 +406,7 @@ describe('AegisRewardsV2', () => {
         yusdAddress,
         owner.address,
         true,
+        owner.address, // rescueTo
       ])
 
       await expect(
