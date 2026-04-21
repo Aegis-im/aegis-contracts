@@ -11,7 +11,7 @@
     "mainnet": {
       "chainId": 1,
       "rpcUrl": "https://mainnet.gateway.tenderly.co",
-      "gasPrice": 237000000,
+      "gasPrice": 277000000,
       "description": "Ethereum Mainnet",
       "explorer": "https://etherscan.io",
       "contracts": {
@@ -157,7 +157,7 @@
     },
     "base": {
       "chainId": 8453,
-      "rpcUrl": "https://base.llamarpc.com",
+      "rpcUrl": "https://base-rpc.publicnode.com",
       "gasPrice": 70000000,
       "description": "Base Mainnet",
       "explorer": "https://basescan.org",
@@ -192,7 +192,7 @@
     "monad": {
       "chainId": 143,
       "endpointId": 30390,
-      "rpcUrl": "https://rpc3.monad.xyz",
+      "rpcUrl": "https://rpc2.monad.xyz",
       "gasPrice": 100000000000,
       "description": "Monad Mainnet",
       "explorer": "https://monad.socialscan.io/",
