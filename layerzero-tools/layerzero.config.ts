@@ -241,301 +241,301 @@ export default async function () {
       mainnetContract, // Chain A contract
       bnbMainnetContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [BNB_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       mainnetContract, // Chain A contract
       avalancheContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [AVALANCHE_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       bnbMainnetContract, // Chain A contract
       avalancheContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [AVALANCHE_ENFORCED_OPTIONS, BNB_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       mainnetContract, // Chain A contract
       arbitrumContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [ARBITRUM_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       bnbMainnetContract, // Chain A contract
       arbitrumContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [ARBITRUM_ENFORCED_OPTIONS, BNB_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       avalancheContract, // Chain A contract
       arbitrumContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [ARBITRUM_ENFORCED_OPTIONS, AVALANCHE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       mainnetContract, // Chain A contract
       katanaContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [KATANA_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       bnbMainnetContract, // Chain A contract
       katanaContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [KATANA_ENFORCED_OPTIONS, BNB_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       avalancheContract, // Chain A contract
       katanaContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [KATANA_ENFORCED_OPTIONS, AVALANCHE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       arbitrumContract, // Chain B contract
       katanaContract, // Chain A contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [KATANA_ENFORCED_OPTIONS, ARBITRUM_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       baseContract, // Chain A contract
       katanaContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [KATANA_ENFORCED_OPTIONS, BASE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       mainnetContract, // Chain A contract
       baseContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [BASE_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       bnbMainnetContract, // Chain A contract
       baseContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [BASE_ENFORCED_OPTIONS, BNB_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       avalancheContract, // Chain A contract
       baseContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [BASE_ENFORCED_OPTIONS, AVALANCHE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       arbitrumContract, // Chain A contract
       baseContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [BASE_ENFORCED_OPTIONS, ARBITRUM_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       mainnetContract, // Chain A contract
       plasmaContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [PLASMA_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       bnbMainnetContract, // Chain A contract
       plasmaContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [PLASMA_ENFORCED_OPTIONS, BNB_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       avalancheContract, // Chain A contract
       plasmaContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [PLASMA_ENFORCED_OPTIONS, AVALANCHE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       arbitrumContract, // Chain A contract
       plasmaContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [PLASMA_ENFORCED_OPTIONS, ARBITRUM_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       baseContract, // Chain A contract
       plasmaContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [PLASMA_ENFORCED_OPTIONS, BASE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       katanaContract, // Chain A contract
       plasmaContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [PLASMA_ENFORCED_OPTIONS, KATANA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       mainnetContract, // Chain A contract
       monadContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [MONAD_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       bnbMainnetContract, // Chain A contract
       monadContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [MONAD_ENFORCED_OPTIONS, BNB_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       avalancheContract, // Chain A contract
       monadContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [MONAD_ENFORCED_OPTIONS, AVALANCHE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       arbitrumContract, // Chain A contract
       monadContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [MONAD_ENFORCED_OPTIONS, ARBITRUM_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       baseContract, // Chain A contract
       monadContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [MONAD_ENFORCED_OPTIONS, BASE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       katanaContract, // Chain A contract
       monadContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [MONAD_ENFORCED_OPTIONS, KATANA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       plasmaContract, // Chain B contract
       monadContract, // Chain A contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [MONAD_ENFORCED_OPTIONS, PLASMA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       mainnetsYUSDContract, // Chain A contract
       katanasYUSDContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [KATANA_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       mainnetsYUSDContract, // Chain A contract
       avalanchesYUSDContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [AVALANCHE_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       katanasYUSDContract, // Chain A contract
       avalanchesYUSDContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [AVALANCHE_ENFORCED_OPTIONS, KATANA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       mainnetsYUSDContract, // Chain A contract
       bnbMainnetsYUSDContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [BNB_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       katanasYUSDContract, // Chain A contract
       bnbMainnetsYUSDContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [BNB_ENFORCED_OPTIONS, KATANA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       avalanchesYUSDContract, // Chain A contract
       bnbMainnetsYUSDContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [BNB_ENFORCED_OPTIONS, AVALANCHE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       mainnetsYUSDContract, // Chain A contract
       plasmasYUSDContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [PLASMA_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       katanasYUSDContract, // Chain A contract
       plasmasYUSDContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [PLASMA_ENFORCED_OPTIONS, KATANA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       avalanchesYUSDContract, // Chain A contract
       plasmasYUSDContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [PLASMA_ENFORCED_OPTIONS, AVALANCHE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       bnbMainnetsYUSDContract, // Chain A contract
       plasmasYUSDContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [PLASMA_ENFORCED_OPTIONS, BNB_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       katanasYUSDContract, // Chain A contract
       monadsYUSDContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [MONAD_ENFORCED_OPTIONS, KATANA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       bnbMainnetsYUSDContract, // Chain A contract
       monadsYUSDContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [MONAD_ENFORCED_OPTIONS, BNB_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       avalanchesYUSDContract, // Chain A contract
       monadsYUSDContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [MONAD_ENFORCED_OPTIONS, AVALANCHE_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       mainnetsYUSDContract, // Chain A contract
       monadsYUSDContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [MONAD_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     [
       plasmasYUSDContract, // Chain A contract
       monadsYUSDContract, // Chain B contract
       [REQUIRED_DVNS, OPTIONAL_DVNS], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-      [15, 20], // [A to B confirmations, B to A confirmations]
+      [20, 20], // [A to B confirmations, B to A confirmations]
       [MONAD_ENFORCED_OPTIONS, PLASMA_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     ],
     // ---- JUSD connections ----
@@ -543,21 +543,21 @@ export default async function () {
       mainnetJUSDContract,
       monadJUSDContract,
       [REQUIRED_DVNS, OPTIONAL_DVNS],
-      [15, 20],
+      [20, 20],
       [MONAD_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS],
     ],
     [
       mainnetJUSDContract,
       katanaJUSDContract,
       [REQUIRED_DVNS, OPTIONAL_DVNS],
-      [15, 20],
+      [20, 20],
       [KATANA_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS],
     ],
     [
       monadJUSDContract,
       katanaJUSDContract,
       [REQUIRED_DVNS, OPTIONAL_DVNS],
-      [15, 20],
+      [20, 20],
       [KATANA_ENFORCED_OPTIONS, MONAD_ENFORCED_OPTIONS],
     ],
     // ---- sJUSD connections ----
@@ -565,21 +565,21 @@ export default async function () {
       mainnetSJUSDContract,
       monadSJUSDContract,
       [REQUIRED_DVNS, OPTIONAL_DVNS],
-      [15, 20],
+      [20, 20],
       [MONAD_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS],
     ],
     [
       mainnetSJUSDContract,
       katanaSJUSDContract,
       [REQUIRED_DVNS, OPTIONAL_DVNS],
-      [15, 20],
+      [20, 20],
       [KATANA_ENFORCED_OPTIONS, MAINNET_ENFORCED_OPTIONS],
     ],
     [
       monadSJUSDContract,
       katanaSJUSDContract,
       [REQUIRED_DVNS, OPTIONAL_DVNS],
-      [15, 20],
+      [20, 20],
       [KATANA_ENFORCED_OPTIONS, MONAD_ENFORCED_OPTIONS],
     ],
     // UNCOMMENT FOR TESTNETS
@@ -587,7 +587,7 @@ export default async function () {
     //   sepoliaContract, // Chain A contract
     //   fujiContract, // Chain B contract
     //   [['LayerZero Labs'], []], // [ requiredDVN[], [ optionalDVN[], threshold ] ]
-    //   [15, 20], // [A to B confirmations, B to A confirmations]
+    //   [20, 20], // [A to B confirmations, B to A confirmations]
     //   [TESTNET_ENFORCED_OPTIONS, TESTNET_ENFORCED_OPTIONS], // Chain B enforcedOptions, Chain A enforcedOptions
     // ],
     // [
