@@ -215,18 +215,16 @@ contract AegisRewardsV2 is IAegisRewardsErrors, AccessControlDefaultAdminRules, 
     // ============================================
     // STAKING FUNCTIONS
     // ============================================
-
     /// @notice Send staking rewards to staking contract
     function sendToStaking(uint256 amount) external onlyRole(TRUSTED_SIGNER_ROLE) {
         if (stakingContract == address(0)) revert ZeroAddress();
         if (amount > _merklePoolBalance) revert InsufficientContractBalance();
-
+        
         _merklePoolBalance -= amount;
         yusd.safeTransfer(stakingContract, amount);
-
         emit SendToStaking(stakingContract, amount);
     }
-
+    
     // ============================================
     // CUMULATIVE MERKLE REWARDS
     // ============================================
@@ -345,39 +343,6 @@ contract AegisRewardsV2 is IAegisRewardsErrors, AccessControlDefaultAdminRules, 
         bytes calldata extraOptions
     ) external payable onlyRole(TRUSTED_SIGNER_ROLE) {
         _executeBridge(chainId, amount, msg.value, extraOptions);
-    }
-
-    /// @notice Combined daily operations: set merkle root and execute bridges
-    /// @param merkleRoot New cumulative Merkle root (bytes32(0) to skip)
-    /// @param totalUnclaimedAmount Sum of unclaimed rewards in the tree (0 when skipping root)
-    /// @param bridges Array of bridge operations to execute
-    function performDailyOperations(
-        bytes32 merkleRoot,
-        uint256 totalUnclaimedAmount,
-        BridgeOperation[] calldata bridges
-    ) external payable onlyRole(TRUSTED_SIGNER_ROLE) {
-        if (merkleRoot != bytes32(0)) {
-            _currentMerkleRoot = merkleRoot;
-            emit SetMerkleRoot(merkleRoot);
-        }
-
-        uint256 totalNativeFee;
-        for (uint256 i = 0; i < bridges.length; i++) {
-            totalNativeFee += bridges[i].nativeFee;
-            _executeBridge(
-                bridges[i].chainId,
-                bridges[i].amount,
-                bridges[i].nativeFee,
-                bridges[i].extraOptions
-            );
-        }
-
-        // Validate after bridges so _merklePoolBalance reflects post-bridge state
-        if (merkleRoot != bytes32(0)) {
-            if (totalUnclaimedAmount > _merklePoolBalance) revert InsufficientContractBalance();
-        }
-
-        if (msg.value != totalNativeFee) revert InvalidNativeFee();
     }
 
     // ============================================
