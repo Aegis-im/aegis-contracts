@@ -1,5 +1,33 @@
 {
   "networks": {
+    "starknet": {
+      "chainType": "starknet",
+      "rpcUrl": "https://starknet-mainnet.g.alchemy.com/starknet/version/rpc/v0_10/ifRiJRyCqStNKuKbp6HEP",
+      "description": "Starknet Mainnet",
+      "explorer": "https://voyager.online",
+      "contracts": {
+        "lzEndpoint": "0x0524e065abff21d225fb7b28f26ec2f48314ace6094bc085f0a7cf1dc2660f68",
+        "uln302": "0x0727f40349719ac76861a51a0b3d3e07be1577fff137bb81a5dc32e5a5c61d38",
+        "executor": "0x03887bd8da2999d39e2e88fe55733c4cac8e20a6d51bfe162176c9f2eb134c65",
+        "strkToken": "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
+        "adminAddress": "0x355a0c9b6b09b4f22d6bd6a44fd35dc4713eee8339197a96dcc2a1e73dba081",
+        "yusdERC20Address": "0x01a507e10aa772ee87bf0d075aee6c5420deaad03731789b9d0b8c7b63ebce86",
+        "yusdOftAddress": "0x015084fb98a9fe079176bf51928dd0cd6ed45e4dfe5607a4df8b343c4cccefcb"
+      },
+      "layerzero": {
+        "eid": 30500
+      },
+      "classHashes": {
+        "erc20MintBurnUpgradeable": "0x01bea3900ebe975f332083d441cac55f807cf5de7b1aa0b7ccbda1de53268500",
+        "oftMintBurnAdapter": "0x07c02e3797d2c7b848fa94820ffb335617820d2c44d82d6b8cf71c71fbe7dd6e"
+      },
+      "dvns": {
+        "deutscheTelekom": "0x02fff0fb1d28dae06f80120e17a26d23803234dd27d4b275f7742c97ecbfb3f5",
+        "layerzeroLabs":   "0x067ba9b8e08d78e4600871db457f9620c56c39915167d32b0581a7fb639866dd",
+        "horizen":         "0x067f770461867f3634a7f836e96e4f6649c4bbe6972b70e2838b9590e0828e63",
+        "canary":          "0x073b30c6cf0094ca96976a6fa8c656d84f7ba88b4edfd068adf9ec0613a91982"
+      }
+    },
     "hardhat": {
       "chainId": 1337,
       "description": "Local Hardhat development network",
