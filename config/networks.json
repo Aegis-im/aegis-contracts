@@ -316,7 +316,8 @@
         "sJUSDSiloAddress": "0xDF21A3b705e8Be047CF04e7E76C310928B3790B9",
         "sjusdOracle": "0x2C44FBe77Ca5FAD24B627BeFa82680d1177a1F21",
         "jusdOftAdapterAddress": "0x1117dB8c8C4f4A917ff947E518D3D45B2eDbB0AA",
-        "sjusdOftAdapterAddress": "0xAEBCb9e713480AA54bAB87346e6343B7eD2F48F3"
+        "sjusdOftAdapterAddress": "0xAEBCb9e713480AA54bAB87346e6343B7eD2F48F3",
+        "aegisRewardsV2JUSDAddress": "0x667CaF9a3351103e50fFfb898B01d498A2686397"
       },
       "layerzero": {
         "targetEid": 40102,
@@ -350,7 +351,8 @@
         "feedRegistryAddress": "0x3d0b926F2F1CB1E5c41b3eD43e0a28C86DAb2e4d",
         "yusdOftAddress": "0x1dAe7eBfb0Daa9AEb8a956f38df6f297b9e32B29",
         "aegisRewardsManualAddress": "0x0f87D43279bBEdAC86606C0205102a3385e2A104",
-        "aegisConfigAddress": "0xEF300Ba83697A8D8ABf2f7E78de7536ab92d1E67"
+        "aegisConfigAddress": "0xEF300Ba83697A8D8ABf2f7E78de7536ab92d1E67",
+        "aegisRewardsV2Address": "0xE0FA3992a0c1390199C06aaf250d9BE3fFf473DE"
       },
       "layerzero": {
         "targetEid": 40102,
