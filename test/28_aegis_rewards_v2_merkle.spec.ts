@@ -23,6 +23,7 @@ describe('AegisRewardsV2 — Cumulative Merkle Rewards', function () {
       yusdAddress,
       owner.address,
       true,
+      owner.address, // rescueTo
     ])
 
     await yusdContract.setMinter(owner.address)

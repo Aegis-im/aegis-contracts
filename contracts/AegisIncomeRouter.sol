@@ -317,11 +317,11 @@ contract AegisIncomeRouter is AccessControlDefaultAdminRules, ReentrancyGuard {
 
         // Transfer fee to insurance fund if applicable
         if (insuranceFee > 0) {
-            yusd.transfer(insuranceFund, insuranceFee);
+            IERC20(address(yusd)).safeTransfer(insuranceFund, insuranceFee);
         }
 
         // Transfer remaining YUSD to AegisRewards, then call depositRewards
-        yusd.transfer(address(aegisRewards), rewardsAmount);
+        IERC20(address(yusd)).safeTransfer(address(aegisRewards), rewardsAmount);
         aegisRewards.depositRewards(snapshotId, rewardsAmount);
 
         emit SwapAndDeposit(
