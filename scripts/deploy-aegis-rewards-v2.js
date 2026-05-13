@@ -36,6 +36,11 @@ async function main() {
   }
 
   const admin = contracts.adminAddress || deployer.address
+  const deployment = networkConfig.deployment || {}
+  const rescueTo =
+    deployment.insuranceFundAddress?.replace('{DEPLOYER_ADDRESS}', deployer.address) ||
+    contracts.adminAddress ||
+    deployer.address
   // On testnets other than sepolia, this is NOT the main chain (mainnet = Ethereum).
   // For Avalanche Fuji specifically, set isMainChain = false.
   const isMainChain = networkName === 'mainnet' || networkName === 'sepolia'
@@ -44,9 +49,10 @@ async function main() {
   console.log(`  YUSD: ${yusdAddress}`)
   console.log(`  Admin: ${admin}`)
   console.log(`  isMainChain: ${isMainChain}`)
+  console.log(`  rescueTo: ${rescueTo}`)
 
   const AegisRewardsV2 = await ethers.getContractFactory('AegisRewardsV2')
-  const contract = await AegisRewardsV2.deploy(yusdAddress, admin, isMainChain)
+  const contract = await AegisRewardsV2.deploy(yusdAddress, admin, isMainChain, rescueTo)
   await contract.waitForDeployment()
   const address = await contract.getAddress()
 
@@ -62,7 +68,7 @@ async function main() {
   console.log('AegisRewardsV2:', address)
   console.log('\nVerification command:')
   console.log(
-    `npx hardhat verify --network ${networkName} ${address} "${yusdAddress}" "${admin}" ${isMainChain}`,
+    `npx hardhat verify --network ${networkName} ${address} "${yusdAddress}" "${admin}" ${isMainChain} "${rescueTo}"`,
   )
 }
 

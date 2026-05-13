@@ -52,6 +52,9 @@ contract AegisRewardsV2JUSD is IAegisRewardsErrors, AccessControlDefaultAdminRul
     /// @notice OFT adapter for cross-chain bridging
     IOFT public oftAdapter;
 
+    /// @notice Fixed address that receives rescued ETH and tokens — not the caller
+    address public rescueTo;
+
     /// @dev Flag to indicate if this is the main chain (ETH)
     bool public immutable isMainChain;
 
@@ -98,6 +101,9 @@ contract AegisRewardsV2JUSD is IAegisRewardsErrors, AccessControlDefaultAdminRul
     /// @dev Event emitted when OFT adapter is set
     event SetOFTAdapter(address indexed oftAdapter);
 
+    /// @dev Event emitted when rescue destination is updated
+    event SetRescueTo(address indexed oldRescueTo, address indexed newRescueTo);
+
     /// @dev Event emitted when cumulative Merkle root is updated
     event SetMerkleRoot(bytes32 merkleRoot);
 
@@ -124,12 +130,15 @@ contract AegisRewardsV2JUSD is IAegisRewardsErrors, AccessControlDefaultAdminRul
     constructor(
         IJUSD _jusd,
         address _admin,
-        bool _isMainChain
+        bool _isMainChain,
+        address _rescueTo
     ) AccessControlDefaultAdminRules(3 days, _admin) {
         if (address(_jusd) == address(0)) revert ZeroAddress();
+        if (_rescueTo == address(0)) revert ZeroAddress();
 
         jusd = _jusd;
         isMainChain = _isMainChain;
+        rescueTo = _rescueTo;
     }
 
     // ============================================
@@ -377,8 +386,6 @@ contract AegisRewardsV2JUSD is IAegisRewardsErrors, AccessControlDefaultAdminRul
 
     /// @dev Rescue ERC20 tokens from contract balance (excluding reserved rewards)
     function rescueAssets(IERC20 token) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        address admin = msg.sender;
-
         uint256 balance = token.balanceOf(address(this));
 
         // If rescuing JUSD, only rescue excess above reserved amount
@@ -389,8 +396,15 @@ contract AegisRewardsV2JUSD is IAegisRewardsErrors, AccessControlDefaultAdminRul
 
         if (balance == 0) revert NoTokensToRescue();
 
-        SafeERC20.safeTransfer(token, admin, balance);
-        emit RescueAssets(address(token), admin, balance);
+        SafeERC20.safeTransfer(token, rescueTo, balance);
+        emit RescueAssets(address(token), rescueTo, balance);
+    }
+
+    /// @dev Updates the rescue destination address — cannot be set to zero
+    function setRescueTo(address _rescueTo) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_rescueTo == address(0)) revert ZeroAddress();
+        emit SetRescueTo(rescueTo, _rescueTo);
+        rescueTo = _rescueTo;
     }
 
     /// @dev Sets staking contract address. Set to address(0) to disable staking.
@@ -413,10 +427,10 @@ contract AegisRewardsV2JUSD is IAegisRewardsErrors, AccessControlDefaultAdminRul
         uint256 balance = address(this).balance;
         if (balance == 0) revert NoTokensToRescue();
 
-        (bool success, ) = _msgSender().call{value: balance}("");
+        (bool success, ) = rescueTo.call{value: balance}("");
         require(success);
 
-        emit RescueAssets(address(0), _msgSender(), balance);
+        emit RescueAssets(address(0), rescueTo, balance);
     }
 
     // ============================================

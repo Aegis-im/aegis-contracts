@@ -23,9 +23,9 @@
       },
       "dvns": {
         "deutscheTelekom": "0x02fff0fb1d28dae06f80120e17a26d23803234dd27d4b275f7742c97ecbfb3f5",
-        "layerzeroLabs":   "0x067ba9b8e08d78e4600871db457f9620c56c39915167d32b0581a7fb639866dd",
-        "horizen":         "0x067f770461867f3634a7f836e96e4f6649c4bbe6972b70e2838b9590e0828e63",
-        "canary":          "0x073b30c6cf0094ca96976a6fa8c656d84f7ba88b4edfd068adf9ec0613a91982"
+        "layerzeroLabs": "0x067ba9b8e08d78e4600871db457f9620c56c39915167d32b0581a7fb639866dd",
+        "horizen": "0x067f770461867f3634a7f836e96e4f6649c4bbe6972b70e2838b9590e0828e63",
+        "canary": "0x073b30c6cf0094ca96976a6fa8c656d84f7ba88b4edfd068adf9ec0613a91982"
       }
     },
     "hardhat": {
@@ -39,7 +39,7 @@
     "mainnet": {
       "chainId": 1,
       "rpcUrl": "https://mainnet.gateway.tenderly.co",
-      "gasPrice": 1677000000,
+      "gasPrice": 123000000,
       "description": "Ethereum Mainnet",
       "explorer": "https://etherscan.io",
       "contracts": {
@@ -62,7 +62,8 @@
         "aegisJUSDChainlinkOracleV3Address": "0x8417a3077D8F7bDB348c8b109330f9A50c6ab9d3",
         "jusdOftAdapterAddress": "0x70d4C4F48F230037A9e154470EcE79Db85A11f52",
         "sjusdOftAdapterAddress": "0x8EDD6A7C9b635490f4a94E0cb85D63d6A084ce0F",
-        "vaultComposerAddress": "0x399B1C20896a8E40D430479E844d1d9b4445cd4A"
+        "vaultComposerAddress": "0x399B1C20896a8E40D430479E844d1d9b4445cd4A",
+        "aegisRewardsV2Address": "0x8340F5Af4D2eeBb402102143E7267ACA7112eEBd"
       },
       "layerzero": {
         "targetEid": 30101,
@@ -104,7 +105,8 @@
         "aegisMintingAddress": "0x02bf8f0e046F471709E578b1E633077096ce65CF",
         "feedRegistryAddress": "0x4274cD7277C7bb0806Bd5FE84b9aDAE466a8DA0a",
         "syusdOftAddress": "0x85636BF94EA95c32e945b0db30A7CDc614F2691e",
-        "syusdOracle": "0x5Ef457932C77E906FE81f80192bD6878526aCAdc"
+        "syusdOracle": "0x5Ef457932C77E906FE81f80192bD6878526aCAdc",
+        "aegisRewardsV2Address": "0xd859e938258a62d684235F617D551149BF21dEbD"
       },
       "layerzero": {
         "targetEid": 56,
@@ -142,7 +144,8 @@
         "syusdOracle": "0x03a346a9AE09E0E8bf38De1c49be45575393dea7",
         "aegisChainlinkOracleV3Address": "0x03a346a9AE09E0E8bf38De1c49be45575393dea7",
         "aegisConfigAddress": "0x773B65dfF82a5C49eC4002bb886b2FB4623071B4",
-        "aegisRewardsManualAddress": "0xB02FC8fA9fB1cA333c2e8028Ba6Eb6C0B1cDB3Af"
+        "aegisRewardsManualAddress": "0xB02FC8fA9fB1cA333c2e8028Ba6Eb6C0B1cDB3Af",
+        "aegisRewardsV2Address": "0x7Bad82d9e79E706635bD1C12346BAdd63EFE010E"
       },
       "deployment": {
         "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"

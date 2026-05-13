@@ -4,12 +4,12 @@ const fs = require('fs')
 const path = require('path')
 
 function getNetworksConfig() {
-  const configPath = path.join(__dirname, '..', 'config', 'networks.json')
+  const configPath = path.join(__dirname, '../..', 'config', 'networks.json')
   return JSON.parse(fs.readFileSync(configPath, 'utf8'))
 }
 
 function updateNetworksConfig(networkName, updates) {
-  const configPath = path.join(__dirname, '..', 'config', 'networks.json')
+  const configPath = path.join(__dirname, '../..', 'config', 'networks.json')
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
   Object.assign(config.networks[networkName].contracts, updates)
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n')
@@ -36,15 +36,21 @@ async function main() {
   }
 
   const admin = contracts.adminAddress || deployer.address
-  const isMainChain = true
+  const deployment = networkConfig.deployment || {}
+  const rescueTo =
+    deployment.insuranceFundAddress?.replace('{DEPLOYER_ADDRESS}', deployer.address) ||
+    contracts.adminAddress ||
+    deployer.address
+  const isMainChain = networkName === 'mainnet' || networkName === 'sepolia'
 
   console.log('Parameters:')
   console.log(`  JUSD: ${jusdAddress}`)
   console.log(`  Admin: ${admin}`)
   console.log(`  isMainChain: ${isMainChain}`)
+  console.log(`  rescueTo: ${rescueTo}`)
 
   const AegisRewardsV2JUSD = await ethers.getContractFactory('AegisRewardsV2JUSD')
-  const contract = await AegisRewardsV2JUSD.deploy(jusdAddress, admin, isMainChain)
+  const contract = await AegisRewardsV2JUSD.deploy(jusdAddress, admin, isMainChain, rescueTo)
   await contract.waitForDeployment()
   const address = await contract.getAddress()
 
@@ -60,7 +66,7 @@ async function main() {
   console.log('AegisRewardsV2JUSD:', address)
   console.log('\nVerification command:')
   console.log(
-    `npx hardhat verify --network ${networkName} ${address} "${jusdAddress}" "${admin}" ${isMainChain}`,
+    `npx hardhat verify --network ${networkName} ${address} "${jusdAddress}" "${admin}" ${isMainChain} "${rescueTo}"`,
   )
 }
 
