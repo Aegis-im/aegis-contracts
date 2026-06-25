@@ -4,7 +4,7 @@ const fs = require('fs')
 
 async function main() {
   const networkName = network.name
-  console.log(`🚀 Deploying AegisIncomeRouter on ${networkName}...`)
+  console.log(`\n🚀 Deploying AegisIncomeRouter on ${networkName}...`)
 
   const config = getNetworksConfig()
   if (!config || !config.networks[networkName]) {
@@ -15,37 +15,32 @@ async function main() {
   const contracts = networkConfig.contracts
   const deployment = networkConfig.deployment || {}
 
-  // Validate required addresses
-  const required = ['yusdAddress', 'aegisMintingAddress', 'aegisRewardsAddress']
+  const required = ['yusdAddress', 'aegisMintingAddress', 'aegisRewardsV2Address']
   for (const key of required) {
-    if (!contracts[key]) {
-      throw new Error(`❌ ${key} not found in config for ${networkName}`)
-    }
+    if (!contracts[key]) throw new Error(`❌ ${key} not found in config for ${networkName}`)
   }
 
   const [deployer] = await ethers.getSigners()
   console.log(`👤 Deployer: ${deployer.address}`)
 
-  const YUSD_ADDRESS     = contracts.yusdAddress
-  const MINTING_ADDRESS  = contracts.aegisMintingAddress
-  const REWARDS_ADDRESS  = contracts.aegisRewardsAddress
-  const ADMIN_ADDRESS    =
+  const YUSD_ADDRESS    = contracts.yusdAddress
+  const MINTING_ADDRESS = contracts.aegisMintingAddress
+  const REWARDS_ADDRESS = contracts.aegisRewardsV2Address
+  const ADMIN_ADDRESS   =
     contracts.adminAddress ||
     deployment.initialOwner?.replace('{DEPLOYER_ADDRESS}', deployer.address) ||
     deployer.address
 
-  // Uniswap Permit2 is deployed at the same address on all EVM networks
+  // Permit2 — canonical address on all EVM networks
   const PERMIT2_ADDRESS      = '0x000000000022D473030F116dDEE9F6B43aC78BA3'
   const UNIV4_ROUTER_ADDRESS = contracts.uniswapV4RouterAddress || ethers.ZeroAddress
   const CURVE_YUSD_USDC      = contracts.curveYusdUsdcAddress   || ethers.ZeroAddress
   const CURVE_YUSD_USDT      = contracts.curveYusdUsdtAddress   || ethers.ZeroAddress
   const USDT_ADDRESS         = contracts.usdtAddress            || ethers.ZeroAddress
   const USDC_ADDRESS         = contracts.usdcAddress            || ethers.ZeroAddress
+  const USDT_CURVE_MAX_AMOUNT = ethers.parseUnits('100000', 6)  // 100k USDT safety cap
 
-  // 100k USDT/USDC cap for Curve pool safety (6 decimals)
-  const USDT_CURVE_MAX_AMOUNT = ethers.parseUnits('100000', 6)
-
-  // 0 delay for testnets; use 259200 (3 days) on mainnet
+  // 0 delay for testnets; 3 days on mainnet
   const INITIAL_DELAY = networkName === 'mainnet' ? 259200n : 0n
 
   console.log('\n📋 Constructor parameters:')
@@ -62,6 +57,7 @@ async function main() {
   console.log(`  usdc:               ${USDC_ADDRESS}`)
   console.log(`  usdtCurveMaxAmount: ${USDT_CURVE_MAX_AMOUNT.toString()}`)
 
+  // ── 1. Deploy ───────────────────────────────────────────────────────────────
   console.log('\n1️⃣  Deploying AegisIncomeRouter...')
   const Factory = await ethers.getContractFactory('AegisIncomeRouter')
   const router = await Factory.deploy(
@@ -82,22 +78,25 @@ async function main() {
   const routerAddress = await router.getAddress()
   console.log(`✅ AegisIncomeRouter deployed: ${routerAddress}`)
 
-  // Save to config
   updateNetworksConfig(networkName, { aegisIncomeRouterAddress: routerAddress })
 
-  // On-chain sanity checks
-  console.log('\n2️⃣  Verifying immutables...')
-  const [yusd, minting, rewards] = await Promise.all([
+  // ── 2. Sanity checks ────────────────────────────────────────────────────────
+  console.log('\n2️⃣  Verifying on-chain state...')
+  const [yusd, minting, rewards, uniRouter, permit2Addr] = await Promise.all([
     router.yusd(),
     router.aegisMinting(),
     router.aegisRewards(),
+    router.uniswapV4Router(),
+    router.permit2(),
   ])
-  if (yusd.toLowerCase()    !== YUSD_ADDRESS.toLowerCase())    throw new Error('yusd mismatch')
-  if (minting.toLowerCase() !== MINTING_ADDRESS.toLowerCase()) throw new Error('aegisMinting mismatch')
-  if (rewards.toLowerCase() !== REWARDS_ADDRESS.toLowerCase()) throw new Error('aegisRewards mismatch')
-  console.log('  ✅ yusd, aegisMinting, aegisRewards match config')
+  if (yusd.toLowerCase()      !== YUSD_ADDRESS.toLowerCase())    throw new Error('yusd mismatch')
+  if (minting.toLowerCase()   !== MINTING_ADDRESS.toLowerCase()) throw new Error('aegisMinting mismatch')
+  if (rewards.toLowerCase()   !== REWARDS_ADDRESS.toLowerCase()) throw new Error('aegisRewards mismatch')
+  if (uniRouter.toLowerCase() !== UNIV4_ROUTER_ADDRESS.toLowerCase()) throw new Error('uniswapV4Router mismatch')
+  if (permit2Addr.toLowerCase() !== PERMIT2_ADDRESS.toLowerCase())    throw new Error('permit2 mismatch')
+  console.log('  ✅ All constructor values match config')
 
-  // Write constructor args file for Etherscan verification
+  // ── 3. Etherscan verification ────────────────────────────────────────────────
   const argsContent = `module.exports = [
   "${YUSD_ADDRESS}",
   "${MINTING_ADDRESS}",
@@ -112,49 +111,30 @@ async function main() {
   "${USDC_ADDRESS}",
   ${USDT_CURVE_MAX_AMOUNT.toString()}n,
 ];`
-
   const argsFile = `verify-args-income-router-${networkName}.js`
   fs.writeFileSync(argsFile, argsContent)
 
-  // Attempt automatic Etherscan verification
   console.log('\n3️⃣  Submitting to Etherscan...')
   try {
-    // Wait a few blocks so Etherscan indexes the contract
-    console.log('  ⏳ Waiting 10 s for Etherscan to index...')
+    console.log('  ⏳ Waiting 10s for Etherscan to index...')
     await new Promise((r) => setTimeout(r, 10_000))
-
     await run('verify:verify', {
       address: routerAddress,
       constructorArguments: [
-        YUSD_ADDRESS,
-        MINTING_ADDRESS,
-        REWARDS_ADDRESS,
-        ADMIN_ADDRESS,
-        INITIAL_DELAY,
-        PERMIT2_ADDRESS,
-        UNIV4_ROUTER_ADDRESS,
-        CURVE_YUSD_USDC,
-        CURVE_YUSD_USDT,
-        USDT_ADDRESS,
-        USDC_ADDRESS,
+        YUSD_ADDRESS, MINTING_ADDRESS, REWARDS_ADDRESS, ADMIN_ADDRESS,
+        INITIAL_DELAY, PERMIT2_ADDRESS, UNIV4_ROUTER_ADDRESS,
+        CURVE_YUSD_USDC, CURVE_YUSD_USDT, USDT_ADDRESS, USDC_ADDRESS,
         USDT_CURVE_MAX_AMOUNT,
       ],
     })
     console.log('  ✅ Etherscan verification submitted')
   } catch (err) {
-    console.log(`  ⚠️  Auto-verify failed (${err.message})`)
-    console.log('  Run manually:')
-    console.log(`  npx hardhat verify --network ${networkName} ${routerAddress} --constructor-args ${argsFile}`)
+    console.log(`  ⚠️  Auto-verify failed: ${err.message}`)
+    console.log(`  Run manually: npx hardhat verify --network ${networkName} ${routerAddress} --constructor-args ${argsFile}`)
   }
 
   console.log('\n🎉 Done!')
   console.log(`  AegisIncomeRouter: ${routerAddress}`)
-  console.log('\n📝 Next steps:')
-  console.log(`  1. Grant FUNDS_MANAGER_ROLE to the router on AegisMinting (${MINTING_ADDRESS}):`)
-  console.log(`     aegisMinting.grantRole(FUNDS_MANAGER_ROLE, "${routerAddress}")`)
-  console.log(`  2. Grant INCOME_ROUTER_ROLE to your operator wallet on the router:`)
-  console.log(`     router.grantRole(INCOME_ROUTER_ROLE, "<operator_address>")`)
-  console.log(`  3. (DEX routes) Approve routers via router.setDexRouterApproval(dex, true)`)
 }
 
 main()

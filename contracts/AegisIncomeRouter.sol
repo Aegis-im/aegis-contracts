@@ -11,6 +11,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 /**
  * @notice Minimal Permit2 interface for allowance management
@@ -26,7 +27,11 @@ interface IPermit2 {
  * @dev Supports three income routes:
  *      1. MINTING  — transfer own collateral to AegisMinting, call depositIncome (requires FUNDS_MANAGER_ROLE)
  *      2. CURVE    — swap own collateral via Curve pool → fee split → deposit to rewards
- *      3. UNISWAP  — swap own collateral via Uniswap V4 → fee split → deposit to rewards
+ *      3. UNISWAP  — swap own collateral via Uniswap Universal Router → fee split → deposit to rewards
+ *
+ *      DEX routes (CURVE/UNISWAP) require a signed OrderLib.Order from trustedSigner, matching the
+ *      pattern used by AegisMinting.depositIncome. The order carries collateral params and minYUSDOut;
+ *      the actual DEX calldata is passed separately and is not signed.
  */
 contract AegisIncomeRouter is AccessControlDefaultAdminRules, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -38,20 +43,55 @@ contract AegisIncomeRouter is AccessControlDefaultAdminRules, ReentrancyGuard {
     enum Route { MINTING, CURVE, UNISWAP }
 
     // ============================================
+    // EIP-712
+    // ============================================
+
+    bytes32 private constant EIP712_DOMAIN =
+        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+    bytes32 private constant EIP712_NAME     = keccak256("AegisIncomeRouter");
+    bytes32 private constant EIP712_REVISION = keccak256("1");
+
+    bytes32 private immutable _domainSeparator;
+
+    // ============================================
     // STATE VARIABLES
     // ============================================
 
     /// @notice Role for executing income routing operations
-    bytes32 public constant INCOME_ROUTER_ROLE = keccak256("INCOME_ROUTER_ROLE");
+    bytes32 public constant INCOME_ROUTER_ROLE    = keccak256("INCOME_ROUTER_ROLE");
 
-    /// @notice YUSD stablecoin contract
+    /// @notice Role for operational settings (DEX config, limits, pause)
+    bytes32 public constant SETTINGS_MANAGER_ROLE = keccak256("SETTINGS_MANAGER_ROLE");
+
+    /// @notice YUSD stablecoin contract (immutable — core protocol token)
     IYUSD public immutable yusd;
 
+    /// @notice Permit2 contract address (immutable — canonical across all networks)
+    address public immutable permit2;
+
     /// @notice AegisMinting contract — router must hold FUNDS_MANAGER_ROLE there
-    IAegisMinting public immutable aegisMinting;
+    IAegisMinting public aegisMinting;
 
     /// @notice AegisRewards contract where income is deposited
-    IAegisRewards public immutable aegisRewards;
+    IAegisRewards public aegisRewards;
+
+    /// @notice Uniswap Universal Router address
+    address public uniswapV4Router;
+
+    /// @notice Curve YUSD/USDC pool address
+    address public curveYusdUsdc;
+
+    /// @notice Curve YUSD/USDT pool address
+    address public curveYusdUsdt;
+
+    /// @notice USDT token address
+    address public usdt;
+
+    /// @notice USDC token address
+    address public usdc;
+
+    /// @notice Max USDT amount routed through Curve YUSD/USDT pool (risk cap)
+    uint256 public usdtCurveMaxAmount;
 
     /// @notice Basis points constant (10000 = 100%)
     uint16 private constant MAX_BPS = 10_000;
@@ -62,26 +102,11 @@ contract AegisIncomeRouter is AccessControlDefaultAdminRules, ReentrancyGuard {
     /// @notice Mapping of approved DEX router addresses
     mapping(address => bool) public approvedDexRouters;
 
-    /// @notice Permit2 contract address (used by Uniswap V4)
-    address public immutable permit2;
+    /// @notice Address whose private key signs DEX swap orders
+    address public trustedSigner;
 
-    /// @notice Uniswap V4 Universal Router address
-    address public immutable uniswapV4Router;
-
-    /// @notice Curve YUSD/USDC pool address
-    address public immutable curveYusdUsdc;
-
-    /// @notice Curve YUSD/USDT pool address
-    address public immutable curveYusdUsdt;
-
-    /// @notice USDT token address
-    address public immutable usdt;
-
-    /// @notice USDC token address
-    address public immutable usdc;
-
-    /// @notice Max USDT amount for Curve pool safety check
-    uint256 public immutable usdtCurveMaxAmount;
+    /// @notice Bitmap-based nonce tracking per operator wallet (same pattern as AegisMinting)
+    mapping(address => mapping(uint256 => uint256)) private _orderBitmaps;
 
     // ============================================
     // STRUCTS
@@ -89,13 +114,6 @@ contract AegisIncomeRouter is AccessControlDefaultAdminRules, ReentrancyGuard {
 
     /**
      * @notice Quote comparison for all income routes
-     * @param curveOutput Expected YUSD from Curve swap
-     * @param uniswapOutput Expected YUSD from Uniswap swap
-     * @param mintingOutput Expected YUSD from oracle-based minting
-     * @param curveRewards YUSD to rewards after fee (Curve route)
-     * @param uniswapRewards YUSD to rewards after fee (Uniswap route)
-     * @param mintingRewards YUSD to rewards after fee (Minting route)
-     * @param recommendedRoute Route with best output
      */
     struct IncomeQuote {
         uint256 curveOutput;
@@ -122,10 +140,15 @@ contract AegisIncomeRouter is AccessControlDefaultAdminRules, ReentrancyGuard {
     );
 
     event DexRouterApprovalChanged(address indexed dexRouter, bool approved);
-
     event PausedChanged(bool paused);
-
     event TokensRescued(address indexed token, address indexed to, uint256 amount);
+    event TrustedSignerChanged(address indexed signer);
+    event AegisMintingChanged(address indexed minting);
+    event AegisRewardsChanged(address indexed rewards);
+    event UniswapRouterChanged(address indexed router);
+    event CurvePoolChanged(address indexed pool, address indexed token);
+    event StablecoinChanged(address indexed token, bool isUsdc);
+    event UsdtCurveMaxAmountChanged(uint256 amount);
 
     // ============================================
     // ERRORS
@@ -138,6 +161,7 @@ contract AegisIncomeRouter is AccessControlDefaultAdminRules, ReentrancyGuard {
     error InvalidAddress();
     error InvalidAmount();
     error InvalidRoute();
+    error PriceSlippage();
 
     // ============================================
     // CONSTRUCTOR
@@ -172,6 +196,10 @@ contract AegisIncomeRouter is AccessControlDefaultAdminRules, ReentrancyGuard {
         usdc = _usdc;
         usdtCurveMaxAmount = _usdtCurveMaxAmount;
         paused = false;
+
+        _domainSeparator = keccak256(
+            abi.encode(EIP712_DOMAIN, EIP712_NAME, EIP712_REVISION, block.chainid, address(this))
+        );
     }
 
     // ============================================
@@ -190,41 +218,45 @@ contract AegisIncomeRouter is AccessControlDefaultAdminRules, ReentrancyGuard {
     /**
      * @notice Route income from the router's own balance to YUSD rewards via the selected path.
      *
-     * Route.MINTING  — Transfers `order.collateralAmount` of `order.collateralAsset` from the
-     *                  router's balance to AegisMinting, then calls depositIncome(order, signature).
-     *                  The router must hold FUNDS_MANAGER_ROLE on AegisMinting.
-     *                  Fee handling is done inside AegisMinting; DEX params are ignored.
+     * Route.MINTING  — `order` is forwarded to AegisMinting.depositIncome as-is.
+     *                  `signature` is verified by AegisMinting against its own trustedSigner.
+     *                  `swapCalldata` is ignored.
      *
      * Route.CURVE /
-     * Route.UNISWAP — Approves `dexRouter`, swaps `collateralAmount` of `collateralAsset` for
-     *                 YUSD, applies the income fee, and deposits net YUSD to AegisRewards.
-     *                 MINTING params (order, signature) are ignored.
+     * Route.UNISWAP — `order` must be of type DEX_SWAP and signed by this router's trustedSigner.
+     *                 Order fields used:
+     *                   • collateralAsset / collateralAmount  — what to swap from router balance
+     *                   • slippageAdjustedAmount              — minYUSDOut slippage floor
+     *                   • expiry / nonce                      — replay protection
+     *                   • additionalData                      — abi.encode(dexRouter, snapshotId)
+     *                 `swapCalldata` is the raw call forwarded to dexRouter (not signed; outcome is
+     *                 verified against slippageAdjustedAmount after execution).
      *
-     * @param route          Income route to use (MINTING / CURVE / UNISWAP)
-     * @param order          Signed order for AegisMinting (MINTING route only)
-     * @param signature      Trusted-signer signature over `order` (MINTING route only)
-     * @param collateralAsset Collateral token address (CURVE / UNISWAP routes only)
-     * @param collateralAmount Collateral amount from router balance (CURVE / UNISWAP routes only)
-     * @param dexRouter      Approved DEX router/pool address (CURVE / UNISWAP routes only)
-     * @param swapCalldata   Encoded swap call (CURVE / UNISWAP routes only)
-     * @param minYUSDOut     Minimum YUSD output — slippage guard (CURVE / UNISWAP routes only)
-     * @param snapshotId     Rewards snapshot identifier (CURVE / UNISWAP routes only)
+     * @param route        Income route (MINTING / CURVE / UNISWAP)
+     * @param order        Signed order — minting order for MINTING route, DEX_SWAP order for DEX routes
+     * @param signature    Signature over `order`
+     * @param swapCalldata Encoded swap call forwarded to dexRouter (DEX routes only)
      */
     function routeIncome(
         Route route,
         OrderLib.Order calldata order,
         bytes calldata signature,
-        address collateralAsset,
-        uint256 collateralAmount,
-        address dexRouter,
-        bytes calldata swapCalldata,
-        uint256 minYUSDOut,
-        bytes calldata snapshotId
+        bytes calldata swapCalldata
     ) external nonReentrant onlyRole(INCOME_ROUTER_ROLE) whenNotPaused {
         if (route == Route.MINTING) {
             _routeMinting(order, signature);
         } else {
-            _routeDex(route, collateralAsset, collateralAmount, dexRouter, swapCalldata, minYUSDOut, snapshotId);
+            _verifyDexOrder(order, signature);
+            (address dexRouter, bytes memory snapshotId) = abi.decode(order.additionalData, (address, bytes));
+            _routeDex(
+                route,
+                order.collateralAsset,
+                order.collateralAmount,
+                dexRouter,
+                swapCalldata,
+                order.slippageAdjustedAmount,
+                snapshotId
+            );
         }
     }
 
@@ -232,104 +264,131 @@ contract AegisIncomeRouter is AccessControlDefaultAdminRules, ReentrancyGuard {
     // QUOTE FUNCTIONS (VIEW)
     // ============================================
 
-    /**
-     * @notice Get quotes for all three income routes.
-     * @dev DEX quotes must be calculated off-chain (Curve get_dy / Uniswap Quoter) and passed in.
-     * @param collateralAsset Asset to quote
-     * @param amount          Collateral amount
-     * @param curveQuote      Expected YUSD from Curve (off-chain)
-     * @param uniswapQuote    Expected YUSD from Uniswap (off-chain)
-     * @return quote Struct with per-route outputs and a recommendation
-     */
     function getIncomeQuote(
         address collateralAsset,
         uint256 amount,
         uint256 curveQuote,
         uint256 uniswapQuote
     ) external view returns (IncomeQuote memory quote) {
-        quote.curveOutput = curveQuote;
+        quote.curveOutput   = curveQuote;
         quote.uniswapOutput = uniswapQuote;
         quote.mintingOutput = _getMintingQuote(collateralAsset, amount);
 
         address insuranceFund = aegisMinting.insuranceFundAddress();
         uint16 feeBP = aegisMinting.incomeFeeBP();
 
-        (quote.curveRewards, ) = _calculateIncomeFee(quote.curveOutput, insuranceFund, feeBP);
+        (quote.curveRewards, )   = _calculateIncomeFee(quote.curveOutput,   insuranceFund, feeBP);
         (quote.uniswapRewards, ) = _calculateIncomeFee(quote.uniswapOutput, insuranceFund, feeBP);
-        (quote.mintingRewards, ) = _calculateIncomeFee(quote.mintingOutput, insuranceFund, feeBP);
+        (quote.mintingRewards, ) = _calculateIncomeFee(quote.mintingOutput,  insuranceFund, feeBP);
 
-        address curveRouter = _findCurveRouter(collateralAsset);
-        bool uniswapApproved = approvedDexRouters[uniswapV4Router];
+        address curveRouter   = _findCurveRouter(collateralAsset);
+        bool uniswapApproved  = approvedDexRouters[uniswapV4Router];
 
-        quote.recommendedRoute = _getBestRoute(
-            curveRouter,
-            uniswapApproved,
-            quote.curveRewards,
-            quote.uniswapRewards,
-            quote.mintingRewards
-        );
+        quote.recommendedRoute = _getBestRoute(curveRouter, uniswapApproved, quote.curveRewards, quote.uniswapRewards, quote.mintingRewards);
+    }
+
+    function getDomainSeparator() external view returns (bytes32) {
+        return _domainSeparator;
+    }
+
+    function verifyNonce(address sender, uint256 nonce) public view returns (uint256, uint256, uint256) {
+        if (nonce == 0) revert InvalidAmount();
+        uint256 invalidatorSlot = uint64(nonce) >> 8;
+        uint256 invalidatorBit  = 1 << uint8(nonce);
+        uint256 invalidator     = _orderBitmaps[sender][invalidatorSlot];
+        if (invalidator & invalidatorBit != 0) revert InvalidAmount();
+        return (invalidatorSlot, invalidator, invalidatorBit);
     }
 
     // ============================================
     // ADMIN FUNCTIONS
     // ============================================
 
-    function setDexRouterApproval(
-        address dexRouter,
-        bool approved
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    // ── DEFAULT_ADMIN_ROLE — critical settings ────────────────────────────────
+
+    function setTrustedSigner(address _signer) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_signer == address(0)) revert InvalidAddress();
+        trustedSigner = _signer;
+        emit TrustedSignerChanged(_signer);
+    }
+
+    function setAegisMinting(address _minting) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_minting == address(0)) revert InvalidAddress();
+        aegisMinting = IAegisMinting(_minting);
+        emit AegisMintingChanged(_minting);
+    }
+
+    function setAegisRewards(address _rewards) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_rewards == address(0)) revert InvalidAddress();
+        aegisRewards = IAegisRewards(_rewards);
+        emit AegisRewardsChanged(_rewards);
+    }
+
+    function rescueTokens(address token, address to, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (to == address(0)) revert InvalidAddress();
+        IERC20(token).safeTransfer(to, amount);
+        emit TokensRescued(token, to, amount);
+    }
+
+    // ── SETTINGS_MANAGER_ROLE — operational settings ─────────────────────────
+
+    function setUniswapRouter(address _router) external onlyRole(SETTINGS_MANAGER_ROLE) {
+        if (_router == address(0)) revert InvalidAddress();
+        uniswapV4Router = _router;
+        emit UniswapRouterChanged(_router);
+    }
+
+    function setCurvePool(address _pool, address _token) external onlyRole(SETTINGS_MANAGER_ROLE) {
+        if (_pool == address(0) || _token == address(0)) revert InvalidAddress();
+        if (_token == usdc) {
+            curveYusdUsdc = _pool;
+        } else if (_token == usdt) {
+            curveYusdUsdt = _pool;
+        } else {
+            revert InvalidAddress();
+        }
+        emit CurvePoolChanged(_pool, _token);
+    }
+
+    function setStablecoin(address _token, bool _isUsdc) external onlyRole(SETTINGS_MANAGER_ROLE) {
+        if (_token == address(0)) revert InvalidAddress();
+        if (_isUsdc) {
+            usdc = _token;
+        } else {
+            usdt = _token;
+        }
+        emit StablecoinChanged(_token, _isUsdc);
+    }
+
+    function setUsdtCurveMaxAmount(uint256 _amount) external onlyRole(SETTINGS_MANAGER_ROLE) {
+        usdtCurveMaxAmount = _amount;
+        emit UsdtCurveMaxAmountChanged(_amount);
+    }
+
+    function setDexRouterApproval(address dexRouter, bool approved) external onlyRole(SETTINGS_MANAGER_ROLE) {
         if (dexRouter == address(0)) revert InvalidAddress();
         approvedDexRouters[dexRouter] = approved;
         emit DexRouterApprovalChanged(dexRouter, approved);
     }
 
-    function setPaused(bool _paused) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setPaused(bool _paused) external onlyRole(SETTINGS_MANAGER_ROLE) {
         paused = _paused;
         emit PausedChanged(_paused);
-    }
-
-    function rescueTokens(
-        address token,
-        address to,
-        uint256 amount
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (to == address(0)) revert InvalidAddress();
-        IERC20(token).safeTransfer(to, amount);
-        emit TokensRescued(token, to, amount);
     }
 
     // ============================================
     // INTERNAL — ROUTE HANDLERS
     // ============================================
 
-    /**
-     * @dev MINTING route: send router's own collateral to AegisMinting, then trigger depositIncome.
-     *      order.userWallet must equal address(this) so AegisMinting's sender check passes.
-     *      Router must hold FUNDS_MANAGER_ROLE on AegisMinting.
-     */
     function _routeMinting(OrderLib.Order calldata order, bytes calldata signature) internal {
         if (order.collateralAmount == 0) revert InvalidAmount();
 
-        // Move router's own collateral to AegisMinting (will appear as untracked balance there)
         IERC20(order.collateralAsset).safeTransfer(address(aegisMinting), order.collateralAmount);
-
-        // AegisMinting mints YUSD, applies fee, and deposits to rewards internally
         aegisMinting.depositIncome(order, signature);
 
-        emit IncomeRouted(
-            Route.MINTING,
-            order.collateralAsset,
-            order.collateralAmount,
-            0, // YUSD amount is emitted by AegisMinting's own DepositIncome event
-            0,
-            0,
-            order.additionalData
-        );
+        emit IncomeRouted(Route.MINTING, order.collateralAsset, order.collateralAmount, 0, 0, 0, order.additionalData);
     }
 
-    /**
-     * @dev CURVE / UNISWAP route: swap router's own collateral for YUSD, then fee-split and deposit.
-     */
     function _routeDex(
         Route route,
         address collateralAsset,
@@ -337,17 +396,23 @@ contract AegisIncomeRouter is AccessControlDefaultAdminRules, ReentrancyGuard {
         address dexRouter,
         bytes calldata swapCalldata,
         uint256 minYUSDOut,
-        bytes calldata snapshotId
+        bytes memory snapshotId
     ) internal {
         if (!approvedDexRouters[dexRouter]) revert InvalidDexRouter();
         if (collateralAmount == 0) revert InvalidAmount();
 
-        // Prevent large USDT swaps through the Curve YUSD/USDT pool (pool drainage risk)
         if (collateralAsset == usdt && dexRouter == curveYusdUsdt && collateralAmount > usdtCurveMaxAmount) {
             revert InvalidAmount();
         }
 
-        // Approve DEX to spend router's balance
+        // Chainlink floor: minYUSDOut must be >= Chainlink fair value for the collateral.
+        // Mirrors AegisMinting._calculateMinYUSDAmount / PriceSlippage pattern.
+        // If no Chainlink feed exists for the asset, the check is skipped.
+        uint256 chainlinkExpected = _getMintingQuote(collateralAsset, collateralAmount);
+        if (chainlinkExpected > 0 && minYUSDOut < chainlinkExpected) {
+            revert PriceSlippage();
+        }
+
         if (dexRouter == uniswapV4Router) {
             IERC20(collateralAsset).forceApprove(permit2, type(uint256).max);
             IPermit2(permit2).approve(
@@ -387,25 +452,51 @@ contract AegisIncomeRouter is AccessControlDefaultAdminRules, ReentrancyGuard {
         IERC20(address(yusd)).safeTransfer(address(aegisRewards), rewardsAmount);
         aegisRewards.depositRewards(snapshotId, rewardsAmount);
 
-        emit IncomeRouted(
-            route,
-            collateralAsset,
-            collateralAmount,
-            yusdReceived,
-            rewardsAmount,
-            insuranceFee,
-            snapshotId
-        );
+        emit IncomeRouted(route, collateralAsset, collateralAmount, yusdReceived, rewardsAmount, insuranceFee, snapshotId);
+    }
+
+    // ============================================
+    // INTERNAL — SIGNATURE / NONCE
+    // ============================================
+
+    /**
+     * @dev Verifies a DEX_SWAP order against this router's EIP-712 domain and trustedSigner.
+     *      Mirrors the pattern used by AegisMinting for DEPOSIT_INCOME orders.
+     *
+     *      Order fields for DEX_SWAP:
+     *        orderType             = OrderLib.OrderType.DEX_SWAP
+     *        userWallet            = msg.sender (the operator calling routeIncome)
+     *        collateralAsset       = token to swap from router balance
+     *        collateralAmount      = amount to swap
+     *        yusdAmount            = expected YUSD (informational, used for off-chain logging)
+     *        slippageAdjustedAmount = minYUSDOut — minimum YUSD the router must receive
+     *        expiry                = unix timestamp after which signature is invalid
+     *        nonce                 = unique nonce for replay protection
+     *        additionalData        = abi.encode(address dexRouter, bytes snapshotId)
+     */
+    function _verifyDexOrder(OrderLib.Order calldata order, bytes calldata signature) internal {
+        if (order.orderType != OrderLib.OrderType.DEX_SWAP) revert InvalidRoute();
+        if (order.userWallet != msg.sender) revert OrderLib.InvalidSender();
+        if (order.collateralAmount == 0) revert InvalidAmount();
+        if (block.timestamp > order.expiry) revert OrderLib.SignatureExpired();
+
+        bytes32 orderHash = OrderLib.hashOrder(order, _domainSeparator);
+        address signer    = ECDSA.recover(orderHash, signature);
+        if (signer != trustedSigner) revert OrderLib.InvalidSignature();
+
+        _deduplicateOrder(order.userWallet, order.nonce);
+    }
+
+    function _deduplicateOrder(address sender, uint256 nonce) private {
+        (uint256 invalidatorSlot, uint256 invalidator, uint256 invalidatorBit) = verifyNonce(sender, nonce);
+        _orderBitmaps[sender][invalidatorSlot] = invalidator | invalidatorBit;
     }
 
     // ============================================
     // INTERNAL — HELPERS
     // ============================================
 
-    function _getMintingQuote(
-        address collateralAsset,
-        uint256 amount
-    ) internal view returns (uint256) {
+    function _getMintingQuote(address collateralAsset, uint256 amount) internal view returns (uint256) {
         uint256 chainlinkPrice = aegisMinting.assetChainlinkUSDPrice(collateralAsset);
         if (chainlinkPrice == 0) return 0;
 
