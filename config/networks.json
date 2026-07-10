@@ -64,7 +64,13 @@
         "sjusdOftAdapterAddress": "0x8EDD6A7C9b635490f4a94E0cb85D63d6A084ce0F",
         "vaultComposerAddress": "0x399B1C20896a8E40D430479E844d1d9b4445cd4A",
         "aegisRewardsV2Address": "0x8340F5Af4D2eeBb402102143E7267ACA7112eEBd",
-        "aegisRewardsV2JUSDAddress": "0x6647c5936E30d8d9e0EDE2508C3513EAEF6758b7"
+        "aegisRewardsV2JUSDAddress": "0x6647c5936E30d8d9e0EDE2508C3513EAEF6758b7",
+        "uniswapV4RouterAddress": "0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af",
+        "curveYusdUsdcAddress": "0x9804c30875127246ac92d72d5cdf0630aa356861",
+        "curveYusdUsdtAddress": "0xcf908d925b21594f9a92b264167a85b0649051a8",
+        "usdtAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "usdcAddress": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "aegisIncomeRouterAddress": "0xc4fEFd0851A37282a2d430186194939a4E7c2DeC"
       },
       "layerzero": {
         "targetEid": 30101,
