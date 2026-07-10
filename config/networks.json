@@ -323,7 +323,11 @@
         "jusdOftAdapterAddress": "0x1117dB8c8C4f4A917ff947E518D3D45B2eDbB0AA",
         "sjusdOftAdapterAddress": "0xAEBCb9e713480AA54bAB87346e6343B7eD2F48F3",
         "aegisRewardsV2JUSDAddress": "0x1ca0c4B3D27718AD98124aE181B4C9EC8528027d",
-        "aegisRewardsV2Address": "0xa499daF6aC08C629Deb70B5E8D851273FBF880E5"
+        "aegisRewardsV2Address": "0xa499daF6aC08C629Deb70B5E8D851273FBF880E5",
+        "aegisIncomeRouterAddress": "0x4A38d91Fd35086271589CBadA42bFcF504Dfa826",
+        "uniswapV4RouterAddress": "0x3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b",
+        "uniswapV4PoolManagerAddress": "0xE03A1074c86CFeDd5C142C4F04F1a1536e203543",
+        "usdcAddress": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"
       },
       "layerzero": {
         "targetEid": 40102,

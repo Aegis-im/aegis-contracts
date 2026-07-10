@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.26;
 
+import "../lib/OrderLib.sol";
+
 /**
  * @notice Minimal interface for AegisIncomeRouter to access AegisMinting state
  * @dev Only includes public state variables that are auto-generated getters
@@ -14,6 +16,10 @@ interface IAegisMinting {
 
     /// @notice Get Chainlink USD price for asset
     function assetChainlinkUSDPrice(address asset) external view returns (uint256);
+
+    /// @notice Mint YUSD rewards in exchange for collateral already transferred to this contract
+    /// @dev Caller must have FUNDS_MANAGER_ROLE; order.userWallet must equal msg.sender (the router)
+    function depositIncome(OrderLib.Order calldata order, bytes calldata signature) external;
 }
 
 interface IAegisMintingEvents {
