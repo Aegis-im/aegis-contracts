@@ -280,7 +280,10 @@
         "sJUSDSiloAddress": "0xDF21A3b705e8Be047CF04e7E76C310928B3790B9",
         "sjusdOracle": "0x2C44FBe77Ca5FAD24B627BeFa82680d1177a1F21",
         "jusdOftAdapterAddress": "0x1117dB8c8C4f4A917ff947E518D3D45B2eDbB0AA",
-        "sjusdOftAdapterAddress": "0xAEBCb9e713480AA54bAB87346e6343B7eD2F48F3"
+        "sjusdOftAdapterAddress": "0xAEBCb9e713480AA54bAB87346e6343B7eD2F48F3",
+        "cYUSDAddress": "0x07f3399B55ccd6d9fFD20BEcCA538DF3B65c356B",
+        "csYUSDAddress": "0x079B79f86C68a730e662a3ceE77B993cE0e94e84",
+        "stakeAndWrapRouterAddress": "0x7A7534Fe5893D650b6Db4178f7C5b5edD3cF4518"
       },
       "layerzero": {
         "targetEid": 40102,
