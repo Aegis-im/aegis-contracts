@@ -1,4 +1,25 @@
 import { HardhatUserConfig } from 'hardhat/config'
+
+// The FHEVM plugin (confidential/ERC-7984 contracts) requires the hardhat network to use
+// chainId 31337, while this repo historically pins 1337. The plugin is therefore opt-in:
+//   FHEVM=1 npx hardhat test test/3*_confidential_*.spec.ts
+// Regular compiles/tests are untouched.
+if (process.env.FHEVM) {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require('@fhevm/hardhat-plugin')
+}
+
+// Shared compiler settings for the confidential (solc 0.8.27) contract set.
+function confidentialCompiler() {
+  return {
+    version: '0.8.27',
+    settings: {
+      evmVersion: 'cancun',
+      optimizer: networksConfig.common.solidity.optimizer,
+      metadata: { bytecodeHash: 'none' },
+    },
+  }
+}
 import '@nomicfoundation/hardhat-toolbox'
 import '@openzeppelin/hardhat-upgrades'
 import 'solidity-coverage'
@@ -27,7 +48,7 @@ const config: HardhatUserConfig = {
   defaultNetwork: 'hardhat',
   networks: {
     hardhat: {
-      chainId: networksConfig.networks.hardhat.chainId,
+      chainId: process.env.FHEVM ? 31337 : networksConfig.networks.hardhat.chainId,
     },
     mainnet: {
       url: buildRpcUrl(networksConfig.networks.mainnet.rpcUrl),
@@ -116,6 +137,9 @@ const config: HardhatUserConfig = {
         version: networksConfig.common.solidity.version,
         settings: {
           viaIR: true,
+          // cancun is required since OZ 5.6 (mcopy in utils); all primary target chains
+          // support Cancun — verify before deploying to newer/exotic chains.
+          evmVersion: 'cancun',
           optimizer: networksConfig.common.solidity.optimizer,
           metadata: {
             // do not include the metadata hash, since this is machine dependent
@@ -125,7 +149,24 @@ const config: HardhatUserConfig = {
           },
         },
       },
+      {
+        // Confidential (ERC-7984 / Zama FHEVM) contracts — see overrides below.
+        version: '0.8.27',
+        settings: {
+          evmVersion: 'cancun',
+          optimizer: networksConfig.common.solidity.optimizer,
+          metadata: { bytecodeHash: 'none' },
+        },
+      },
     ],
+    overrides: {
+      'contracts/confidential/AegisConfidentialWrapper.sol': confidentialCompiler(),
+      'contracts/confidential/ConfidentialYUSD.sol': confidentialCompiler(),
+      'contracts/confidential/ConfidentialStakedYUSD.sol': confidentialCompiler(),
+      'contracts/confidential/StakeAndWrapRouter.sol': confidentialCompiler(),
+      'contracts/confidential/interfaces/IBlacklistSource.sol': confidentialCompiler(),
+      'contracts/test/SimSYUSD.sol': confidentialCompiler(),
+    },
   },
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY || '',
