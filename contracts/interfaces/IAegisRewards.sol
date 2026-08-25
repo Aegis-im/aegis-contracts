@@ -26,6 +26,9 @@ interface IAegisRewardsEvents {
   /// @dev Event emitted when AegisMinting contract address is changed
   event SetAegisMintingAddress(address indexed minting);
 
+  /// @dev Event emitted when AegisIncomeRouter contract address is changed
+  event SetAegisIncomeRouterAddress(address indexed incomeRouter);
+
   /// @dev Event emitted when ERC20 tokens are rescued from contract
   event RescueAssets(address indexed token, address indexed to, uint256 amount);
 }

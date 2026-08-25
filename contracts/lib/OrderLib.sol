@@ -8,7 +8,8 @@ library OrderLib {
   enum OrderType {
     MINT,
     REDEEM,
-    DEPOSIT_INCOME
+    DEPOSIT_INCOME,
+    DEX_SWAP
   }
 
   struct Order {

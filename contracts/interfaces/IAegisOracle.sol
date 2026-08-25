@@ -7,4 +7,6 @@ interface IAegisOracle {
   function yusdUSDPrice() external view returns (int256);
 
   function lastUpdateTimestamp() external view returns (uint32);
+
+  function getAssetValue(address asset, uint256 amount) external view returns (uint256);
 }

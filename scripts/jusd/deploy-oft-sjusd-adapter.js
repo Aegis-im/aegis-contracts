@@ -34,15 +34,13 @@ async function main() {
   const [deployer] = await ethers.getSigners()
   console.log(`👤 Deploying with account: ${deployer.address}`)
 
-  const adminAddress = deployer.address
-
   // Deploy sJUSDOFTAdapter
   console.log('\n1️⃣ Deploying sJUSDOFTAdapter...')
   const sJUSDOFTAdapter = await ethers.getContractFactory('sJUSDOFTAdapter')
   const oftAdapter = await sJUSDOFTAdapter.deploy(
     contracts.sJUSDAddress, // sJUSD token
     contracts.lzEndpoint, // LayerZero endpoint
-    adminAddress, // Owner
+    contracts.adminAddress, // Owner
   )
 
   await new Promise((resolve) => setTimeout(resolve, 10000))
@@ -72,7 +70,7 @@ async function main() {
     sJUSDOFTAdapter: {
       address: oftAdapterAddress,
       contract: oftAdapter,
-      args: [contracts.sJUSDAddress, contracts.lzEndpoint, adminAddress],
+      args: [contracts.sJUSDAddress, contracts.lzEndpoint, contracts.adminAddress],
     },
   }, { createNew: true })
 
@@ -102,7 +100,7 @@ async function main() {
 
   console.log('\n📝 Contract verification command:')
   console.log(
-    `npx hardhat verify --network ${networkName} --contract contracts/sJUSDOFTAdapter.sol:sJUSDOFTAdapter ${oftAdapterAddress} "${contracts.sJUSDAddress}" "${contracts.lzEndpoint}" "${adminAddress}"`,
+    `npx hardhat verify --network ${networkName} --contract contracts/sJUSDOFTAdapter.sol:sJUSDOFTAdapter ${oftAdapterAddress} "${contracts.sJUSDAddress}" "${contracts.lzEndpoint}" "${contracts.adminAddress}"`,
   )
 }
 

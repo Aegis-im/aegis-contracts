@@ -1,0 +1,634 @@
+{
+  "address": "0x399B1C20896a8E40D430479E844d1d9b4445cd4A",
+  "abi": [
+    {
+      "type": "constructor",
+      "stateMutability": "undefined",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "_vault"
+        },
+        {
+          "type": "address",
+          "name": "_assetOFT"
+        },
+        {
+          "type": "address",
+          "name": "_shareOFT"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "AddressEmptyCode",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "target"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "AddressInsufficientBalance",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "account"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "AssetTokenNotVaultAsset",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "assetERC20"
+        },
+        {
+          "type": "address",
+          "name": "vaultAsset"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "ERC4626ExceededMaxDeposit",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "receiver"
+        },
+        {
+          "type": "uint256",
+          "name": "assets"
+        },
+        {
+          "type": "uint256",
+          "name": "max"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "ERC4626ExceededMaxRedeem",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "owner"
+        },
+        {
+          "type": "uint256",
+          "name": "shares"
+        },
+        {
+          "type": "uint256",
+          "name": "max"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "FailedInnerCall",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "InsufficientMsgValue",
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "expectedMsgValue"
+        },
+        {
+          "type": "uint256",
+          "name": "actualMsgValue"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "OnlyEndpoint",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "caller"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "OnlySelf",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "caller"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "OnlyValidComposeCaller",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "caller"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "ReentrancyGuardReentrantCall",
+      "inputs": []
+    },
+    {
+      "type": "error",
+      "name": "SafeERC20FailedOperation",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "token"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "ShareOFTNotAdapter",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "shareOFT"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "ShareTokenNotVault",
+      "inputs": [
+        {
+          "type": "address",
+          "name": "shareERC20"
+        },
+        {
+          "type": "address",
+          "name": "vault"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "SlippageExceeded",
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "vaultAmountOut"
+        },
+        {
+          "type": "uint256",
+          "name": "minVaultAmountOut"
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "Deposited",
+      "inputs": [
+        {
+          "type": "bytes32",
+          "name": "sender",
+          "indexed": false
+        },
+        {
+          "type": "bytes32",
+          "name": "recipient",
+          "indexed": false
+        },
+        {
+          "type": "uint32",
+          "name": "dstEid",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "assetAmt",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "shareAmt",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "Redeemed",
+      "inputs": [
+        {
+          "type": "bytes32",
+          "name": "sender",
+          "indexed": false
+        },
+        {
+          "type": "bytes32",
+          "name": "recipient",
+          "indexed": false
+        },
+        {
+          "type": "uint32",
+          "name": "dstEid",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "shareAmt",
+          "indexed": false
+        },
+        {
+          "type": "uint256",
+          "name": "assetAmt",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "Refunded",
+      "inputs": [
+        {
+          "type": "bytes32",
+          "name": "guid",
+          "indexed": true
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "anonymous": false,
+      "name": "Sent",
+      "inputs": [
+        {
+          "type": "bytes32",
+          "name": "guid",
+          "indexed": true
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "ASSET_ERC20",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "address",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "ASSET_OFT",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "address",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "ENDPOINT",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "address",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "SHARE_ERC20",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "address",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "SHARE_OFT",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "address",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "VAULT",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "address",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "VAULT_EID",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [],
+      "outputs": [
+        {
+          "type": "uint32",
+          "name": ""
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "depositAndSend",
+      "constant": false,
+      "stateMutability": "payable",
+      "payable": true,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "_assetAmount"
+        },
+        {
+          "type": "tuple",
+          "name": "_sendParam",
+          "components": [
+            {
+              "type": "uint32",
+              "name": "dstEid"
+            },
+            {
+              "type": "bytes32",
+              "name": "to"
+            },
+            {
+              "type": "uint256",
+              "name": "amountLD"
+            },
+            {
+              "type": "uint256",
+              "name": "minAmountLD"
+            },
+            {
+              "type": "bytes",
+              "name": "extraOptions"
+            },
+            {
+              "type": "bytes",
+              "name": "composeMsg"
+            },
+            {
+              "type": "bytes",
+              "name": "oftCmd"
+            }
+          ]
+        },
+        {
+          "type": "address",
+          "name": "_refundAddress"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "handleCompose",
+      "constant": false,
+      "stateMutability": "payable",
+      "payable": true,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "_oftIn"
+        },
+        {
+          "type": "bytes32",
+          "name": "_composeFrom"
+        },
+        {
+          "type": "bytes",
+          "name": "_composeMsg"
+        },
+        {
+          "type": "uint256",
+          "name": "_amount"
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "lzCompose",
+      "constant": false,
+      "stateMutability": "payable",
+      "payable": true,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "_composeSender"
+        },
+        {
+          "type": "bytes32",
+          "name": "_guid"
+        },
+        {
+          "type": "bytes",
+          "name": "_message"
+        },
+        {
+          "type": "address",
+          "name": ""
+        },
+        {
+          "type": "bytes",
+          "name": ""
+        }
+      ],
+      "outputs": []
+    },
+    {
+      "type": "function",
+      "name": "quoteSend",
+      "constant": true,
+      "stateMutability": "view",
+      "payable": false,
+      "inputs": [
+        {
+          "type": "address",
+          "name": "_from"
+        },
+        {
+          "type": "address",
+          "name": "_targetOFT"
+        },
+        {
+          "type": "uint256",
+          "name": "_vaultInAmount"
+        },
+        {
+          "type": "tuple",
+          "name": "_sendParam",
+          "components": [
+            {
+              "type": "uint32",
+              "name": "dstEid"
+            },
+            {
+              "type": "bytes32",
+              "name": "to"
+            },
+            {
+              "type": "uint256",
+              "name": "amountLD"
+            },
+            {
+              "type": "uint256",
+              "name": "minAmountLD"
+            },
+            {
+              "type": "bytes",
+              "name": "extraOptions"
+            },
+            {
+              "type": "bytes",
+              "name": "composeMsg"
+            },
+            {
+              "type": "bytes",
+              "name": "oftCmd"
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "type": "tuple",
+          "name": "",
+          "components": [
+            {
+              "type": "uint256",
+              "name": "nativeFee"
+            },
+            {
+              "type": "uint256",
+              "name": "lzTokenFee"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "function",
+      "name": "redeemAndSend",
+      "constant": false,
+      "stateMutability": "payable",
+      "payable": true,
+      "inputs": [
+        {
+          "type": "uint256",
+          "name": "_shareAmount"
+        },
+        {
+          "type": "tuple",
+          "name": "_sendParam",
+          "components": [
+            {
+              "type": "uint32",
+              "name": "dstEid"
+            },
+            {
+              "type": "bytes32",
+              "name": "to"
+            },
+            {
+              "type": "uint256",
+              "name": "amountLD"
+            },
+            {
+              "type": "uint256",
+              "name": "minAmountLD"
+            },
+            {
+              "type": "bytes",
+              "name": "extraOptions"
+            },
+            {
+              "type": "bytes",
+              "name": "composeMsg"
+            },
+            {
+              "type": "bytes",
+              "name": "oftCmd"
+            }
+          ]
+        },
+        {
+          "type": "address",
+          "name": "_refundAddress"
+        }
+      ],
+      "outputs": []
+    }
+  ],
+  "transactionHash": "0x67d456c5177eab9405d3876afcfa62ea37c8c591876da8577e09045cb4e9f84f",
+  "args": [
+    "0x4AA8949bb47da4b4F27345404Ba1e5E7EA90bdb3",
+    "0x70d4C4F48F230037A9e154470EcE79Db85A11f52",
+    "0x8EDD6A7C9b635490f4a94E0cb85D63d6A084ce0F"
+  ],
+  "numDeployments": 1,
+  "solcInputHash": "",
+  "metadata": "{}",
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "libraries": {},
+  "facets": [],
+  "diamondCut": [],
+  "execute": {},
+  "history": [],
+  "implementation": null,
+  "devdoc": {},
+  "userdoc": {},
+  "storageLayout": {},
+  "gasEstimates": {}
+}

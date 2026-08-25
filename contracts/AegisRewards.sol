@@ -50,6 +50,8 @@ contract AegisRewards is IAegisRewardsEvents, IAegisRewardsErrors, AccessControl
 
   address public aegisMinting;
 
+  address public aegisIncomeRouter;
+
   /// @dev Map of reward ids to rewards amounts
   mapping(bytes32 => Reward) private _rewards;
 
@@ -154,9 +156,9 @@ contract AegisRewards is IAegisRewardsEvents, IAegisRewardsErrors, AccessControl
     emit WithdrawExpiredRewards(id, to, amount);
   }
 
-  /// @dev Adds minted YUSD rewards from AegisMintingContract
+  /// @dev Adds minted YUSD rewards from AegisMintingContract or AegisIncomeRouter
   function depositRewards(bytes calldata requestId, uint256 amount) external {
-    require(_msgSender() == aegisMinting);
+    require(_msgSender() == aegisMinting || _msgSender() == aegisIncomeRouter, "Unauthorized");
 
     bytes32 id = _stringToBytes32(abi.decode(requestId, (string)));
     _rewards[id].amount += amount;
@@ -174,6 +176,13 @@ contract AegisRewards is IAegisRewardsEvents, IAegisRewardsErrors, AccessControl
     aegisMinting = _aegisMinting;
 
     emit SetAegisMintingAddress(_aegisMinting);
+  }
+
+  /// @dev Sets new AegisIncomeRouter address
+  function setAegisIncomeRouterAddress(address _aegisIncomeRouter) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    aegisIncomeRouter = _aegisIncomeRouter;
+
+    emit SetAegisIncomeRouterAddress(_aegisIncomeRouter);
   }
 
   function _setAegisConfigAddress(IAegisConfig _aegisConfig) internal {

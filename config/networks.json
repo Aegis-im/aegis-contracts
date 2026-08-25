@@ -1,5 +1,33 @@
 {
   "networks": {
+    "starknet": {
+      "chainType": "starknet",
+      "rpcUrl": "https://starknet-mainnet.g.alchemy.com/starknet/version/rpc/v0_10/ifRiJRyCqStNKuKbp6HEP",
+      "description": "Starknet Mainnet",
+      "explorer": "https://voyager.online",
+      "contracts": {
+        "lzEndpoint": "0x0524e065abff21d225fb7b28f26ec2f48314ace6094bc085f0a7cf1dc2660f68",
+        "uln302": "0x0727f40349719ac76861a51a0b3d3e07be1577fff137bb81a5dc32e5a5c61d38",
+        "executor": "0x03887bd8da2999d39e2e88fe55733c4cac8e20a6d51bfe162176c9f2eb134c65",
+        "strkToken": "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d",
+        "adminAddress": "0x355a0c9b6b09b4f22d6bd6a44fd35dc4713eee8339197a96dcc2a1e73dba081",
+        "yusdERC20Address": "0x01a507e10aa772ee87bf0d075aee6c5420deaad03731789b9d0b8c7b63ebce86",
+        "yusdOftAddress": "0x015084fb98a9fe079176bf51928dd0cd6ed45e4dfe5607a4df8b343c4cccefcb"
+      },
+      "layerzero": {
+        "eid": 30500
+      },
+      "classHashes": {
+        "erc20MintBurnUpgradeable": "0x01bea3900ebe975f332083d441cac55f807cf5de7b1aa0b7ccbda1de53268500",
+        "oftMintBurnAdapter": "0x07c02e3797d2c7b848fa94820ffb335617820d2c44d82d6b8cf71c71fbe7dd6e"
+      },
+      "dvns": {
+        "deutscheTelekom": "0x02fff0fb1d28dae06f80120e17a26d23803234dd27d4b275f7742c97ecbfb3f5",
+        "layerzeroLabs": "0x067ba9b8e08d78e4600871db457f9620c56c39915167d32b0581a7fb639866dd",
+        "horizen": "0x067f770461867f3634a7f836e96e4f6649c4bbe6972b70e2838b9590e0828e63",
+        "canary": "0x073b30c6cf0094ca96976a6fa8c656d84f7ba88b4edfd068adf9ec0613a91982"
+      }
+    },
     "hardhat": {
       "chainId": 1337,
       "description": "Local Hardhat development network",
@@ -11,7 +39,7 @@
     "mainnet": {
       "chainId": 1,
       "rpcUrl": "https://mainnet.gateway.tenderly.co",
-      "gasPrice": 77000000,
+      "gasPrice": 723000000,
       "description": "Ethereum Mainnet",
       "explorer": "https://etherscan.io",
       "contracts": {
@@ -30,7 +58,19 @@
         "aegisOracleJUSDAddress": "0xfA449DC17194Fdaca1dd2237C828938f1917e0E7",
         "aegisMintingJUSDAddress": "0xBB0F32D176590faEdC7bc552b7EAD7A86809b520",
         "sJUSDAddress": "0x4AA8949bb47da4b4F27345404Ba1e5E7EA90bdb3",
-        "sJUSDSiloAddress": "0x22daCEEd48d7eE53f964A5aa3bDB6e4D3d688d9A"
+        "sJUSDSiloAddress": "0x22daCEEd48d7eE53f964A5aa3bDB6e4D3d688d9A",
+        "aegisJUSDChainlinkOracleV3Address": "0x8417a3077D8F7bDB348c8b109330f9A50c6ab9d3",
+        "jusdOftAdapterAddress": "0x70d4C4F48F230037A9e154470EcE79Db85A11f52",
+        "sjusdOftAdapterAddress": "0x8EDD6A7C9b635490f4a94E0cb85D63d6A084ce0F",
+        "vaultComposerAddress": "0x399B1C20896a8E40D430479E844d1d9b4445cd4A",
+        "aegisRewardsV2Address": "0x8340F5Af4D2eeBb402102143E7267ACA7112eEBd",
+        "aegisRewardsV2JUSDAddress": "0x6647c5936E30d8d9e0EDE2508C3513EAEF6758b7",
+        "uniswapV4RouterAddress": "0x66a9893cC07D91D95644AEDD05D03f95e1dBA8Af",
+        "curveYusdUsdcAddress": "0x9804c30875127246ac92d72d5cdf0630aa356861",
+        "curveYusdUsdtAddress": "0xcf908d925b21594f9a92b264167a85b0649051a8",
+        "usdtAddress": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "usdcAddress": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+        "aegisIncomeRouterAddress": "0xc4fEFd0851A37282a2d430186194939a4E7c2DeC"
       },
       "layerzero": {
         "targetEid": 30101,
@@ -58,7 +98,7 @@
     "bnbMainnet": {
       "chainId": 56,
       "rpcUrl": "https://bsc-rpc.publicnode.com",
-      "gasPrice": 1000000000,
+      "gasPrice": 100000000,
       "description": "BNB Smart Chain Mainnet",
       "explorer": "https://bscscan.com",
       "contracts": {
@@ -72,7 +112,8 @@
         "aegisMintingAddress": "0x02bf8f0e046F471709E578b1E633077096ce65CF",
         "feedRegistryAddress": "0x4274cD7277C7bb0806Bd5FE84b9aDAE466a8DA0a",
         "syusdOftAddress": "0x85636BF94EA95c32e945b0db30A7CDc614F2691e",
-        "syusdOracle": "0x5Ef457932C77E906FE81f80192bD6878526aCAdc"
+        "syusdOracle": "0x5Ef457932C77E906FE81f80192bD6878526aCAdc",
+        "aegisRewardsV2Address": "0xd859e938258a62d684235F617D551149BF21dEbD"
       },
       "layerzero": {
         "targetEid": 56,
@@ -98,7 +139,7 @@
     "avalanche": {
       "chainId": 43114,
       "rpcUrl": "https://api.avax.network/ext/bc/C/rpc",
-      "gasPrice": 1986812204,
+      "gasPrice": 2520649092,
       "endpointId": 30106,
       "description": "Avalanche Mainnet",
       "explorer": "https://snowtrace.io",
@@ -110,7 +151,8 @@
         "syusdOracle": "0x03a346a9AE09E0E8bf38De1c49be45575393dea7",
         "aegisChainlinkOracleV3Address": "0x03a346a9AE09E0E8bf38De1c49be45575393dea7",
         "aegisConfigAddress": "0x773B65dfF82a5C49eC4002bb886b2FB4623071B4",
-        "aegisRewardsManualAddress": "0xB02FC8fA9fB1cA333c2e8028Ba6Eb6C0B1cDB3Af"
+        "aegisRewardsManualAddress": "0xB02FC8fA9fB1cA333c2e8028Ba6Eb6C0B1cDB3Af",
+        "aegisRewardsV2Address": "0x7Bad82d9e79E706635bD1C12346BAdd63EFE010E"
       },
       "deployment": {
         "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
@@ -119,7 +161,7 @@
     "arbitrum": {
       "chainId": 42161,
       "rpcUrl": "https://arb1.arbitrum.io/rpc",
-      "gasPrice": 100000000,
+      "gasPrice": 20000000,
       "description": "Arbitrum Mainnet",
       "explorer": "https://arbiscan.io",
       "contracts": {
@@ -143,7 +185,9 @@
         "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7",
         "syusdOftAddress": "0xFCeF626dE4A0175ac962DD43EB0A002819FaAEFe",
         "syusdOracle": "0x3E82D55F05D68255a6625ea39738c1022c50C325",
-        "aegisChainlinkOracleV3Address": "0x3E82D55F05D68255a6625ea39738c1022c50C325"
+        "aegisChainlinkOracleV3Address": "0x3E82D55F05D68255a6625ea39738c1022c50C325",
+        "jusdOftAddress": "0xAF12b0Ae5A72D7b8A8eC675f3E76E2Db56143565",
+        "sjusdOftAddress": "0x773B65dfF82a5C49eC4002bb886b2FB4623071B4"
       },
       "deployment": {
         "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
@@ -151,8 +195,8 @@
     },
     "base": {
       "chainId": 8453,
-      "rpcUrl": "https://mainnet.base.org",
-      "gasPrice": 70000000,
+      "rpcUrl": "https://base-rpc.publicnode.com",
+      "gasPrice": 5000000,
       "description": "Base Mainnet",
       "explorer": "https://basescan.org",
       "contracts": {
@@ -186,7 +230,7 @@
     "monad": {
       "chainId": 143,
       "endpointId": 30390,
-      "rpcUrl": "https://rpc3.monad.xyz",
+      "rpcUrl": "https://rpc2.monad.xyz",
       "gasPrice": 100000000000,
       "description": "Monad Mainnet",
       "explorer": "https://monad.socialscan.io/",
@@ -194,7 +238,9 @@
         "lzEndpoint": "0x6F475642a6e85809B1c36Fa62763669b1b48DD5B",
         "adminAddress": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
         "yusdOftAddress": "0xca2671Dcd031a72359f456C212F62A9bDa737cD7",
-        "syusdOftAddress": "0xF07781182B47e728B040f9e35321260e359fF9f7"
+        "syusdOftAddress": "0xF07781182B47e728B040f9e35321260e359fF9f7",
+        "jusdOftAddress": "0x7C94288E79F6De6E9Baf2e5029CB94CFf032fd69",
+        "sjusdOftAddress": "0xCFA67e9Da72af570e7f8344B7738D6BdF698BD20"
       },
       "deployment": {
         "initialOwner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
@@ -240,7 +286,8 @@
         "aegisChainlinkOracleV2Address": "0x50193f63e479BF3cC7C7533Aa899f5eACc873290",
         "jusdAddress": "0x061dd9CB70B9e6F99486d81586B007a10213E81D",
         "aegisMintingJUSDAddress": "0x3066290F87c91FA474268066c1e7809a06c054D9",
-        "aegisOracleJUSDAddress": "0xeFAE0B938FF734b67FD17E896Bf1944B4895e61e"
+        "aegisOracleJUSDAddress": "0xeFAE0B938FF734b67FD17E896Bf1944B4895e61e",
+        "aegisRewardsV2Address": "0x2476e68b8A59b73AFaEF00e67Cd4e8e295Fe8772"
       },
       "layerzero": {
         "targetEid": 40161,
@@ -255,7 +302,7 @@
     "sepolia": {
       "chainId": 11155111,
       "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
-      "gasPrice": 30000000000,
+      "gasPrice": 5000000000,
       "endpointId": 40161,
       "description": "Ethereum Sepolia Testnet",
       "explorer": "https://sepolia.etherscan.io",
@@ -280,7 +327,13 @@
         "sJUSDSiloAddress": "0xDF21A3b705e8Be047CF04e7E76C310928B3790B9",
         "sjusdOracle": "0x2C44FBe77Ca5FAD24B627BeFa82680d1177a1F21",
         "jusdOftAdapterAddress": "0x1117dB8c8C4f4A917ff947E518D3D45B2eDbB0AA",
-        "sjusdOftAdapterAddress": "0xAEBCb9e713480AA54bAB87346e6343B7eD2F48F3"
+        "sjusdOftAdapterAddress": "0xAEBCb9e713480AA54bAB87346e6343B7eD2F48F3",
+        "aegisRewardsV2JUSDAddress": "0x1ca0c4B3D27718AD98124aE181B4C9EC8528027d",
+        "aegisRewardsV2Address": "0xa499daF6aC08C629Deb70B5E8D851273FBF880E5",
+        "aegisIncomeRouterAddress": "0x4A38d91Fd35086271589CBadA42bFcF504Dfa826",
+        "uniswapV4RouterAddress": "0x3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b",
+        "uniswapV4PoolManagerAddress": "0xE03A1074c86CFeDd5C142C4F04F1a1536e203543",
+        "usdcAddress": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"
       },
       "layerzero": {
         "targetEid": 40102,
@@ -314,7 +367,8 @@
         "feedRegistryAddress": "0x3d0b926F2F1CB1E5c41b3eD43e0a28C86DAb2e4d",
         "yusdOftAddress": "0x1dAe7eBfb0Daa9AEb8a956f38df6f297b9e32B29",
         "aegisRewardsManualAddress": "0x0f87D43279bBEdAC86606C0205102a3385e2A104",
-        "aegisConfigAddress": "0xEF300Ba83697A8D8ABf2f7E78de7536ab92d1E67"
+        "aegisConfigAddress": "0xEF300Ba83697A8D8ABf2f7E78de7536ab92d1E67",
+        "aegisRewardsV2Address": "0xAA0035132577775b100Ebd7edae9890C772F73f6"
       },
       "layerzero": {
         "targetEid": 40102,

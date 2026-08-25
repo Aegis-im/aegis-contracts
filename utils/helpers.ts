@@ -11,6 +11,9 @@ export const FUNDS_MANAGER_ROLE = ethers.id('FUNDS_MANAGER_ROLE')
 export const COLLATERAL_MANAGER_ROLE = ethers.id('COLLATERAL_MANAGER_ROLE')
 export const REWARDS_MANAGER_ROLE = ethers.id('REWARDS_MANAGER_ROLE')
 export const OPERATOR_ROLE = ethers.id('OPERATOR_ROLE')
+export const DISTRIBUTOR_ROLE = ethers.id('DISTRIBUTOR_ROLE')
+export const DEPOSITOR_ROLE = ethers.id('DEPOSITOR_ROLE')
+export const TRUSTED_SIGNER_ROLE = ethers.id('TRUSTED_SIGNER_ROLE')
 
 export const USD_FEED_ADDRESS = '0x0000000000000000000000000000000000000348'
 
@@ -84,6 +87,44 @@ export async function deployFixture() {
     assetAddress,
     aegisConfig,
     aegisConfigAddress,
+  }
+}
+
+export async function deployRewardsV2Fixture() {
+  const [owner] = await ethers.getSigners()
+
+  const yusdContract = await ethers.deployContract('YUSD', [owner.address])
+  const yusdAddress = await yusdContract.getAddress()
+
+  // Deploy as main chain (ETH)
+  const aegisRewardsV2Contract = await ethers.deployContract('AegisRewardsV2', [
+    yusdAddress,
+    owner.address,
+    true, // isMainChain
+  ])
+  const aegisRewardsV2Address = await aegisRewardsV2Contract.getAddress()
+
+  // Setup YUSD minting
+  await yusdContract.setMinter(owner.address)
+
+  // Grant roles
+  await aegisRewardsV2Contract.grantRole(DEPOSITOR_ROLE, owner.address)
+  await aegisRewardsV2Contract.grantRole(TRUSTED_SIGNER_ROLE, owner.address)
+
+  // Deploy MockOFTAdapter
+  const mockOFTAdapterContract = await ethers.deployContract('MockOFTAdapter', [yusdAddress])
+  const mockOFTAdapterAddress = await mockOFTAdapterContract.getAddress()
+
+  // Set OFT adapter on rewards contract
+  await aegisRewardsV2Contract.setOFTAdapter(mockOFTAdapterAddress)
+
+  return {
+    yusdContract,
+    yusdAddress,
+    aegisRewardsV2Contract,
+    aegisRewardsV2Address,
+    mockOFTAdapterContract,
+    mockOFTAdapterAddress,
   }
 }
 
@@ -247,6 +288,30 @@ export async function signClaimRequestManualByWallet(request: ClaimRewardsLib.Cl
 export async function signClaimRequestManual(request: ClaimRewardsLib.ClaimRequestStruct, contractAddress: string) {
   return signClaimRequestManualByWallet(request, contractAddress, trustedSignerAccount)
 }
+
+export async function signClaimRequestV2ByWallet(request: ClaimRewardsLib.ClaimRequestStruct, contractAddress: string, wallet: HDNodeWallet) {
+  return wallet.signTypedData(
+    {
+      name: 'AegisRewardsV2',
+      version: '1',
+      chainId: 1337n,
+      verifyingContract: contractAddress,
+    },
+    {
+      ClaimRequest: [
+        {name: 'claimer', type: 'address'},
+        {name: 'ids', type: 'bytes32[]'},
+        {name: 'amounts', type: 'uint256[]'},
+      ],
+    },
+    request,
+  )
+}
+
+export async function signClaimRequestV2(request: ClaimRewardsLib.ClaimRequestStruct, contractAddress: string) {
+  return signClaimRequestV2ByWallet(request, contractAddress, trustedSignerAccount)
+}
+
 export function encodeString(str: string) {
   return ethers.AbiCoder.defaultAbiCoder().encode(['string'], [str])
 }
@@ -467,12 +532,34 @@ export function cleanOldDeploymentFile(networkName: string, contractName: string
     const deploymentPath = path.join(__dirname, '..', 'deployments', networkName, `${contractName}.json`)
     if (fs.existsSync(deploymentPath)) {
       fs.unlinkSync(deploymentPath)
-      console.log(`🗑️ Removed old deployment file: ${contractName}.json`)
+      console.log(`Removed old deployment file: ${contractName}.json`)
       return true
     }
     return false
   } catch (error) {
-    console.log(`⚠️ Error removing old deployment file ${contractName}: ${(error as Error).message}`)
+    console.log(`Error removing old deployment file ${contractName}: ${(error as Error).message}`)
     return false
   }
+}
+
+// ============================================
+// Merkle tree helpers
+// ============================================
+
+import { StandardMerkleTree } from '@openzeppelin/merkle-tree'
+
+export function buildRewardsTree(rewards: Array<[string, string, bigint]>): StandardMerkleTree<[string, string, bigint]> {
+  return StandardMerkleTree.of(
+    rewards.map(([account, claimer, amount]) => [account, claimer, amount.toString()]),
+    ['address', 'address', 'uint256'],
+  ) as unknown as StandardMerkleTree<[string, string, bigint]>
+}
+
+export function getMerkleProof(tree: StandardMerkleTree<[string, string, bigint]>, account: string, claimer: string): string[] {
+  for (const [i, v] of tree.entries()) {
+    if ((v[0] as string).toLowerCase() === account.toLowerCase() && (v[1] as string).toLowerCase() === claimer.toLowerCase()) {
+      return tree.getProof(i)
+    }
+  }
+  throw new Error(`(${account}, ${claimer}) not found in tree`)
 }
