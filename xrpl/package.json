@@ -1,0 +1,22 @@
+{
+  "name": "@aegis/xrpl-testnet",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.14.0"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "test:live": "node test/live.js",
+    "check": "node --check src/cli.js && node --check src/minter.js && node --check src/ledger.js && node --check src/store.js && node --check src/holders.js",
+    "setup": "node src/cli.js setup",
+    "worker": "node src/cli.js worker",
+    "status": "node src/cli.js status",
+    "holders": "node src/cli.js holders",
+    "demo": "node src/cli.js demo"
+  },
+  "dependencies": {
+    "xrpl": "5.1.0"
+  }
+}
