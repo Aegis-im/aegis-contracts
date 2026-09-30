@@ -1,0 +1,154 @@
+<mxfile host="app.diagrams.net" agent="aegis" version="24.7.17" type="device">
+  <diagram id="overview" name="1. Proposal Overview">
+    <mxGraphModel dx="1600" dy="1050" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="title" value="YUSD on XRPL — proposed launch architecture" style="text;html=1;fontSize=24;fontStyle=1;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1000" height="36" as="geometry"/>
+        </mxCell>
+        <mxCell id="subtitle" value="Trust-line YUSD · RLUSD backing · incoming-payment minting · Testnet mint first" style="text;html=1;fontSize=13;fontColor=#555555;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="58" width="1100" height="24" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="setup" value="SETUP" style="swimlane;html=1;startSize=32;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=14;swimlaneFillColor=#faf8fc;" vertex="1" parent="1">
+          <mxGeometry x="40" y="100" width="1520" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="token" value="&lt;b&gt;YUSD issuer&lt;/b&gt;&#10;Trust-line token&#10;Cold multisign" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=13;" vertex="1" parent="setup">
+          <mxGeometry x="30" y="48" width="300" height="78" as="geometry"/>
+        </mxCell>
+        <mxCell id="access" value="&lt;b&gt;Primary-market access&lt;/b&gt;&#10;Backend eligibility check&#10;Testnet: operator allowlist" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=13;" vertex="1" parent="setup">
+          <mxGeometry x="410" y="48" width="450" height="78" as="geometry"/>
+        </mxCell>
+        <mxCell id="offer" value="&lt;b&gt;AEGIS_MARKET collateral receiver&lt;/b&gt;&#10;RLUSD trust line · mint routing tag 1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=13;" vertex="1" parent="setup">
+          <mxGeometry x="940" y="48" width="550" height="78" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="mint" value="MINT — incoming collateral, then separate YUSD issuance" style="swimlane;html=1;startSize=32;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=14;swimlaneFillColor=#f6fbf5;" vertex="1" parent="1">
+          <mxGeometry x="40" y="280" width="1520" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="m1" value="&lt;b&gt;1  User RLUSD Payment&lt;/b&gt;&#10;Destination: AEGIS_MARKET&#10;Amount: RLUSD&#10;DestinationTag: 1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="mint">
+          <mxGeometry x="30" y="50" width="360" height="112" as="geometry"/>
+        </mxCell>
+        <mxCell id="m2" value="&lt;b&gt;2  Backend validates&lt;/b&gt;&#10;tesSUCCESS + delivered_amount&#10;Eligibility · cap · backing&#10;Journal incoming hash" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="mint">
+          <mxGeometry x="580" y="50" width="360" height="112" as="geometry"/>
+        </mxCell>
+        <mxCell id="m3" value="&lt;b&gt;3  Issuer pays YUSD&lt;/b&gt;&#10;Persist signature before submit&#10;Validate delivery to sender&#10;No DEX offer or inventory" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=13;" vertex="1" parent="mint">
+          <mxGeometry x="1130" y="50" width="360" height="112" as="geometry"/>
+        </mxCell>
+        <mxCell id="ma1" style="html=1;endArrow=block;strokeColor=#82b366;strokeWidth=3;" edge="1" parent="mint" source="m1" target="m2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ma2" style="html=1;endArrow=block;strokeColor=#82b366;strokeWidth=3;" edge="1" parent="mint" source="m2" target="m3"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="redeem" value="REDEEM — future milestone: receive/unwind, then settle/retire" style="swimlane;html=1;startSize=32;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=14;swimlaneFillColor=#f5f9fe;" vertex="1" parent="1">
+          <mxGeometry x="40" y="500" width="1520" height="230" as="geometry"/>
+        </mxCell>
+        <mxCell id="r1" value="&lt;b&gt;1  Receive YUSD&lt;/b&gt;&#10;User Payment to AEGIS_MARKET&#10;Match to redemption request&#10;Hold YUSD pending settlement" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="redeem">
+          <mxGeometry x="30" y="52" width="330" height="140" as="geometry"/>
+        </mxCell>
+        <mxCell id="r2" value="&lt;b&gt;2  Unwind&lt;/b&gt;&#10;Aegis unwinds the matching strategy position and recalls RLUSD" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="redeem">
+          <mxGeometry x="410" y="52" width="330" height="140" as="geometry"/>
+        </mxCell>
+        <mxCell id="r3" value="&lt;b&gt;3  Pay user&lt;/b&gt;&#10;After recall, AEGIS_MARKET sends quoted RLUSD to the user" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="redeem">
+          <mxGeometry x="790" y="52" width="330" height="140" as="geometry"/>
+        </mxCell>
+        <mxCell id="r4" value="&lt;b&gt;4  Retire YUSD&lt;/b&gt;&#10;After validated RLUSD settlement&#10;Market pays YUSD to issuer&#10;Issuer retires returned tokens" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="redeem">
+          <mxGeometry x="1170" y="52" width="320" height="140" as="geometry"/>
+        </mxCell>
+        <mxCell id="ra1" style="html=1;endArrow=block;strokeColor=#6c8ebf;strokeWidth=3;" edge="1" parent="redeem" source="r1" target="r2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ra2" style="html=1;endArrow=block;strokeColor=#6c8ebf;strokeWidth=3;" edge="1" parent="redeem" source="r2" target="r3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="ra3" style="html=1;endArrow=block;strokeColor=#6c8ebf;strokeWidth=3;" edge="1" parent="redeem" source="r3" target="r4"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="operate" value="OPERATIONS — mint controls now; rewards and strategy reporting later" style="swimlane;html=1;startSize=32;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=14;swimlaneFillColor=#fffdf5;" vertex="1" parent="1">
+          <mxGeometry x="40" y="760" width="1520" height="185" as="geometry"/>
+        </mxCell>
+        <mxCell id="op1" value="&lt;b&gt;Reserve reporting&lt;/b&gt;&#10;Holder balances + pending obligations vs liquid and attested RLUSD backing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="operate"><mxGeometry x="30" y="50" width="430" height="105" as="geometry"/></mxCell>
+        <mxCell id="op2" value="&lt;b&gt;Direct rewards&lt;/b&gt;&#10;Snapshot eligible holders&#10;Send and reconcile Payments" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="operate"><mxGeometry x="545" y="50" width="430" height="105" as="geometry"/></mxCell>
+        <mxCell id="op3" value="&lt;b&gt;Monitoring and controls&lt;/b&gt;&#10;Mint journal · eligibility · signers · reserves · RLUSD issuer controls" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="operate"><mxGeometry x="1060" y="50" width="430" height="105" as="geometry"/></mxCell>
+
+        <mxCell id="note" value="&lt;b&gt;Current milestone&lt;/b&gt;  Testnet YUSD + payment-triggered minting. Redemption, strategies, credentials, rewards, AMM and production signing are deferred." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=13;align=left;spacingLeft=14;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="40" y="975" width="1520" height="70" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram id="system" name="2. System Architecture">
+    <mxGraphModel dx="1600" dy="1050" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="YUSD on XRPL — system architecture" style="text;html=1;fontSize=24;fontStyle=1;align=left;" vertex="1" parent="1"><mxGeometry x="40" y="20" width="1000" height="36" as="geometry"/></mxCell>
+        <mxCell id="subtitle" value="On-ledger ownership and commitments; off-ledger strategy execution and attestation" style="text;html=1;fontSize=13;fontColor=#555555;align=left;" vertex="1" parent="1"><mxGeometry x="40" y="60" width="1100" height="24" as="geometry"/></mxCell>
+
+        <mxCell id="user" value="USER" style="swimlane;html=1;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=14;swimlaneFillColor=#f5f9fe;" vertex="1" parent="1"><mxGeometry x="40" y="120" width="310" height="300" as="geometry"/></mxCell>
+        <mxCell id="wallet" value="&lt;b&gt;XRPL wallet&lt;/b&gt;&#10;&#10;TrustSet&#10;RLUSD Payment to mint&#10;YUSD receipt&#10;Later: redemption Payment" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="user"><mxGeometry x="30" y="55" width="250" height="200" as="geometry"/></mxCell>
+
+        <mxCell id="ledger" value="XRP LEDGER" style="swimlane;html=1;startSize=30;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;fontSize=14;swimlaneFillColor=#fffaf3;" vertex="1" parent="1"><mxGeometry x="410" y="120" width="700" height="700" as="geometry"/></mxCell>
+        <mxCell id="accounts" value="&lt;b&gt;Aegis accounts&lt;/b&gt;&#10;YUSD issuer · Market · Credentials · Distributor" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="ledger"><mxGeometry x="30" y="55" width="640" height="75" as="geometry"/></mxCell>
+        <mxCell id="identity" value="&lt;b&gt;Identity and access&lt;/b&gt;&#10;Backend allowlist&#10;Credentials deferred" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=13;" vertex="1" parent="ledger"><mxGeometry x="30" y="160" width="290" height="120" as="geometry"/></mxCell>
+        <mxCell id="market" value="&lt;b&gt;Primary mint&lt;/b&gt;&#10;RLUSD → Market&#10;Issuer → YUSD to user" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=13;" vertex="1" parent="ledger"><mxGeometry x="380" y="160" width="290" height="120" as="geometry"/></mxCell>
+        <mxCell id="balances" value="&lt;b&gt;YUSD state&lt;/b&gt;&#10;Trust-line balances&#10;No pre-issued mint inventory" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="ledger"><mxGeometry x="30" y="320" width="290" height="120" as="geometry"/></mxCell>
+        <mxCell id="payments" value="&lt;b&gt;Payments&lt;/b&gt;&#10;Mint settlement&#10;RLUSD redemption&#10;Direct rewards" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="ledger"><mxGeometry x="380" y="320" width="290" height="120" as="geometry"/></mxCell>
+        <mxCell id="secondary" value="&lt;b&gt;Optional secondary market&lt;/b&gt;&#10;Open YUSD / RLUSD AMM&#10;Independent of payment-triggered minting" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;" vertex="1" parent="ledger"><mxGeometry x="30" y="480" width="640" height="90" as="geometry"/></mxCell>
+        <mxCell id="fact" value="Validated ledger state provides balances and payment outcomes; the journal connects collateral to issuance." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" vertex="1" parent="ledger"><mxGeometry x="30" y="600" width="640" height="55" as="geometry"/></mxCell>
+
+        <mxCell id="services" value="AEGIS SERVICES" style="swimlane;html=1;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=14;swimlaneFillColor=#f6fbf5;" vertex="1" parent="1"><mxGeometry x="1170" y="120" width="390" height="700" as="geometry"/></mxCell>
+        <mxCell id="svc1" value="Ledger indexer and reconciliation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=13;" vertex="1" parent="services"><mxGeometry x="30" y="55" width="330" height="65" as="geometry"/></mxCell>
+        <mxCell id="svc2" value="Mint worker and eligibility checks" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=13;" vertex="1" parent="services"><mxGeometry x="30" y="145" width="330" height="65" as="geometry"/></mxCell>
+        <mxCell id="svc3" value="Redemption orchestration (future)&#10;Receive · unwind · settle · retire" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=13;" vertex="1" parent="services"><mxGeometry x="30" y="235" width="330" height="85" as="geometry"/></mxCell>
+        <mxCell id="svc4" value="Treasury and strategy adapters" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=13;" vertex="1" parent="services"><mxGeometry x="30" y="345" width="330" height="65" as="geometry"/></mxCell>
+        <mxCell id="svc5" value="Reward distribution" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=13;" vertex="1" parent="services"><mxGeometry x="30" y="435" width="330" height="65" as="geometry"/></mxCell>
+        <mxCell id="svc6" value="Reserve reporting and monitoring" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=13;" vertex="1" parent="services"><mxGeometry x="30" y="525" width="330" height="65" as="geometry"/></mxCell>
+        <mxCell id="svc7" value="Signing policy&#10;Testnet: local seed + durable journal&#10;Production: HSM/KMS or multisign" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" vertex="1" parent="services"><mxGeometry x="30" y="615" width="330" height="55" as="geometry"/></mxCell>
+
+        <mxCell id="custody" value="RLUSD CUSTODY AND STRATEGIES" style="swimlane;html=1;startSize=30;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;fontSize=14;swimlaneFillColor=#fbfbfb;" vertex="1" parent="1"><mxGeometry x="410" y="870" width="1150" height="165" as="geometry"/></mxCell>
+        <mxCell id="cust1" value="&lt;b&gt;RLUSD positions&lt;/b&gt;&#10;Liquid · deployed · unwinding · recalled" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;" vertex="1" parent="custody"><mxGeometry x="30" y="50" width="480" height="85" as="geometry"/></mxCell>
+        <mxCell id="cust2" value="&lt;b&gt;Evidence&lt;/b&gt;&#10;Custodian / strategy balances and independent attestations" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=13;" vertex="1" parent="custody"><mxGeometry x="640" y="50" width="480" height="85" as="geometry"/></mxCell>
+
+        <mxCell id="a1" style="html=1;endArrow=block;strokeColor=#6c8ebf;strokeWidth=3;" edge="1" parent="1" source="user" target="ledger"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a2" value="submit / read" style="edgeLabel;html=1;fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="a1"><mxGeometry relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry></mxCell>
+        <mxCell id="a3" style="html=1;endArrow=block;startArrow=block;startFill=1;strokeColor=#82b366;strokeWidth=3;" edge="1" parent="1" source="ledger" target="services"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a4" value="transactions / validated events" style="edgeLabel;html=1;fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="a3"><mxGeometry relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry></mxCell>
+        <mxCell id="a5" style="html=1;endArrow=block;startArrow=block;startFill=1;strokeColor=#666666;strokeWidth=3;" edge="1" parent="1" source="services" target="custody"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="a6" value="deploy / unwind / attest" style="edgeLabel;html=1;fontSize=11;labelBackgroundColor=#ffffff;" vertex="1" connectable="0" parent="a5"><mxGeometry relative="1" as="geometry"><mxPoint as="offset"/></mxGeometry></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram id="sequence" name="3. Mint and Redeem Sequence">
+    <mxGraphModel dx="1600" dy="1050" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="YUSD on XRPL — mint and redeem sequence" style="text;html=1;fontSize=24;fontStyle=1;align=left;" vertex="1" parent="1"><mxGeometry x="40" y="20" width="1000" height="36" as="geometry"/></mxCell>
+
+        <mxCell id="u" value="User wallet" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;dropTarget=0;outlineConnect=0;size=42;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="70" y="85" width="190" height="950" as="geometry"/></mxCell>
+        <mxCell id="app" value="Aegis app" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;dropTarget=0;outlineConnect=0;size=42;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="370" y="85" width="190" height="950" as="geometry"/></mxCell>
+        <mxCell id="be" value="Aegis backend" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;dropTarget=0;outlineConnect=0;size=42;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="680" y="85" width="200" height="950" as="geometry"/></mxCell>
+        <mxCell id="xrpl" value="XRP Ledger" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;dropTarget=0;outlineConnect=0;size=42;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="1000" y="85" width="190" height="950" as="geometry"/></mxCell>
+        <mxCell id="strat" value="RLUSD strategy / custody" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;collapsible=0;dropTarget=0;outlineConnect=0;size=42;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="1300" y="85" width="220" height="950" as="geometry"/></mxCell>
+
+        <mxCell id="pm" value="MINT — two validated Payments, no atomic swap" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=none;align=left;spacingLeft=10;fontStyle=1;fontSize=13;opacity=70;" vertex="1" parent="1"><mxGeometry x="40" y="155" width="1510" height="26" as="geometry"/></mxCell>
+        <mxCell id="m1" value="1  get receiver, tag, rate and eligibility" style="html=1;verticalAlign=bottom;endArrow=block;strokeWidth=2;strokeColor=#6c8ebf;fontSize=12;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="165" y="215" as="sourcePoint"/><mxPoint x="465" y="215" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m2" value="2  verify trust lines and validated state" style="html=1;verticalAlign=bottom;endArrow=block;strokeWidth=2;strokeColor=#6c8ebf;fontSize=12;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="465" y="255" as="sourcePoint"/><mxPoint x="1095" y="255" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m3" value="3  sign Payment { RLUSD → Market, DestinationTag: 1 }" style="html=1;verticalAlign=bottom;endArrow=block;strokeWidth=3;strokeColor=#6c8ebf;fontSize=12;fontStyle=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="165" y="310" as="sourcePoint"/><mxPoint x="1095" y="310" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m4" value="4  validated collateral → backend checks delivered_amount and journals deposit" style="html=1;verticalAlign=bottom;endArrow=open;strokeWidth=2;strokeColor=#d79b00;dashed=1;fontSize=12;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1095" y="360" as="sourcePoint"/><mxPoint x="780" y="360" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="m5" value="5  issuer signs YUSD Payment → validate delivery to user" style="html=1;verticalAlign=bottom;endArrow=block;strokeWidth=2;strokeColor=#82b366;fontSize=12;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="780" y="410" as="sourcePoint"/><mxPoint x="1095" y="410" as="targetPoint"/></mxGeometry></mxCell>
+
+        <mxCell id="pr" value="REDEEM — deferred: receive/unwind, then settle/retire" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=none;align=left;spacingLeft=10;fontStyle=1;fontSize=13;opacity=70;" vertex="1" parent="1"><mxGeometry x="40" y="465" width="1510" height="26" as="geometry"/></mxCell>
+        <mxCell id="r1" value="6  request redeem quote" style="html=1;verticalAlign=bottom;endArrow=block;strokeWidth=2;strokeColor=#6c8ebf;fontSize=12;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="165" y="525" as="sourcePoint"/><mxPoint x="780" y="525" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="r2" value="7  request ID + amount + settlement terms" style="html=1;verticalAlign=bottom;endArrow=open;strokeWidth=2;strokeColor=#82b366;dashed=1;fontSize=12;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="780" y="570" as="sourcePoint"/><mxPoint x="165" y="570" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="r3" value="8  sign Payment { YUSD → Market, request reference }" style="html=1;verticalAlign=bottom;endArrow=block;strokeWidth=3;strokeColor=#6c8ebf;fontSize=12;fontStyle=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="165" y="620" as="sourcePoint"/><mxPoint x="1095" y="620" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="r4" value="9  validated YUSD received; record pending redemption" style="html=1;verticalAlign=bottom;endArrow=open;strokeWidth=2;strokeColor=#d79b00;dashed=1;fontSize=12;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1095" y="665" as="sourcePoint"/><mxPoint x="780" y="665" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="r5" value="10  unwind strategy and recall RLUSD" style="html=1;verticalAlign=bottom;endArrow=block;strokeWidth=2;strokeColor=#82b366;fontSize=12;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="780" y="715" as="sourcePoint"/><mxPoint x="1410" y="715" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="r6" value="11  RLUSD available" style="html=1;verticalAlign=bottom;endArrow=open;strokeWidth=2;strokeColor=#666666;dashed=1;fontSize=12;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1410" y="760" as="sourcePoint"/><mxPoint x="780" y="760" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="r7" value="12  reconcile request; Payment: agreed RLUSD → user" style="html=1;verticalAlign=bottom;endArrow=block;strokeWidth=3;strokeColor=#82b366;fontSize=12;fontStyle=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="780" y="815" as="sourcePoint"/><mxPoint x="1095" y="815" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="r8" value="13  validated payment" style="html=1;verticalAlign=bottom;endArrow=open;strokeWidth=2;strokeColor=#d79b00;dashed=1;fontSize=12;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1095" y="855" as="sourcePoint"/><mxPoint x="780" y="855" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="r9" value="14  Payment { held YUSD → issuer } → retire YUSD" style="html=1;verticalAlign=bottom;endArrow=block;strokeWidth=3;strokeColor=#82b366;fontSize=12;fontStyle=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="780" y="905" as="sourcePoint"/><mxPoint x="1095" y="905" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="r10" value="15  status: retired" style="html=1;verticalAlign=bottom;endArrow=open;strokeWidth=2;strokeColor=#d79b00;dashed=1;fontSize=12;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="1095" y="950" as="sourcePoint"/><mxPoint x="165" y="950" as="targetPoint"/></mxGeometry></mxCell>
+        <mxCell id="expiry" value="Unsettled redemptions remain outstanding. Cancellation/return policy is future work; no automatic escrow expiry." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="400" y="990" width="800" height="55" as="geometry"/></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

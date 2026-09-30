@@ -1,0 +1,14 @@
+{
+  "network": "testnet",
+  "issuer": "rDwMERNmSRLvPYnU25Nkd7HdYLTsNcoMJ5",
+  "currency": "5955534400000000000000000000000000000000",
+  "ledger": 20782913,
+  "ledgerHash": "9A511E90C346AC2822E5925CF5983129079B3384AF8ED2AAF10FAD9B6518DA85",
+  "holderCount": 1,
+  "holders": [
+    {
+      "address": "rfsVM3114tdD5k7B548g7jwiTs874Qk2zK",
+      "balance": "1"
+    }
+  ]
+}

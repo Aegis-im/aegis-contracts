@@ -1,0 +1,84 @@
+{
+  "checkedAt": "2026-09-10T14:05:16.583Z",
+  "deployments": [
+    {
+      "instance": "testnet",
+      "network": "testnet",
+      "ledger": 20644137,
+      "issuer": "rDwMERNmSRLvPYnU25Nkd7HdYLTsNcoMJ5",
+      "market": "rLHxXbAGr5z6ocmd84acoJNMQEDpLvbGDE",
+      "user": "rfsVM3114tdD5k7B548g7jwiTs874Qk2zK",
+      "collateral": {
+        "currency": "524C555344000000000000000000000000000000",
+        "issuer": "rQhWct2fv4Vc4KRjRgMrxa8xPN9Zx9iLKV"
+      },
+      "userCollateral": "0",
+      "userYusd": "1",
+      "reserve": "1",
+      "offers": 0,
+      "defaultRipple": true
+    },
+    {
+      "instance": "testnet-mock",
+      "network": "testnet",
+      "ledger": 20644137,
+      "issuer": "rpXJVT1vyRb6sv2uvNjdnpeuFd4mWCV7W1",
+      "market": "r9ErHDdChXQ4rNSBDMuXvmTPYgF3WEMLx4",
+      "user": "rfW5REtj6ddMMzKDVLeQ6ZgtHNmqeLBF5B",
+      "collateral": {
+        "currency": "4D524C5553440000000000000000000000000000",
+        "issuer": "rnFKB6BuYtdjvYZDdgww9Hn1dy2qd4Be62"
+      },
+      "userCollateral": "96.5",
+      "userYusd": "3.5",
+      "reserve": "3.5",
+      "offers": 0,
+      "defaultRipple": true
+    }
+  ],
+  "mockAcceptance": {
+    "checkedAt": "2026-09-10T12:01:41.766Z",
+    "network": "testnet",
+    "collateralMode": "mock",
+    "issuer": "rpXJVT1vyRb6sv2uvNjdnpeuFd4mWCV7W1",
+    "market": "r9ErHDdChXQ4rNSBDMuXvmTPYgF3WEMLx4",
+    "user": "rfW5REtj6ddMMzKDVLeQ6ZgtHNmqeLBF5B",
+    "collateral": {
+      "currency": "4D524C5553440000000000000000000000000000",
+      "issuer": "rnFKB6BuYtdjvYZDdgww9Hn1dy2qd4Be62"
+    },
+    "mintDepositHash": "117205BF78EA445424B18A22DAF7F3E3A6912495B0E1A4AA5CCE84712ED98230",
+    "mintHash": "34D0F7AB281CA7607917661115EE11CE7797B527BD92419DA9BCE1B0FAA7D497",
+    "rejectedXrpHash": "725F6C2AAEDFC5A022E236E0ED8BD4C4530E276FCBEC0C1CFD45BCF7AEB10613",
+    "validatedMintAmount": "2.5",
+    "replayDidNotMintAgain": true,
+    "wrongAssetDidNotMint": true,
+    "pauseBlockedNewMint": true
+  },
+  "officialRlusdMint": {
+    "status": "verified",
+    "checkedAt": "2026-09-10T14:05:15.454Z",
+    "command": "npm run demo",
+    "exitCode": 0,
+    "fundingHash": "5164E410ACB305C98A399550FE6575C363EB818D7B739BB5477A8435AE7BEFAA",
+    "fundingLedger": 20644067,
+    "depositHash": "2210235F0265D2395D328179D3A048FF84FDF79854EF96E107E0F0355A9F85C1",
+    "mintHash": "68276BF43693E948030140F9C9BC0B9B128AB9C586AF2F1623144980AFEFC815",
+    "depositLedger": 20644113,
+    "mintLedger": 20644117,
+    "deliveredRlusd": "1",
+    "deliveredYusd": "1",
+    "userYusdBalance": "1",
+    "reserveRlusd": "1",
+    "replayDidNotMintAgain": true,
+    "attemptCount": 1,
+    "noDexOffers": true
+  },
+  "sourceSha256": {
+    "xrpl/src/amounts.js": "2c61c41999ab75286038ceab5f07062b62bb8ab7cffe691bac1746c33817ff08",
+    "xrpl/src/cli.js": "79605f0620f488f6159e198d79441d61da5595c407e7d93a22443e15f4c04376",
+    "xrpl/src/ledger.js": "8b8adb08adf153725af83936d378818707e9e2198b0e66a99f8562c9acee2648",
+    "xrpl/src/minter.js": "37707a72857d96186b8cce1b67cc3b3c28dabf3b5f6f0270e13d9fac6a4f7250",
+    "xrpl/src/store.js": "c6c08990068f87f61503f7a6718b08658a1cc8ad03164a0e715d7a3546aff952"
+  }
+}
