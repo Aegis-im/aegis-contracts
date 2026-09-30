@@ -13,6 +13,8 @@ import { settings as c, loadRecord, saveRecord, checkNetwork, confirmed } from '
  *                                      can draw collateral itself via pullFromMinting.
  *   guardRetireWallet     [false]      Removes the previously configured custody wallet from
  *                                      minting's custodian list once the guard is registered.
+ *   guardWhitelistCooldown [0]         Seconds a newly whitelisted destination waits before it can
+ *                                      receive funds. Fixed at deployment; 0 disables it.
  */
 export async function attachAssetGuard(record: any) {
   const [admin] = await ethers.getSigners()
@@ -31,7 +33,7 @@ export async function attachAssetGuard(record: any) {
     if (await ethers.provider.getCode(a.assetGuard.address) === '0x') throw new Error('Missing code: assetGuard')
     guard = await ethers.getContractAt('VaultAssetGuard', a.assetGuard.address)
   } else {
-    const args = [a.minting.address, c.admin, c.adminDelay, wanted.map(d => d.address), wanted.map(d => d.label)]
+    const args = [a.minting.address, c.admin, c.adminDelay, wanted.map(d => d.address), wanted.map(d => d.label), c.guardWhitelistCooldown ?? 0]
     guard = await ethers.deployContract('VaultAssetGuard', args)
     await guard.waitForDeployment()
     a.assetGuard = { address: await guard.getAddress(), contract: 'VaultAssetGuard', args, transactionHash: guard.deploymentTransaction().hash }

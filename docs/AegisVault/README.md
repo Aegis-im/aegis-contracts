@@ -59,6 +59,8 @@ Duties are split. `COLLATERAL_MANAGER_ROLE` moves assets and holds no authority 
 
 The whitelist is the only security boundary the contract has, so there is deliberately no arbitrary-destination rescue function and no ERC-20 approval surface. A compromised asset-moving key can shuffle funds between addresses the whitelist manager already approved, and nowhere else. Recovering a stray token means whitelisting its recipient first, which leaves an on-chain record. Native currency that reaches the contract leaves through the same gate via `withdrawNative`.
 
+An optional whitelist cooldown, fixed at deployment, makes every newly added destination (including the initial whitelist) wait that many seconds before it can receive funds; `destinationActiveAt` reports when it opens. A compromised whitelist manager then cannot add a destination and have it used in the same breath, leaving time to notice the `DestinationAdded` event and react. Removal takes effect immediately, and re-adding a destination restarts its cooldown. Zero disables it. The cooldown gates `withdraw*` only: returns to minting are never delayed.
+
 Granting the guard `COLLATERAL_MANAGER_ROLE` on minting closes the loop in the other direction: `pullFromMinting` and `pullAllFromMinting` draw custody-transferrable collateral out of minting without a second operator call to a second contract. That grant is optional — collateral still arrives whenever a collateral manager calls `transferToCustody` with the guard's address.
 
 A signed `requestRedeem` locks base tokens. The funds manager approves and pays from returned collateral, or rejects and unlocks tokens. Expired requests can be unlocked. Each request has a unique ID and nonce. The underlying bank redemption has no automatically enforced 30-day delay; Amina's configured 30-day duration applies to fee-free **staking** exits. Returning liquidity, approving payouts and updating oracle prices remain operator actions.
@@ -97,6 +99,7 @@ VAULT_GAS_PRICE_WEI=auto npx hardhat run scripts/aegis-vault/asset-guard.ts --ne
 | `guardWhitelistManager` | `admin` | Holder of `WHITELIST_MANAGER_ROLE` — maintains the whitelist and pause. |
 | `guardDrawFromMinting` | `true` | Grant the guard minting's `COLLATERAL_MANAGER_ROLE` so it can draw collateral itself. |
 | `guardRetireWallet` | `false` | Remove the previously configured custody wallet from minting's custodian list. |
+| `guardWhitelistCooldown` | `0` | Seconds a newly whitelisted destination waits before it can receive funds. Fixed at deployment; `0` disables it. |
 
 Retiring the old wallet is a separate governance decision, so it is never implied by installing the guard. Until it is retired, both the wallet and the guard can receive collateral.
 

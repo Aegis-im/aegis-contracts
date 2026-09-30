@@ -66,11 +66,18 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
     /// @notice VaultMinting contract — the sink for collateral funding redeem requests
     address public mintingAddress;
 
+    /// @notice Seconds a newly whitelisted destination must wait before it can receive funds.
+    ///         Fixed at deployment; zero disables the cooldown.
+    uint256 public immutable whitelistCooldown;
+
     /// @notice Emergency stop for outbound movement and draws from minting
     bool public paused;
 
     /// @notice Operator-readable label for each whitelisted destination ("Copper omnibus", "Bank A")
     mapping(address => string) public destinationLabel;
+
+    /// @notice Timestamp at which each destination was whitelisted; cleared on removal
+    mapping(address => uint256) public destinationAddedAt;
 
     /// @dev Addresses this contract is allowed to withdraw to
     EnumerableSet.AddressSet private _destinations;
@@ -115,6 +122,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
     error InvalidAmount();
     error InvalidArrayLength();
     error NotWhitelistedDestination(address destination);
+    error DestinationInCooldown(address destination, uint256 activeAt);
     error AlreadyWhitelisted(address destination);
     error MintingNotConfigured();
     error NotSupportedAsset(address asset);
@@ -131,15 +139,19 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
      * @param _initialDelay   AccessControlDefaultAdminRules handover delay, in seconds
      * @param _destinations_  Initial whitelist of addresses assets may be withdrawn to
      * @param _labels         Operator labels matching `_destinations_`, one per entry
+     * @param _whitelistCooldown Seconds before a newly added destination can receive funds; zero
+     *                        disables it. Applies to the initial whitelist too. Cannot be changed.
      */
     constructor(
         address _mintingAddress,
         address _admin,
         uint48 _initialDelay,
         address[] memory _destinations_,
-        string[] memory _labels
+        string[] memory _labels,
+        uint256 _whitelistCooldown
     ) AccessControlDefaultAdminRules(_initialDelay, _admin) {
         if (_destinations_.length != _labels.length) revert InvalidArrayLength();
+        whitelistCooldown = _whitelistCooldown;
         if (_mintingAddress != address(0)) _setMintingAddress(_mintingAddress);
 
         for (uint256 i = 0; i < _destinations_.length; i++) {
@@ -210,7 +222,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
         address to,
         uint256 amount
     ) external nonReentrant onlyRole(COLLATERAL_MANAGER_ROLE) whenNotPaused {
-        if (!_destinations.contains(to)) revert NotWhitelistedDestination(to);
+        _checkDestination(to);
         if (amount == 0 || amount > address(this).balance) revert InvalidAmount();
 
         Address.sendValue(payable(to), amount);
@@ -296,6 +308,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
     function removeDestination(address destination) external onlyRole(WHITELIST_MANAGER_ROLE) {
         if (!_destinations.remove(destination)) revert NotWhitelistedDestination(destination);
         delete destinationLabel[destination];
+        delete destinationAddedAt[destination];
 
         emit DestinationRemoved(destination);
     }
@@ -307,6 +320,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
         for (uint256 i = 0; i < destinations_.length; i++) {
             if (!_destinations.remove(destinations_[i])) revert NotWhitelistedDestination(destinations_[i]);
             delete destinationLabel[destinations_[i]];
+            delete destinationAddedAt[destinations_[i]];
 
             emit DestinationRemoved(destinations_[i]);
         }
@@ -340,6 +354,14 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
         return _destinations.contains(destination);
     }
 
+    /// @notice First timestamp at which `destination` can receive funds; zero if not whitelisted
+    /// @dev With a cooldown configured, withdrawals are allowed once `block.timestamp` is strictly
+    ///      greater than this value; without one, a destination is usable as soon as it is added
+    function destinationActiveAt(address destination) public view returns (uint256) {
+        if (!_destinations.contains(destination)) return 0;
+        return destinationAddedAt[destination] + whitelistCooldown;
+    }
+
     /// @notice Number of whitelisted destinations
     function destinationCount() external view returns (uint256) {
         return _destinations.length();
@@ -366,12 +388,23 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
     // ============================================
 
     function _withdraw(address asset, address to, uint256 amount) internal {
-        if (!_destinations.contains(to)) revert NotWhitelistedDestination(to);
+        _checkDestination(to);
         if (amount == 0) revert InvalidAmount();
 
         IERC20(asset).safeTransfer(to, amount);
 
         emit Withdrawal(asset, to, amount);
+    }
+
+    /// @dev A destination must be whitelisted and, when a cooldown is configured, past it. Removal
+    ///      takes effect immediately; re-adding a destination restarts its cooldown.
+    function _checkDestination(address to) internal view {
+        if (!_destinations.contains(to)) revert NotWhitelistedDestination(to);
+        uint256 cooldown = whitelistCooldown;
+        if (cooldown != 0) {
+            uint256 activeAt = destinationAddedAt[to] + cooldown;
+            if (block.timestamp <= activeAt) revert DestinationInCooldown(to, activeAt);
+        }
     }
 
     function _returnToMinting(address asset, uint256 amount) internal {
@@ -395,6 +428,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
         if (!_destinations.add(destination)) revert AlreadyWhitelisted(destination);
 
         destinationLabel[destination] = label;
+        destinationAddedAt[destination] = block.timestamp;
 
         emit DestinationAdded(destination, label);
     }

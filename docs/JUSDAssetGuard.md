@@ -17,6 +17,8 @@ The Ondo multisig is not an entry on the withdrawal whitelist. It is its own des
 
 `returnToMinting` only accepts assets `AegisMintingJUSD` lists as supported collateral, because minting has no way to release anything else. USDY is a reserve asset, not mint collateral, so while it is not listed there it cannot be returned: it goes back through the Ondo leg and returns as USDC. This matters because returns are never paused — the check, not the pause switch, is what keeps the reserve from being stranded in minting.
 
+The base whitelist cooldown, if configured at deployment, applies to venue withdrawals only; the Ondo multisig is not a whitelist entry and is not delayed by it.
+
 ## What the counter measures
 
 `ondoOutstanding` is the USD value, at 18 decimals, that the multisig is holding right now and has not returned. It is counterparty exposure to the mint/redeem round trip. `maxOndoOutstanding` caps it.

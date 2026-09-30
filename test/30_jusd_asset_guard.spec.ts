@@ -20,7 +20,7 @@ async function fixture() {
   await usdcFeed.updatePrice(100_000_000)  // $1.00
   await usdyFeed.updatePrice(109_000_000)  // $1.09
 
-  const guard: any = await ethers.deployContract('JUSDAssetGuard', [base.aegisMintingJUSDAddress, owner.address, 86400, [venue.address], ['Exchange']])
+  const guard: any = await ethers.deployContract('JUSDAssetGuard', [base.aegisMintingJUSDAddress, owner.address, 86400, [venue.address], ['Exchange'], 0])
   await minting.addCustodianAddress(guard.target)
   await minting.grantRole(COLLATERAL_MANAGER_ROLE, guard.target)
   await minting.addSupportedAsset(usdc.target, 86400)
@@ -197,7 +197,7 @@ describe('JUSDAssetGuard Ondo reserve leg', () => {
 
   it('starts with the Ondo leg closed', async () => {
     const f = await loadFixture(fixture)
-    const fresh: any = await ethers.deployContract('JUSDAssetGuard', [f.aegisMintingJUSDAddress, f.owner.address, 86400, [], []])
+    const fresh: any = await ethers.deployContract('JUSDAssetGuard', [f.aegisMintingJUSDAddress, f.owner.address, 86400, [], [], 0])
     await fresh.grantRole(COLLATERAL_MANAGER_ROLE, f.operator.address)
     await fresh.grantRole(WHITELIST_MANAGER_ROLE, f.gatekeeper.address)
     expect(await fresh.ondoMultisig()).eq(z)
@@ -212,6 +212,24 @@ describe('JUSDAssetGuard Ondo reserve leg', () => {
     await f.usdc.mint(fresh.target, u('1'))
     await expect(fresh.connect(f.operator).withdrawToOndo(f.usdc.target, u('1')))
       .revertedWithCustomError(fresh, 'OndoLimitExceeded').withArgs(usd('1'), 0)
+  })
+
+  it('applies the whitelist cooldown to venues, not to the separately governed Ondo multisig', async () => {
+    const f = await loadFixture(fixture)
+    const guard: any = await ethers.deployContract('JUSDAssetGuard', [f.aegisMintingJUSDAddress, f.owner.address, 86400, [f.venue.address], ['Exchange'], 3600])
+    await guard.grantRole(COLLATERAL_MANAGER_ROLE, f.operator.address)
+    await guard.grantRole(WHITELIST_MANAGER_ROLE, f.gatekeeper.address)
+    await guard.connect(f.gatekeeper).setOndoMultisig(f.ondo.address)
+    await guard.connect(f.gatekeeper).setPriceFeed(f.usdc.target, f.usdcFeed.target, 86400)
+    await guard.connect(f.gatekeeper).setOndoAsset(f.usdc.target, true)
+    await guard.connect(f.gatekeeper).setMaxOndoOutstanding(usd('1000'))
+    await f.usdc.mint(guard.target, u('1000'))
+
+    await expect(guard.connect(f.operator).withdraw(f.usdc.target, f.venue.address, u('1')))
+      .revertedWithCustomError(guard, 'DestinationInCooldown')
+    await guard.connect(f.operator).withdrawToOndo(f.usdc.target, u('1'))
+    await time.increase(3601)
+    await guard.connect(f.operator).withdraw(f.usdc.target, f.venue.address, u('1'))
   })
 
   it('refuses to return the USDY reserve to minting, which could never release it', async () => {

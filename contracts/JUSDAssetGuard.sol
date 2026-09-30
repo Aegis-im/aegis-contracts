@@ -119,6 +119,8 @@ contract JUSDAssetGuard is VaultAssetGuard {
      * @param _initialDelay   AccessControlDefaultAdminRules handover delay, in seconds
      * @param _destinations   Initial whitelist of addresses assets may be withdrawn to
      * @param _labels         Operator labels matching `_destinations`, one per entry
+     * @param _whitelistCooldown Seconds before a newly added destination can receive funds; zero
+     *                        disables it. Cannot be changed after deployment.
      *
      * @dev The Ondo leg starts closed: no multisig, no allowed assets and a zero cap. The whitelist
      *      manager opens it by setting the multisig, registering USDC/USDY with their feeds and
@@ -129,8 +131,9 @@ contract JUSDAssetGuard is VaultAssetGuard {
         address _admin,
         uint48 _initialDelay,
         address[] memory _destinations,
-        string[] memory _labels
-    ) VaultAssetGuard(_mintingAddress, _admin, _initialDelay, _destinations, _labels) {}
+        string[] memory _labels,
+        uint256 _whitelistCooldown
+    ) VaultAssetGuard(_mintingAddress, _admin, _initialDelay, _destinations, _labels, _whitelistCooldown) {}
 
     // ============================================
     // ONDO LEG

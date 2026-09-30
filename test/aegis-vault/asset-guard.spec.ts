@@ -30,7 +30,7 @@ async function fixture() {
 
   // The guard replaces the custody wallet: registered as a custodian address at
   // minting, and holding minting's collateral manager role so it can draw collateral itself.
-  const guard: any = await ethers.deployContract('VaultAssetGuard', [minting.target, admin.address, 86400, [venue.address], ['Trading venue']])
+  const guard: any = await ethers.deployContract('VaultAssetGuard', [minting.target, admin.address, 86400, [venue.address], ['Trading venue'], 0])
   await minting.addCustodianAddress(guard.target)
   await minting.grantRole(COLLATERAL_MANAGER, guard.target)
   await guard.grantRole(COLLATERAL_MANAGER, operator.address)
@@ -276,14 +276,78 @@ describe('VaultAssetGuard gated asset management', () => {
     expect(await f.guard.mintingAddress()).eq(replacement.target)
 
     // A deployment that has not been pointed at minting yet cannot move funds there.
-    const unbound: any = await ethers.deployContract('VaultAssetGuard', [z, f.admin.address, 86400, [], []])
+    const unbound: any = await ethers.deployContract('VaultAssetGuard', [z, f.admin.address, 86400, [], [], 0])
     await unbound.grantRole(COLLATERAL_MANAGER, f.operator.address)
     expect(await unbound.mintingAddress()).eq(z)
     await expect(unbound.connect(f.operator).returnToMinting(f.collateral.target, u('1'))).revertedWithCustomError(unbound, 'MintingNotConfigured')
     await expect(unbound.connect(f.operator).returnAllToMinting(f.collateral.target)).revertedWithCustomError(unbound, 'MintingNotConfigured')
     await expect(unbound.connect(f.operator).pullFromMinting(f.collateral.target, u('1'))).revertedWithCustomError(unbound, 'MintingNotConfigured')
     await expect(unbound.connect(f.operator).pullAllFromMinting(f.collateral.target)).revertedWithCustomError(unbound, 'MintingNotConfigured')
-    await expect(ethers.deployContract('VaultAssetGuard', [z, f.admin.address, 86400, [f.venue.address], []])).reverted
+    await expect(ethers.deployContract('VaultAssetGuard', [z, f.admin.address, 86400, [f.venue.address], [], 0])).reverted
+  })
+
+  it('holds a newly whitelisted destination in cooldown, but removes it immediately', async () => {
+    const f = await loadFixture(fixture)
+    const DAY = 86400
+    const guard: any = await ethers.deployContract('VaultAssetGuard', [f.minting.target, f.admin.address, 86400, [f.venue.address], ['Trading venue'], DAY])
+    await guard.grantRole(COLLATERAL_MANAGER, f.operator.address)
+    await guard.grantRole(WHITELIST_MANAGER, f.gatekeeper.address)
+    expect(await guard.whitelistCooldown()).eq(DAY)
+    await f.collateral.mint(guard.target, u('100'))
+    await f.admin.sendTransaction({ to: guard.target, value: e('1') })
+
+    // The constructor whitelist is subject to the cooldown too.
+    const activeAt = await guard.destinationActiveAt(f.venue.address)
+    const deployedAt = (await ethers.provider.getBlock(guard.deploymentTransaction().blockNumber))!.timestamp
+    expect(await guard.destinationAddedAt(f.venue.address)).eq(deployedAt)
+    expect(activeAt).eq(BigInt(deployedAt) + BigInt(DAY))
+    await expect(guard.connect(f.operator).withdraw(f.collateral.target, f.venue.address, u('1')))
+      .revertedWithCustomError(guard, 'DestinationInCooldown').withArgs(f.venue.address, activeAt)
+    await expect(guard.connect(f.operator).withdrawAll(f.collateral.target, f.venue.address))
+      .revertedWithCustomError(guard, 'DestinationInCooldown')
+    await expect(guard.connect(f.operator).withdrawBatch([f.collateral.target], [f.venue.address], [u('1')]))
+      .revertedWithCustomError(guard, 'DestinationInCooldown')
+    await expect(guard.connect(f.operator).withdrawNative(f.venue.address, 1))
+      .revertedWithCustomError(guard, 'DestinationInCooldown')
+
+    // Still locked at exactly addedAt + cooldown; open one second later.
+    await time.setNextBlockTimestamp(activeAt)
+    await expect(guard.connect(f.operator).withdraw(f.collateral.target, f.venue.address, u('1')))
+      .revertedWithCustomError(guard, 'DestinationInCooldown')
+    await time.setNextBlockTimestamp(activeAt + 1n)
+    await expect(guard.connect(f.operator).withdraw(f.collateral.target, f.venue.address, u('1')))
+      .emit(guard, 'Withdrawal').withArgs(f.collateral.target, f.venue.address, u('1'))
+    await guard.connect(f.operator).withdrawNative(f.venue.address, 1)
+
+    // A destination added later starts its own cooldown; the existing one is unaffected.
+    await guard.connect(f.gatekeeper).addDestination(f.stranger.address, 'Bank A')
+    await expect(guard.connect(f.operator).withdraw(f.collateral.target, f.stranger.address, u('1')))
+      .revertedWithCustomError(guard, 'DestinationInCooldown')
+    await guard.connect(f.operator).withdraw(f.collateral.target, f.venue.address, u('1'))
+
+    // Removal is immediate, and re-adding restarts the cooldown from scratch.
+    await guard.connect(f.gatekeeper).removeDestination(f.venue.address)
+    expect(await guard.destinationAddedAt(f.venue.address)).eq(0)
+    expect(await guard.destinationActiveAt(f.venue.address)).eq(0)
+    await expect(guard.connect(f.operator).withdraw(f.collateral.target, f.venue.address, u('1')))
+      .revertedWithCustomError(guard, 'NotWhitelistedDestination')
+    await guard.connect(f.gatekeeper).addDestination(f.venue.address, 'Trading venue')
+    await expect(guard.connect(f.operator).withdraw(f.collateral.target, f.venue.address, u('1')))
+      .revertedWithCustomError(guard, 'DestinationInCooldown')
+    await time.increase(DAY + 1)
+    await guard.connect(f.operator).withdraw(f.collateral.target, f.venue.address, u('1'))
+
+    // The cooldown gates pushes to destinations only; returns to minting are never delayed.
+    await expect(guard.connect(f.operator).returnToMinting(f.collateral.target, u('1')))
+      .emit(guard, 'ReturnedToMinting')
+  })
+
+  it('lets a new destination receive funds at once when the cooldown is zero', async () => {
+    const f = await loadFixture(fixture); await f.fund()
+    expect(await f.guard.whitelistCooldown()).eq(0)
+    await f.guard.connect(f.gatekeeper).addDestination(f.stranger.address, 'Bank A')
+    await expect(f.guard.connect(f.operator).withdraw(f.collateral.target, f.stranger.address, u('1')))
+      .emit(f.guard, 'Withdrawal').withArgs(f.collateral.target, f.stranger.address, u('1'))
   })
 
   it('recovers native currency through the same gate', async () => {
