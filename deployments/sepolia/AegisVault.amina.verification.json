@@ -1,0 +1,61 @@
+{
+  "checkedAt": "2026-09-29T04:58:14.581Z",
+  "chainId": 11155111,
+  "results": [
+    {
+      "key": "token",
+      "address": "0xfE0ccc9942E98C963Fe6b4e5194EB6e3Baa4cb64",
+      "etherscan": "verified"
+    },
+    {
+      "key": "config",
+      "address": "0x539e46827c37A3ef11c7cE521CC56B4d59E602e3",
+      "etherscan": "verified"
+    },
+    {
+      "key": "oracle",
+      "address": "0x37755eD2403936945D9a26b6CC34F1dae4aC6938",
+      "etherscan": "verified"
+    },
+    {
+      "key": "collateralOracle",
+      "address": "0xCFA67e9Da72af570e7f8344B7738D6BdF698BD20",
+      "etherscan": "verified"
+    },
+    {
+      "key": "minting",
+      "address": "0x0360D1d760d06C97e5c9E74d45D9d31c25aB4AeB",
+      "etherscan": "verified"
+    },
+    {
+      "key": "stakingImplementation",
+      "address": "0x7552d1B6463f76DdF6DFd919970753BD689b82a4",
+      "etherscan": "verified"
+    },
+    {
+      "key": "stakingProxy",
+      "address": "0x493B44344E17566076E55Bd8498D089C2129118E",
+      "etherscan": "verified"
+    },
+    {
+      "key": "stakingProxyAdmin",
+      "address": "0x2eD6cDF8F6CcC63674ED29ad175918a24dd0F62d",
+      "etherscan": "verified"
+    },
+    {
+      "key": "stakingSilo",
+      "address": "0x1Fe728b51112B0Fe201CBEdbB123FACdB56939c2",
+      "etherscan": "verified"
+    },
+    {
+      "key": "tokenOFTAdapter",
+      "address": "0xAF12b0Ae5A72D7b8A8eC675f3E76E2Db56143565",
+      "etherscan": "verified"
+    },
+    {
+      "key": "stakingOFTAdapter",
+      "address": "0xB02FC8fA9fB1cA333c2e8028Ba6Eb6C0B1cDB3Af",
+      "etherscan": "verified"
+    }
+  ]
+}

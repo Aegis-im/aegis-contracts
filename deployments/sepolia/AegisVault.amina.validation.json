@@ -1,0 +1,16 @@
+{
+  "checkedAt": "2026-09-29T04:59:03.827Z",
+  "chainId": 11155111,
+  "block": 11805462,
+  "results": [
+    "token: confirmed deployment and canonical bytecode",
+    "config: confirmed deployment and canonical bytecode",
+    "oracle: confirmed deployment and canonical bytecode",
+    "collateralOracle: confirmed deployment and canonical bytecode",
+    "minting: confirmed deployment and canonical bytecode",
+    "staking: confirmed deployment and canonical bytecode",
+    "tokenOFTAdapter: confirmed deployment and canonical bytecode",
+    "stakingOFTAdapter: confirmed deployment and canonical bytecode"
+  ],
+  "configuration": "token identities, roles, wiring, rewards state, prices, staking previews and OFT adapter asset bindings asserted"
+}
