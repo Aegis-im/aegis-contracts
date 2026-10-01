@@ -2,7 +2,7 @@
 
 `contracts/JUSDAssetGuard.sol` extends [`VaultAssetGuard`](AegisVault/README.md#custody-and-redemption) with a metered leg for the Ondo reserve program. JUSD holds part of its reserves as USDY on this contract; USDC is routed to a 2/4 multisig that mints USDY at Ondo and sends it back.
 
-It is registered as a custodian address in `AegisMintingJUSD` and replaces the custody wallet there, so it inherits the whole base gate: assets leave only to whitelisted destinations or back to minting, there is no arbitrary-destination rescue and no ERC-20 approval surface, and returning collateral to minting is never paused.
+It is registered as a custodian address in `AegisMintingJUSD` and replaces the custody wallet there, so it inherits the whole base gate: assets leave only to whitelisted destination/asset pairs or back to minting, there is no arbitrary-destination rescue and no ERC-20 approval surface, and returning collateral to minting is never paused.
 
 ## Three exits, one of them metered
 
@@ -17,7 +17,9 @@ The Ondo multisig is not an entry on the withdrawal whitelist. It is its own des
 
 `returnToMinting` only accepts assets `AegisMintingJUSD` lists as supported collateral, because minting has no way to release anything else. USDY is a reserve asset, not mint collateral, so while it is not listed there it cannot be returned: it goes back through the Ondo leg and returns as USDC. This matters because returns are never paused — the check, not the pause switch, is what keeps the reserve from being stranded in minting.
 
-The base whitelist cooldown, if configured at deployment, applies to venue withdrawals only; the Ondo multisig is not a whitelist entry and is not delayed by it.
+The base whitelist cooldown, if configured at deployment, applies to venue withdrawals only; the Ondo multisig is not a whitelist entry and is not delayed by it. For the same reason the multisig carries no per-destination asset list — what it may receive is governed by the Ondo asset registry instead. A venue, by contrast, needs USDY on its own list before any reserve can reach it.
+
+The multisig is also kept apart from a scheduled change of the redemption sink: it cannot be proposed as the new sink, and a pending sink cannot be made the multisig.
 
 ## What the counter measures
 
@@ -58,8 +60,8 @@ A feed cannot be unset while its asset is still registered on the Ondo leg, and 
 
 | Role | Powers |
 | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | Sets the redemption sink (`setMintingAddress`), administers roles. Expected to be a multisig; handover is delayed by `AccessControlDefaultAdminRules`. |
-| `WHITELIST_MANAGER_ROLE` | Every boundary: the destination whitelist, the pause switch, the Ondo multisig address, `maxOndoOutstanding`, the Ondo asset registry, price feeds, and counter reconciliation. |
+| `DEFAULT_ADMIN_ROLE` | Names the redemption sink, and replaces a live one through `beginMintingAddressChange` / `applyMintingAddressChange` on the deployment's cooldown. Administers roles. Expected to be a multisig; handover is delayed by `AccessControlDefaultAdminRules`. |
+| `WHITELIST_MANAGER_ROLE` | Every boundary: the destination whitelist and each destination's asset list, the pause switch, the Ondo multisig address, `maxOndoOutstanding`, the Ondo asset registry, price feeds, and counter reconciliation. |
 | `COLLATERAL_MANAGER_ROLE` | Moves assets inside those boundaries. Cannot raise a limit, reprice an asset, change the multisig, or whitelist a destination. |
 
 Price feeds sit with the limit-setting role on purpose: a price decides how much headroom a transfer consumes, so repricing an asset is the same power as moving the cap.
@@ -79,6 +81,8 @@ setOndoMultisig(multisig)         # refused if already whitelisted
 setMaxOndoOutstanding(cap)        # zero cap keeps the leg shut
 ```
 
+Venues are configured independently of the Ondo leg: each is added with the assets it may receive, and `setDestinationAssets` opens or closes single pairs later.
+
 Separately, `AegisMintingJUSD` must `addCustodianAddress(guard)` for collateral to reach it, and — only if the guard should draw collateral itself via `pullFromMinting` — grant it `COLLATERAL_MANAGER_ROLE`.
 
 Rotating the multisig requires a settled position (`ondoOutstanding == 0`), so outstanding value is never reattributed to a new holder.
@@ -89,6 +93,6 @@ Rotating the multisig requires a settled position (`ondoOutstanding == 0`), so o
 npx hardhat test test/30_jusd_asset_guard.spec.ts test/aegis-vault/asset-guard.spec.ts
 ```
 
-The Ondo suite covers the metered round trip with real decimals (USDC at 6, USDY at 18, both on 8-decimal feeds), cap enforcement, venue withdrawals leaving the counter alone, multisig/whitelist disjointness, oracle failure modes, role separation, over-settlement, reconciliation, pause behavior, the closed initial state, returns refused for assets minting does not support, and a real `AegisMintingJUSD` mint carried through custody and back as redemption liquidity.
+The Ondo suite covers the metered round trip with real decimals (USDC at 6, USDY at 18, both on 8-decimal feeds), cap enforcement, venue withdrawals leaving the counter alone, multisig/whitelist disjointness, oracle failure modes, role separation, over-settlement, reconciliation, pause behavior, the closed initial state, returns refused for assets minting does not support, per-destination asset gating against the Ondo registry, collisions between a scheduled sink change and the multisig, and a real `AegisMintingJUSD` mint carried through custody and back as redemption liquidity.
 
 Deployment and multisig wiring are not scripted yet; the sequence above is what a transaction bundle needs to encode.

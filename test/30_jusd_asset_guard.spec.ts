@@ -20,7 +20,7 @@ async function fixture() {
   await usdcFeed.updatePrice(100_000_000)  // $1.00
   await usdyFeed.updatePrice(109_000_000)  // $1.09
 
-  const guard: any = await ethers.deployContract('JUSDAssetGuard', [base.aegisMintingJUSDAddress, owner.address, 86400, [venue.address], ['Exchange'], 0])
+  const guard: any = await ethers.deployContract('JUSDAssetGuard', [base.aegisMintingJUSDAddress, owner.address, 86400, [venue.address], ['Exchange'], [[usdc.target]], 0, 0])
   await minting.addCustodianAddress(guard.target)
   await minting.grantRole(COLLATERAL_MANAGER_ROLE, guard.target)
   await minting.addSupportedAsset(usdc.target, 86400)
@@ -108,11 +108,11 @@ describe('JUSDAssetGuard Ondo reserve leg', () => {
     const f = await loadFixture(fixture)
     await expect(f.guard.connect(f.operator).withdraw(f.usdc.target, f.ondo.address, u('1')))
       .revertedWithCustomError(f.guard, 'NotWhitelistedDestination')
-    await expect(f.guard.connect(f.gatekeeper).addDestination(f.ondo.address, 'Ondo multisig'))
+    await expect(f.guard.connect(f.gatekeeper).addDestination(f.ondo.address, 'Ondo multisig', [f.usdc.target]))
       .revertedWithCustomError(f.guard, 'InvalidAddress')
     await expect(f.guard.connect(f.gatekeeper).setOndoMultisig(f.venue.address))
       .revertedWithCustomError(f.guard, 'InvalidAddress')
-    await expect(f.guard.setMintingAddress(f.ondo.address))
+    await expect(f.guard.beginMintingAddressChange(f.ondo.address))
       .revertedWithCustomError(f.guard, 'InvalidAddress')
     // Nor can an unregistered asset ride the Ondo leg.
     const other: any = await ethers.deployContract('TestToken', ['Other', 'OTH', 18])
@@ -197,7 +197,7 @@ describe('JUSDAssetGuard Ondo reserve leg', () => {
 
   it('starts with the Ondo leg closed', async () => {
     const f = await loadFixture(fixture)
-    const fresh: any = await ethers.deployContract('JUSDAssetGuard', [f.aegisMintingJUSDAddress, f.owner.address, 86400, [], [], 0])
+    const fresh: any = await ethers.deployContract('JUSDAssetGuard', [f.aegisMintingJUSDAddress, f.owner.address, 86400, [], [], [], 0, 0])
     await fresh.grantRole(COLLATERAL_MANAGER_ROLE, f.operator.address)
     await fresh.grantRole(WHITELIST_MANAGER_ROLE, f.gatekeeper.address)
     expect(await fresh.ondoMultisig()).eq(z)
@@ -216,7 +216,7 @@ describe('JUSDAssetGuard Ondo reserve leg', () => {
 
   it('applies the whitelist cooldown to venues, not to the separately governed Ondo multisig', async () => {
     const f = await loadFixture(fixture)
-    const guard: any = await ethers.deployContract('JUSDAssetGuard', [f.aegisMintingJUSDAddress, f.owner.address, 86400, [f.venue.address], ['Exchange'], 3600])
+    const guard: any = await ethers.deployContract('JUSDAssetGuard', [f.aegisMintingJUSDAddress, f.owner.address, 86400, [f.venue.address], ['Exchange'], [[f.usdc.target]], 3600, 0])
     await guard.grantRole(COLLATERAL_MANAGER_ROLE, f.operator.address)
     await guard.grantRole(WHITELIST_MANAGER_ROLE, f.gatekeeper.address)
     await guard.connect(f.gatekeeper).setOndoMultisig(f.ondo.address)
@@ -254,6 +254,35 @@ describe('JUSDAssetGuard Ondo reserve leg', () => {
     await expect(f.guard.connect(f.operator).returnToMinting(f.usdc.target, u('1000000')))
       .emit(f.guard, 'ReturnedToMinting').withArgs(f.usdc.target, f.aegisMintingJUSDAddress, u('1000000'))
     expect(await f.minting.untrackedAvailableAssetBalance(f.usdc.target)).eq(u('1000000'))
+  })
+
+  it('keeps a scheduled minting change and the Ondo multisig from colliding', async () => {
+    const f = await loadFixture(fixture)
+    const next: any = await ethers.deployContract('TestToken', ['Next Minting', 'NXT', 6])
+    await f.guard.beginMintingAddressChange(next.target)
+
+    // Neither end of the scheduled change can be turned into the metered destination...
+    await expect(f.guard.connect(f.gatekeeper).setOndoMultisig(next.target))
+      .revertedWithCustomError(f.guard, 'InvalidAddress')
+    // ...and the metered destination cannot be scheduled as the sink.
+    await f.guard.cancelMintingAddressChange()
+    await expect(f.guard.beginMintingAddressChange(f.ondo.address))
+      .revertedWithCustomError(f.guard, 'InvalidAddress')
+
+    // The multisig is not a whitelisted destination, so it carries no asset list of its own:
+    // what it may receive is governed by the Ondo asset registry instead.
+    expect(await f.guard.isDestination(f.ondo.address)).eq(false)
+    expect(await f.guard.destinationAssets(f.ondo.address)).deep.eq([])
+    await expect(f.guard.connect(f.operator).withdrawToOndo(f.usdc.target, u('1000')))
+      .emit(f.guard, 'OndoWithdrawal').withArgs(f.usdc.target, u('1000'), usd('1000'), usd('1000'))
+
+    // A venue, by contrast, needs USDY on its own list before any reserve can reach it.
+    await f.guard.connect(f.operator).pullFromOndo(f.usdy.target, e('1000'))
+    await expect(f.guard.connect(f.operator).withdraw(f.usdy.target, f.venue.address, e('1')))
+      .revertedWithCustomError(f.guard, 'AssetNotAllowedForDestination').withArgs(f.venue.address, f.usdy.target)
+    await f.guard.connect(f.gatekeeper).setDestinationAssets(f.venue.address, [f.usdy.target], true)
+    await f.guard.connect(f.operator).withdraw(f.usdy.target, f.venue.address, e('1'))
+    expect(await f.usdy.balanceOf(f.venue.address)).eq(e('1'))
   })
 
   it('carries real JUSD mint collateral through custody and back as redemption liquidity', async () => {

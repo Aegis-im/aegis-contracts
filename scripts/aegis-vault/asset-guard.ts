@@ -5,8 +5,9 @@ import { settings as c, loadRecord, saveRecord, checkNetwork, confirmed } from '
  * Deploys VaultAssetGuard and installs it in place of the custody wallet of an existing deployment.
  *
  * Optional configuration keys (defaults in brackets):
- *   guardDestinations     [{ address: c.custodian, label: 'Configured custody wallet' }]
- *                         Initial withdrawal whitelist.
+ *   guardDestinations     [{ address: c.custodian, label: 'Configured custody wallet', assets: [c.asset] }]
+ *                         Initial withdrawal whitelist. Each entry carries the assets that
+ *                         destination may receive; an entry with no assets can receive nothing.
  *   guardManager          [c.manager]  Holder of COLLATERAL_MANAGER_ROLE — moves assets.
  *   guardWhitelistManager [c.admin]    Holder of WHITELIST_MANAGER_ROLE — maintains the whitelist.
  *   guardDrawFromMinting  [true]       Grants the guard minting's COLLATERAL_MANAGER_ROLE so it
@@ -23,7 +24,9 @@ export async function attachAssetGuard(record: any) {
   const a = record.contracts
   if (!a.minting) throw new Error('Deploy the core first; the asset guard needs a minting address')
 
-  const wanted: { address: string, label: string }[] = c.guardDestinations ?? [{ address: c.custodian, label: 'Configured custody wallet' }]
+  const wanted: { address: string, label: string, assets?: string[] }[] =
+    c.guardDestinations ?? [{ address: c.custodian, label: 'Configured custody wallet', assets: [c.asset] }]
+  const assetsFor = (d: { assets?: string[] }) => d.assets ?? [c.asset]
   const manager = c.guardManager ?? c.manager
   const whitelistManager = c.guardWhitelistManager ?? c.admin
   const drawFromMinting = c.guardDrawFromMinting ?? true
@@ -33,7 +36,11 @@ export async function attachAssetGuard(record: any) {
     if (await ethers.provider.getCode(a.assetGuard.address) === '0x') throw new Error('Missing code: assetGuard')
     guard = await ethers.getContractAt('VaultAssetGuard', a.assetGuard.address)
   } else {
-    const args = [a.minting.address, c.admin, c.adminDelay, wanted.map(d => d.address), wanted.map(d => d.label), c.guardWhitelistCooldown ?? 0]
+    const args = [
+      a.minting.address, c.admin, c.adminDelay,
+      wanted.map(d => d.address), wanted.map(d => d.label), wanted.map(assetsFor),
+      c.guardWhitelistCooldown ?? 0, c.guardMintingChangeDelay ?? 0,
+    ]
     guard = await ethers.deployContract('VaultAssetGuard', args)
     await guard.waitForDeployment()
     a.assetGuard = { address: await guard.getAddress(), contract: 'VaultAssetGuard', args, transactionHash: guard.deploymentTransaction().hash }
@@ -46,7 +53,14 @@ export async function attachAssetGuard(record: any) {
 
   // Collateral reaches the guard only once minting recognizes it as a custodian address.
   if (!await minting.isSupportedAsset(c.asset)) throw new Error('Configured asset is not supported by minting')
-  if (await guard.mintingAddress() !== a.minting.address) await confirmed(await guard.setMintingAddress(a.minting.address))
+  // The constructor names the sink, so this only runs for a guard deployed without one. Replacing
+  // a live sink is a governance action with its own cooldown and is deliberately not scripted.
+  const sink = await guard.mintingAddress()
+  if (sink === ethers.ZeroAddress) {
+    await confirmed(await guard.setMintingAddress(a.minting.address))
+  } else if (sink !== a.minting.address) {
+    throw new Error(`Guard points at ${sink}; repoint it with beginMintingAddressChange/applyMintingAddressChange`)
+  }
   await setCustodianRegistration(minting, 'addCustodianAddress', String(guard.target))
   if (drawFromMinting && !await minting.hasRole(collateralManager, guard.target)) {
     await confirmed(await minting.grantRole(collateralManager, guard.target))
@@ -56,7 +70,14 @@ export async function attachAssetGuard(record: any) {
     if (!await guard.hasRole(role, holder)) await confirmed(await guard.grantRole(role, holder))
   }
   for (const destination of wanted) {
-    if (!await guard.isDestination(destination.address)) await confirmed(await guard.addDestination(destination.address, destination.label))
+    const assets = assetsFor(destination)
+    if (!await guard.isDestination(destination.address)) {
+      await confirmed(await guard.addDestination(destination.address, destination.label, assets))
+      continue
+    }
+    const missing: string[] = []
+    for (const asset of assets) if (!await guard.isDestinationAsset(destination.address, asset)) missing.push(asset)
+    if (missing.length > 0) await confirmed(await guard.setDestinationAssets(destination.address, missing, true))
   }
 
   // Retiring the old wallet is a governance decision; it is never implied by installing the guard.

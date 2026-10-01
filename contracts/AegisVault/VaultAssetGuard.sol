@@ -63,8 +63,21 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
     // STATE VARIABLES
     // ============================================
 
+    /// @notice Sentinel standing for native currency in a destination's asset list
+    address public constant NATIVE_ASSET = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
     /// @notice VaultMinting contract — the sink for collateral funding redeem requests
     address public mintingAddress;
+
+    /// @notice Seconds between proposing a new minting address and being able to apply it.
+    ///         Fixed at deployment; zero still requires two separate admin transactions.
+    uint256 public immutable mintingChangeDelay;
+
+    /// @notice Minting address awaiting its cooldown; zero when no change is pending
+    address public pendingMintingAddress;
+
+    /// @notice First timestamp at which the pending minting change may be applied
+    uint256 public mintingChangeActiveAt;
 
     /// @notice Seconds a newly whitelisted destination must wait before it can receive funds.
     ///         Fixed at deployment; zero disables the cooldown.
@@ -81,6 +94,10 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
 
     /// @dev Addresses this contract is allowed to withdraw to
     EnumerableSet.AddressSet private _destinations;
+
+    /// @dev Assets each destination is allowed to receive. A destination with an empty list can
+    ///      receive nothing: permission is per pair, never implied by the whitelist alone.
+    mapping(address => EnumerableSet.AddressSet) private _destinationAssets;
 
     // ============================================
     // EVENTS
@@ -107,8 +124,17 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
     /// @dev Emitted when a destination is removed from the whitelist
     event DestinationRemoved(address indexed destination);
 
+    /// @dev Emitted when an asset is allowed on / removed from a destination
+    event DestinationAssetChanged(address indexed destination, address indexed asset, bool allowed);
+
     /// @dev Emitted when the minting contract address is changed
     event MintingAddressChanged(address indexed minting);
+
+    /// @dev Emitted when a minting address change is proposed and starts its cooldown
+    event MintingAddressChangeStarted(address indexed minting, uint256 activeAt);
+
+    /// @dev Emitted when a pending minting address change is abandoned
+    event MintingAddressChangeCancelled(address indexed minting);
 
     /// @dev Emitted when the pause state is changed
     event PausedChanged(bool paused);
@@ -125,7 +151,11 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
     error DestinationInCooldown(address destination, uint256 activeAt);
     error AlreadyWhitelisted(address destination);
     error MintingNotConfigured();
+    error MintingAlreadySet(address minting);
+    error NoPendingMintingChange();
+    error MintingChangeInCooldown(address minting, uint256 activeAt);
     error NotSupportedAsset(address asset);
+    error AssetNotAllowedForDestination(address destination, address asset);
     error Paused();
     error NativeTransferFailed();
 
@@ -139,8 +169,12 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
      * @param _initialDelay   AccessControlDefaultAdminRules handover delay, in seconds
      * @param _destinations_  Initial whitelist of addresses assets may be withdrawn to
      * @param _labels         Operator labels matching `_destinations_`, one per entry
+     * @param _assets         Assets each initial destination may receive, one list per entry.
+     *                        An empty list means that destination can receive nothing yet.
      * @param _whitelistCooldown Seconds before a newly added destination can receive funds; zero
      *                        disables it. Applies to the initial whitelist too. Cannot be changed.
+     * @param _mintingChangeDelay Seconds between proposing and applying a new minting address.
+     *                        Cannot be changed.
      */
     constructor(
         address _mintingAddress,
@@ -148,14 +182,19 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
         uint48 _initialDelay,
         address[] memory _destinations_,
         string[] memory _labels,
-        uint256 _whitelistCooldown
+        address[][] memory _assets,
+        uint256 _whitelistCooldown,
+        uint256 _mintingChangeDelay
     ) AccessControlDefaultAdminRules(_initialDelay, _admin) {
-        if (_destinations_.length != _labels.length) revert InvalidArrayLength();
+        if (_destinations_.length != _labels.length || _destinations_.length != _assets.length) {
+            revert InvalidArrayLength();
+        }
         whitelistCooldown = _whitelistCooldown;
+        mintingChangeDelay = _mintingChangeDelay;
         if (_mintingAddress != address(0)) _setMintingAddress(_mintingAddress);
 
         for (uint256 i = 0; i < _destinations_.length; i++) {
-            _addDestination(_destinations_[i], _labels[i]);
+            _addDestination(_destinations_[i], _labels[i], _assets[i]);
         }
     }
 
@@ -223,6 +262,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
         uint256 amount
     ) external nonReentrant onlyRole(COLLATERAL_MANAGER_ROLE) whenNotPaused {
         _checkDestination(to);
+        if (!_destinationAssets[to].contains(NATIVE_ASSET)) revert AssetNotAllowedForDestination(to, NATIVE_ASSET);
         if (amount == 0 || amount > address(this).balance) revert InvalidAmount();
 
         Address.sendValue(payable(to), amount);
@@ -287,20 +327,49 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
     // WHITELIST MANAGEMENT
     // ============================================
 
-    /// @notice Adds a destination assets may be withdrawn to
-    function addDestination(address destination, string calldata label) external onlyRole(WHITELIST_MANAGER_ROLE) {
-        _addDestination(destination, label);
+    /**
+     * @notice Adds a destination, together with the assets it is allowed to receive
+     * @param destination Address assets may be withdrawn to
+     * @param label       Operator label ("Copper omnibus", "Bank A")
+     * @param assets      Assets this destination may receive; `NATIVE_ASSET` permits native currency
+     */
+    function addDestination(
+        address destination,
+        string calldata label,
+        address[] calldata assets
+    ) external onlyRole(WHITELIST_MANAGER_ROLE) {
+        _addDestination(destination, label, assets);
     }
 
-    /// @notice Adds several destinations in one call
+    /// @notice Adds several destinations in one call, each with its own asset list
     function addDestinations(
         address[] calldata destinations_,
-        string[] calldata labels
+        string[] calldata labels,
+        address[][] calldata assets
     ) external onlyRole(WHITELIST_MANAGER_ROLE) {
-        if (destinations_.length == 0 || destinations_.length != labels.length) revert InvalidArrayLength();
+        if (destinations_.length == 0 || destinations_.length != labels.length || destinations_.length != assets.length) {
+            revert InvalidArrayLength();
+        }
 
         for (uint256 i = 0; i < destinations_.length; i++) {
-            _addDestination(destinations_[i], labels[i]);
+            _addDestination(destinations_[i], labels[i], assets[i]);
+        }
+    }
+
+    /**
+     * @notice Allows or removes assets on an existing destination
+     * @dev Removing an asset closes that pair immediately; the destination keeps its other assets.
+     */
+    function setDestinationAssets(
+        address destination,
+        address[] calldata assets,
+        bool allowed
+    ) external onlyRole(WHITELIST_MANAGER_ROLE) {
+        if (!_destinations.contains(destination)) revert NotWhitelistedDestination(destination);
+        if (assets.length == 0) revert InvalidArrayLength();
+
+        for (uint256 i = 0; i < assets.length; i++) {
+            _setDestinationAsset(destination, assets[i], allowed);
         }
     }
 
@@ -309,6 +378,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
         if (!_destinations.remove(destination)) revert NotWhitelistedDestination(destination);
         delete destinationLabel[destination];
         delete destinationAddedAt[destination];
+        _clearDestinationAssets(destination);
 
         emit DestinationRemoved(destination);
     }
@@ -321,6 +391,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
             if (!_destinations.remove(destinations_[i])) revert NotWhitelistedDestination(destinations_[i]);
             delete destinationLabel[destinations_[i]];
             delete destinationAddedAt[destinations_[i]];
+            _clearDestinationAssets(destinations_[i]);
 
             emit DestinationRemoved(destinations_[i]);
         }
@@ -337,12 +408,56 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
     // ============================================
 
     /**
-     * @notice Sets the minting contract that returned collateral is sent to
-     * @dev Must be a contract. This is the address redeem requests are paid from, so it is
-     *      restricted to DEFAULT_ADMIN_ROLE rather than an operational role.
+     * @notice Names the minting contract for the first time
+     * @dev Only while none is set — there is no sink to protect yet. Replacing a live one goes
+     *      through the cooldown below.
      */
     function setMintingAddress(address _mintingAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (mintingAddress != address(0)) revert MintingAlreadySet(mintingAddress);
         _setMintingAddress(_mintingAddress);
+    }
+
+    /**
+     * @notice Proposes a new minting contract and starts its cooldown
+     * @dev The redemption sink is where every returned asset ends up, so swapping it is the most
+     *      consequential change this contract allows. The delay gives anyone watching the chain
+     *      time to react before collateral can be routed somewhere new. Validated now and again
+     *      on apply, since the whitelist may move in between.
+     */
+    function beginMintingAddressChange(address newMinting) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (mintingAddress == address(0)) revert MintingNotConfigured();
+        _validateMintingAddress(newMinting);
+
+        uint256 activeAt = block.timestamp + mintingChangeDelay;
+        pendingMintingAddress = newMinting;
+        mintingChangeActiveAt = activeAt;
+
+        emit MintingAddressChangeStarted(newMinting, activeAt);
+    }
+
+    /// @notice Applies a proposed minting contract once its cooldown has elapsed
+    function applyMintingAddressChange() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address pending = pendingMintingAddress;
+        if (pending == address(0)) revert NoPendingMintingChange();
+
+        uint256 activeAt = mintingChangeActiveAt;
+        if (block.timestamp < activeAt) revert MintingChangeInCooldown(pending, activeAt);
+
+        delete pendingMintingAddress;
+        delete mintingChangeActiveAt;
+
+        _setMintingAddress(pending);
+    }
+
+    /// @notice Abandons a proposed minting contract
+    function cancelMintingAddressChange() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        address pending = pendingMintingAddress;
+        if (pending == address(0)) revert NoPendingMintingChange();
+
+        delete pendingMintingAddress;
+        delete mintingChangeActiveAt;
+
+        emit MintingAddressChangeCancelled(pending);
     }
 
     // ============================================
@@ -360,6 +475,16 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
     function destinationActiveAt(address destination) public view returns (uint256) {
         if (!_destinations.contains(destination)) return 0;
         return destinationAddedAt[destination] + whitelistCooldown;
+    }
+
+    /// @notice Whether `destination` is allowed to receive `asset`
+    function isDestinationAsset(address destination, address asset) public view returns (bool) {
+        return _destinationAssets[destination].contains(asset);
+    }
+
+    /// @notice Every asset `destination` is allowed to receive
+    function destinationAssets(address destination) external view returns (address[] memory) {
+        return _destinationAssets[destination].values();
     }
 
     /// @notice Number of whitelisted destinations
@@ -389,6 +514,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
 
     function _withdraw(address asset, address to, uint256 amount) internal {
         _checkDestination(to);
+        if (!_destinationAssets[to].contains(asset)) revert AssetNotAllowedForDestination(to, asset);
         if (amount == 0) revert InvalidAmount();
 
         IERC20(asset).safeTransfer(to, amount);
@@ -420,23 +546,53 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
         emit ReturnedToMinting(asset, minting, amount);
     }
 
-    function _addDestination(address destination, string memory label) internal virtual {
+    function _addDestination(address destination, string memory label, address[] memory assets) internal virtual {
         if (destination == address(0)) revert ZeroAddress();
         // The two exit routes stay disjoint: minting is reached through returnToMinting, never
-        // through withdraw, so every movement is unambiguous in the event log.
-        if (destination == address(this) || destination == mintingAddress) revert InvalidAddress();
+        // through withdraw, so every movement is unambiguous in the event log. A pending minting
+        // address is held to the same rule, so a scheduled change cannot be blocked by whitelisting.
+        if (destination == address(this) || destination == mintingAddress || destination == pendingMintingAddress) {
+            revert InvalidAddress();
+        }
         if (!_destinations.add(destination)) revert AlreadyWhitelisted(destination);
 
         destinationLabel[destination] = label;
         destinationAddedAt[destination] = block.timestamp;
 
         emit DestinationAdded(destination, label);
+
+        for (uint256 i = 0; i < assets.length; i++) {
+            _setDestinationAsset(destination, assets[i], true);
+        }
     }
 
-    function _setMintingAddress(address _mintingAddress) internal virtual {
+    function _setDestinationAsset(address destination, address asset, bool allowed) private {
+        if (asset == address(0)) revert ZeroAddress();
+
+        bool changed = allowed ? _destinationAssets[destination].add(asset) : _destinationAssets[destination].remove(asset);
+        if (changed) emit DestinationAssetChanged(destination, asset, allowed);
+    }
+
+    /// @dev Swap-and-pop from the tail, so clearing costs one slot refund per asset. Asset lists
+    ///      are curated per destination and expected to be short.
+    function _clearDestinationAssets(address destination) private {
+        EnumerableSet.AddressSet storage assets = _destinationAssets[destination];
+        for (uint256 length = assets.length(); length > 0; length--) {
+            address asset = assets.at(length - 1);
+            assets.remove(asset);
+            emit DestinationAssetChanged(destination, asset, false);
+        }
+    }
+
+    /// @dev Checks a candidate redemption sink. Children extend this to add their own exclusions.
+    function _validateMintingAddress(address _mintingAddress) internal view virtual {
         if (_mintingAddress == address(0)) revert ZeroAddress();
         if (_mintingAddress == address(this) || _mintingAddress.code.length == 0) revert InvalidAddress();
         if (_destinations.contains(_mintingAddress)) revert InvalidAddress();
+    }
+
+    function _setMintingAddress(address _mintingAddress) internal {
+        _validateMintingAddress(_mintingAddress);
 
         mintingAddress = _mintingAddress;
 

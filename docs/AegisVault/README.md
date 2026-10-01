@@ -24,7 +24,7 @@ Recovery requires the same browser storage and wallet. Clearing storage or movin
 | `VaultToken` | Configurable name, symbol and permit domain; owner-managed minter and blacklist. 18 decimals, matching minting and OFT accounting. |
 | `VaultConfig` | Independent trusted signer, whitelist switch and operators per deployment. |
 | `VaultMinting` | Signed mint/redeem orders, configurable asset feeds, fees, limits, custodian allowlist, collateral withdrawals, funded redeem approvals, optional rewards and mint/burn bridge operator. |
-| `VaultAssetGuard` | Optional on-chain replacement for a custody wallet. Withdrawals only to whitelisted destinations, returns to minting as redemption liquidity, separate asset-moving and whitelist-managing roles, no arbitrary-destination escape hatch. |
+| `VaultAssetGuard` | Optional on-chain replacement for a custody wallet. Withdrawals only to whitelisted destination/asset pairs, returns to minting as redemption liquidity, separate asset-moving and whitelist-managing roles, cooldowns on new destinations and on changing the redemption sink, no arbitrary-destination escape hatch. |
 | `VaultStaking` + `VaultStakingSilo` | ERC-4626 staking, configurable share identity, cooldown and instant exit fee. Transparent proxy; implementation initialization disabled. |
 | `VaultChainlinkOracleV3` | Operator-maintained AggregatorV3-compatible rounds with configured description and decimals. This is not a decentralized Chainlink data feed. |
 | `VaultRewards` | Optional signed reward snapshots; unfinalized income can fund staking, finalized snapshots can be claimed. |
@@ -53,11 +53,15 @@ The separate `cooldownAssets` / `cooldownShares` flow burns shares, fixes the un
 
 New mint collateral is accounted as custody-transferrable. Authorized collateral managers can call `transferToCustody` / `forceTransferToCustody`, respecting frozen funds and the custodian allowlist. Returning collateral via ERC-20 transfer makes it untracked liquidity available for redemptions. A token balance at minting is not necessarily redemption liquidity; use `untrackedAvailableAssetBalance`.
 
-`VaultAssetGuard` can take the place of the custody wallet itself. It is registered through `addCustodianAddress` like any other custodian, but it is a contract with a gate. Assets leave it in exactly two directions: `withdraw` sends to an address on its withdrawal whitelist (venues, banks, RWA providers, sub-custodians), and `returnToMinting` sends to the configured minting contract, where the collateral becomes the untracked liquidity that funds redeem requests. Only assets minting supports can be returned: minting has no way to release anything else, so an unsupported token is refused rather than stranded there. `setMintingAddress` names that redemption sink and is restricted to `DEFAULT_ADMIN_ROLE`; it must be a contract.
+`VaultAssetGuard` can take the place of the custody wallet itself. It is registered through `addCustodianAddress` like any other custodian, but it is a contract with a gate. Assets leave it in exactly two directions: `withdraw` sends to an address on its withdrawal whitelist (venues, banks, RWA providers, sub-custodians), and `returnToMinting` sends to the configured minting contract, where the collateral becomes the untracked liquidity that funds redeem requests. Only assets minting supports can be returned: minting has no way to release anything else, so an unsupported token is refused rather than stranded there. `setMintingAddress` names that redemption sink and is restricted to `DEFAULT_ADMIN_ROLE`; it must be a contract, and it only works while no sink is set.
 
-Duties are split. `COLLATERAL_MANAGER_ROLE` moves assets and holds no authority over where they may go. `WHITELIST_MANAGER_ROLE` maintains the destination whitelist — each entry carrying an operator label — and the pause switch. Pausing stops outbound movement and draws from minting; returning collateral to minting is never paused, so redeem requests stay fundable during an incident. `DEFAULT_ADMIN_ROLE` administers roles and the redemption sink.
+Whitelisting an address is not permission to send it anything. Each destination carries its own list of assets it may receive, so an exchange cleared for USDC cannot be handed USDY by mistake or by a compromised operator key. `addDestination` takes that list alongside the label, `setDestinationAssets` amends a live one, and `destinationAssets` reports it. A destination with an empty list can receive nothing. Native currency needs its own entry under the `NATIVE_ASSET` sentinel. Removing a destination clears its pairs, so re-adding one never resurrects old permissions.
+
+Duties are split. `COLLATERAL_MANAGER_ROLE` moves assets and holds no authority over where they may go. `WHITELIST_MANAGER_ROLE` maintains the destination whitelist — each entry carrying an operator label and its own asset list — and the pause switch. Pausing stops outbound movement and draws from minting; returning collateral to minting is never paused, so redeem requests stay fundable during an incident. `DEFAULT_ADMIN_ROLE` administers roles and the redemption sink.
 
 The whitelist is the only security boundary the contract has, so there is deliberately no arbitrary-destination rescue function and no ERC-20 approval surface. A compromised asset-moving key can shuffle funds between addresses the whitelist manager already approved, and nowhere else. Recovering a stray token means whitelisting its recipient first, which leaves an on-chain record. Native currency that reaches the contract leaves through the same gate via `withdrawNative`.
+
+Replacing a live redemption sink runs on a cooldown of its own, also fixed at deployment. `beginMintingAddressChange` proposes a new one and starts the clock, `applyMintingAddressChange` commits it once `mintingChangeActiveAt` passes, and `cancelMintingAddressChange` abandons it. Every returned asset ends up at that address, so swapping it is the most consequential change the contract allows; the delay gives anyone watching the chain time to react before collateral can be routed somewhere new. The candidate is validated when proposed and again when applied, and it cannot be whitelisted while pending, so a scheduled change cannot be invalidated from under it. A delay of zero still requires two separate admin transactions.
 
 An optional whitelist cooldown, fixed at deployment, makes every newly added destination (including the initial whitelist) wait that many seconds before it can receive funds; `destinationActiveAt` reports when it opens. A compromised whitelist manager then cannot add a destination and have it used in the same breath, leaving time to notice the `DestinationAdded` event and react. Removal takes effect immediately, and re-adding a destination restarts its cooldown. Zero disables it. The cooldown gates `withdraw*` only: returns to minting are never delayed.
 
@@ -89,17 +93,18 @@ VAULT_GAS_PRICE_WEI=auto npx hardhat run scripts/aegis-vault/rewards.ts --networ
 VAULT_GAS_PRICE_WEI=auto npx hardhat run scripts/aegis-vault/asset-guard.ts --network sepolia
 ```
 
-`asset-guard.ts` deploys `VaultAssetGuard`, points it at minting, registers it as a custodian address, grants the configured operational roles and whitelists the configured destinations. Re-running it is a no-op. Its configuration keys are optional, with these defaults:
+`asset-guard.ts` deploys `VaultAssetGuard`, points it at minting, registers it as a custodian address, grants the configured operational roles and whitelists the configured destinations with their asset lists. Re-running it is a no-op; it adds any newly configured destination assets and refuses to touch a guard already pointed at a different sink, since repointing one is a governance action with its own cooldown. Its configuration keys are optional, with these defaults:
 
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `assetGuard` | absent | Deploy the guard as part of `deploy.ts` rather than later. |
-| `guardDestinations` | the configured `custodian` wallet | Initial withdrawal whitelist, as `{ "address", "label" }` entries. |
+| `guardDestinations` | the configured `custodian` wallet, allowed the configured `asset` | Initial withdrawal whitelist, as `{ "address", "label", "assets" }` entries. An entry with no `assets` defaults to the configured collateral asset. |
 | `guardManager` | `manager` | Holder of `COLLATERAL_MANAGER_ROLE` — moves assets. |
 | `guardWhitelistManager` | `admin` | Holder of `WHITELIST_MANAGER_ROLE` — maintains the whitelist and pause. |
 | `guardDrawFromMinting` | `true` | Grant the guard minting's `COLLATERAL_MANAGER_ROLE` so it can draw collateral itself. |
 | `guardRetireWallet` | `false` | Remove the previously configured custody wallet from minting's custodian list. |
 | `guardWhitelistCooldown` | `0` | Seconds a newly whitelisted destination waits before it can receive funds. Fixed at deployment; `0` disables it. |
+| `guardMintingChangeDelay` | `0` | Seconds between proposing and applying a new redemption sink. Fixed at deployment; `0` still requires two transactions. |
 
 Retiring the old wallet is a separate governance decision, so it is never implied by installing the guard. Until it is retired, both the wallet and the guard can receive collateral.
 

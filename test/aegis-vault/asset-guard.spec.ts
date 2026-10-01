@@ -30,7 +30,8 @@ async function fixture() {
 
   // The guard replaces the custody wallet: registered as a custodian address at
   // minting, and holding minting's collateral manager role so it can draw collateral itself.
-  const guard: any = await ethers.deployContract('VaultAssetGuard', [minting.target, admin.address, 86400, [venue.address], ['Trading venue'], 0])
+  const NATIVE = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
+  const guard: any = await ethers.deployContract('VaultAssetGuard', [minting.target, admin.address, 86400, [venue.address], ['Trading venue'], [[collateral.target, NATIVE]], 0, 0])
   await minting.addCustodianAddress(guard.target)
   await minting.grantRole(COLLATERAL_MANAGER, guard.target)
   await guard.grantRole(COLLATERAL_MANAGER, operator.address)
@@ -47,7 +48,7 @@ async function fixture() {
   async function mint(units = '100') { await minting.connect(investor).mint(...await order(0, units)) }
   // Puts `units` of collateral inside the guard, the way a live deployment would.
   async function fund(units = '100') { await mint(units); await guard.connect(operator).pullFromMinting(collateral.target, u(units)) }
-  return { admin, investor, operator, gatekeeper, venue, stranger, insurance, collateral, token, minting, guard, order, mint, fund }
+  return { admin, investor, operator, gatekeeper, venue, stranger, insurance, collateral, token, minting, guard, order, mint, fund, NATIVE }
 }
 
 describe('VaultAssetGuard gated asset management', () => {
@@ -108,31 +109,34 @@ describe('VaultAssetGuard gated asset management', () => {
       .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount').withArgs(f.gatekeeper.address, COLLATERAL_MANAGER)
     await expect(f.guard.connect(f.gatekeeper).returnToMinting(f.collateral.target, u('1')))
       .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount')
-    await expect(f.guard.connect(f.operator).addDestination(f.stranger.address, 'Unapproved'))
+    await expect(f.guard.connect(f.operator).addDestination(f.stranger.address, 'Unapproved', [f.collateral.target]))
       .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount').withArgs(f.operator.address, WHITELIST_MANAGER)
     await expect(f.guard.connect(f.operator).setPaused(true))
       .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount')
     await expect(f.guard.connect(f.stranger).withdraw(f.collateral.target, f.venue.address, u('1')))
       .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount')
     // Neither operational role can repoint the redemption sink.
-    await expect(f.guard.connect(f.gatekeeper).setMintingAddress(f.minting.target))
+    await expect(f.guard.connect(f.gatekeeper).beginMintingAddressChange(f.minting.target))
+      .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount')
+    await expect(f.guard.connect(f.gatekeeper).applyMintingAddressChange())
       .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount')
   })
 
   it('maintains the whitelist with labels and enumeration', async () => {
     const f = await loadFixture(fixture)
-    await expect(f.guard.connect(f.gatekeeper).addDestination(f.stranger.address, 'Bank A'))
+    await expect(f.guard.connect(f.gatekeeper).addDestination(f.stranger.address, 'Bank A', [f.collateral.target]))
       .emit(f.guard, 'DestinationAdded').withArgs(f.stranger.address, 'Bank A')
-    await expect(f.guard.connect(f.gatekeeper).addDestination(f.stranger.address, 'Bank A again'))
+      .and.emit(f.guard, 'DestinationAssetChanged').withArgs(f.stranger.address, f.collateral.target, true)
+    await expect(f.guard.connect(f.gatekeeper).addDestination(f.stranger.address, 'Bank A again', []))
       .revertedWithCustomError(f.guard, 'AlreadyWhitelisted').withArgs(f.stranger.address)
-    await expect(f.guard.connect(f.gatekeeper).addDestination(z, 'Zero')).revertedWithCustomError(f.guard, 'ZeroAddress')
-    await expect(f.guard.connect(f.gatekeeper).addDestination(f.guard.target, 'Self')).revertedWithCustomError(f.guard, 'InvalidAddress')
-    await expect(f.guard.connect(f.gatekeeper).addDestinations([f.insurance.address], [])).revertedWithCustomError(f.guard, 'InvalidArrayLength')
+    await expect(f.guard.connect(f.gatekeeper).addDestination(z, 'Zero', [])).revertedWithCustomError(f.guard, 'ZeroAddress')
+    await expect(f.guard.connect(f.gatekeeper).addDestination(f.guard.target, 'Self', [])).revertedWithCustomError(f.guard, 'InvalidAddress')
+    await expect(f.guard.connect(f.gatekeeper).addDestinations([f.insurance.address], [], [[]])).revertedWithCustomError(f.guard, 'InvalidArrayLength')
     // The two exit routes never overlap, in either direction.
-    await expect(f.guard.connect(f.gatekeeper).addDestination(f.minting.target, 'Minting')).revertedWithCustomError(f.guard, 'InvalidAddress')
+    await expect(f.guard.connect(f.gatekeeper).addDestination(f.minting.target, 'Minting', [])).revertedWithCustomError(f.guard, 'InvalidAddress')
     const other: any = await ethers.deployContract('TestToken', ['Other', 'OTH', 6])
-    await f.guard.connect(f.gatekeeper).addDestination(other.target, 'Elsewhere')
-    await expect(f.guard.setMintingAddress(other.target)).revertedWithCustomError(f.guard, 'InvalidAddress')
+    await f.guard.connect(f.gatekeeper).addDestination(other.target, 'Elsewhere', [])
+    await expect(f.guard.beginMintingAddressChange(other.target)).revertedWithCustomError(f.guard, 'InvalidAddress')
     await f.guard.connect(f.gatekeeper).removeDestination(other.target)
 
     expect(await f.guard.destinationCount()).eq(2)
@@ -140,7 +144,7 @@ describe('VaultAssetGuard gated asset management', () => {
     expect(await f.guard.destinationAt(0)).deep.eq([f.venue.address, 'Trading venue'])
     expect(await f.guard.isDestination(f.insurance.address)).eq(false)
 
-    await f.guard.connect(f.gatekeeper).addDestinations([f.insurance.address, f.admin.address], ['Insurance', 'Treasury'])
+    await f.guard.connect(f.gatekeeper).addDestinations([f.insurance.address, f.admin.address], ['Insurance', 'Treasury'], [[], []])
     await f.guard.connect(f.gatekeeper).removeDestinations([f.insurance.address, f.admin.address])
     expect(await f.guard.destinationCount()).eq(2)
   })
@@ -165,7 +169,8 @@ describe('VaultAssetGuard gated asset management', () => {
     const f = await loadFixture(fixture); await f.fund('200')
     const other: any = await ethers.deployContract('TestToken', ['Other', 'OTH', 18])
     await other.mint(f.guard.target, e('5'))
-    await f.guard.connect(f.gatekeeper).addDestination(f.stranger.address, 'Bank A')
+    await f.guard.connect(f.gatekeeper).addDestination(f.stranger.address, 'Bank A', [f.collateral.target])
+    await f.guard.connect(f.gatekeeper).setDestinationAssets(f.venue.address, [other.target], true)
     await f.guard.connect(f.operator).withdrawBatch(
       [f.collateral.target, f.collateral.target, other.target],
       [f.venue.address, f.stranger.address, f.venue.address],
@@ -237,7 +242,8 @@ describe('VaultAssetGuard gated asset management', () => {
       .revertedWithCustomError(f.guard, 'NotSupportedAsset').withArgs(other.target)
 
     // A sink that is not a minting contract cannot vouch for any asset, so it receives nothing.
-    await f.guard.setMintingAddress(other.target)
+    await f.guard.beginMintingAddressChange(other.target)
+    await f.guard.applyMintingAddressChange()
     await expect(f.guard.connect(f.operator).returnToMinting(f.collateral.target, u('1'))).reverted
     expect(await f.collateral.balanceOf(other.target)).eq(0)
   })
@@ -267,29 +273,34 @@ describe('VaultAssetGuard gated asset management', () => {
 
   it('restricts the redemption sink to a contract set by the admin', async () => {
     const f = await loadFixture(fixture)
-    await expect(f.guard.setMintingAddress(z)).revertedWithCustomError(f.guard, 'ZeroAddress')
-    await expect(f.guard.setMintingAddress(f.stranger.address)).revertedWithCustomError(f.guard, 'InvalidAddress')
-    await expect(f.guard.setMintingAddress(f.guard.target)).revertedWithCustomError(f.guard, 'InvalidAddress')
+    await expect(f.guard.beginMintingAddressChange(z)).revertedWithCustomError(f.guard, 'ZeroAddress')
+    await expect(f.guard.beginMintingAddressChange(f.stranger.address)).revertedWithCustomError(f.guard, 'InvalidAddress')
+    await expect(f.guard.beginMintingAddressChange(f.guard.target)).revertedWithCustomError(f.guard, 'InvalidAddress')
     const replacement: any = await ethers.deployContract('TestToken', ['Next Minting', 'NXT', 6])
-    await expect(f.guard.setMintingAddress(replacement.target))
+    await f.guard.beginMintingAddressChange(replacement.target)
+    await expect(f.guard.applyMintingAddressChange())
       .emit(f.guard, 'MintingAddressChanged').withArgs(replacement.target)
     expect(await f.guard.mintingAddress()).eq(replacement.target)
+    // The immediate setter is reserved for a sink that was never named.
+    await expect(f.guard.setMintingAddress(replacement.target))
+      .revertedWithCustomError(f.guard, 'MintingAlreadySet').withArgs(replacement.target)
 
     // A deployment that has not been pointed at minting yet cannot move funds there.
-    const unbound: any = await ethers.deployContract('VaultAssetGuard', [z, f.admin.address, 86400, [], [], 0])
+    const unbound: any = await ethers.deployContract('VaultAssetGuard', [z, f.admin.address, 86400, [], [], [], 0, 0])
     await unbound.grantRole(COLLATERAL_MANAGER, f.operator.address)
     expect(await unbound.mintingAddress()).eq(z)
+    await expect(unbound.beginMintingAddressChange(replacement.target)).revertedWithCustomError(unbound, 'MintingNotConfigured')
     await expect(unbound.connect(f.operator).returnToMinting(f.collateral.target, u('1'))).revertedWithCustomError(unbound, 'MintingNotConfigured')
     await expect(unbound.connect(f.operator).returnAllToMinting(f.collateral.target)).revertedWithCustomError(unbound, 'MintingNotConfigured')
     await expect(unbound.connect(f.operator).pullFromMinting(f.collateral.target, u('1'))).revertedWithCustomError(unbound, 'MintingNotConfigured')
     await expect(unbound.connect(f.operator).pullAllFromMinting(f.collateral.target)).revertedWithCustomError(unbound, 'MintingNotConfigured')
-    await expect(ethers.deployContract('VaultAssetGuard', [z, f.admin.address, 86400, [f.venue.address], [], 0])).reverted
+    await expect(ethers.deployContract('VaultAssetGuard', [z, f.admin.address, 86400, [f.venue.address], [], [[]], 0, 0])).reverted
   })
 
   it('holds a newly whitelisted destination in cooldown, but removes it immediately', async () => {
     const f = await loadFixture(fixture)
     const DAY = 86400
-    const guard: any = await ethers.deployContract('VaultAssetGuard', [f.minting.target, f.admin.address, 86400, [f.venue.address], ['Trading venue'], DAY])
+    const guard: any = await ethers.deployContract('VaultAssetGuard', [f.minting.target, f.admin.address, 86400, [f.venue.address], ['Trading venue'], [[f.collateral.target, f.NATIVE]], DAY, 0])
     await guard.grantRole(COLLATERAL_MANAGER, f.operator.address)
     await guard.grantRole(WHITELIST_MANAGER, f.gatekeeper.address)
     expect(await guard.whitelistCooldown()).eq(DAY)
@@ -320,7 +331,7 @@ describe('VaultAssetGuard gated asset management', () => {
     await guard.connect(f.operator).withdrawNative(f.venue.address, 1)
 
     // A destination added later starts its own cooldown; the existing one is unaffected.
-    await guard.connect(f.gatekeeper).addDestination(f.stranger.address, 'Bank A')
+    await guard.connect(f.gatekeeper).addDestination(f.stranger.address, 'Bank A', [f.collateral.target])
     await expect(guard.connect(f.operator).withdraw(f.collateral.target, f.stranger.address, u('1')))
       .revertedWithCustomError(guard, 'DestinationInCooldown')
     await guard.connect(f.operator).withdraw(f.collateral.target, f.venue.address, u('1'))
@@ -331,7 +342,7 @@ describe('VaultAssetGuard gated asset management', () => {
     expect(await guard.destinationActiveAt(f.venue.address)).eq(0)
     await expect(guard.connect(f.operator).withdraw(f.collateral.target, f.venue.address, u('1')))
       .revertedWithCustomError(guard, 'NotWhitelistedDestination')
-    await guard.connect(f.gatekeeper).addDestination(f.venue.address, 'Trading venue')
+    await guard.connect(f.gatekeeper).addDestination(f.venue.address, 'Trading venue', [f.collateral.target])
     await expect(guard.connect(f.operator).withdraw(f.collateral.target, f.venue.address, u('1')))
       .revertedWithCustomError(guard, 'DestinationInCooldown')
     await time.increase(DAY + 1)
@@ -345,7 +356,7 @@ describe('VaultAssetGuard gated asset management', () => {
   it('lets a new destination receive funds at once when the cooldown is zero', async () => {
     const f = await loadFixture(fixture); await f.fund()
     expect(await f.guard.whitelistCooldown()).eq(0)
-    await f.guard.connect(f.gatekeeper).addDestination(f.stranger.address, 'Bank A')
+    await f.guard.connect(f.gatekeeper).addDestination(f.stranger.address, 'Bank A', [f.collateral.target])
     await expect(f.guard.connect(f.operator).withdraw(f.collateral.target, f.stranger.address, u('1')))
       .emit(f.guard, 'Withdrawal').withArgs(f.collateral.target, f.stranger.address, u('1'))
   })
@@ -360,6 +371,101 @@ describe('VaultAssetGuard gated asset management', () => {
       .revertedWithCustomError(f.guard, 'InvalidAmount')
     await expect(f.guard.connect(f.operator).withdrawNative(f.venue.address, e('1')))
       .changeEtherBalances([f.guard, f.venue], [-e('1'), e('1')])
+  })
+
+  it('gates every withdrawal on the destination own asset list', async () => {
+    const f = await loadFixture(fixture); await f.fund('200')
+    const other: any = await ethers.deployContract('TestToken', ['Other', 'OTH', 18])
+    await other.mint(f.guard.target, e('10'))
+    await f.guard.connect(f.gatekeeper).addDestination(f.stranger.address, 'Bank A', [other.target])
+
+    // Whitelisting an address is not permission to send it anything: the pair has to be allowed.
+    expect(await f.guard.isDestinationAsset(f.stranger.address, other.target)).eq(true)
+    expect(await f.guard.isDestinationAsset(f.stranger.address, f.collateral.target)).eq(false)
+    await expect(f.guard.connect(f.operator).withdraw(f.collateral.target, f.stranger.address, u('1')))
+      .revertedWithCustomError(f.guard, 'AssetNotAllowedForDestination').withArgs(f.stranger.address, f.collateral.target)
+    await expect(f.guard.connect(f.operator).withdraw(other.target, f.venue.address, e('1')))
+      .revertedWithCustomError(f.guard, 'AssetNotAllowedForDestination').withArgs(f.venue.address, other.target)
+    await f.guard.connect(f.operator).withdraw(other.target, f.stranger.address, e('1'))
+    expect(await other.balanceOf(f.stranger.address)).eq(e('1'))
+
+    // withdrawAll and withdrawBatch go through the same gate.
+    await expect(f.guard.connect(f.operator).withdrawAll(f.collateral.target, f.stranger.address))
+      .revertedWithCustomError(f.guard, 'AssetNotAllowedForDestination')
+    await expect(f.guard.connect(f.operator).withdrawBatch([f.collateral.target], [f.stranger.address], [u('1')]))
+      .revertedWithCustomError(f.guard, 'AssetNotAllowedForDestination')
+
+    // Amending a live destination opens and closes single pairs.
+    await expect(f.guard.connect(f.gatekeeper).setDestinationAssets(f.venue.address, [other.target], true))
+      .emit(f.guard, 'DestinationAssetChanged').withArgs(f.venue.address, other.target, true)
+    await f.guard.connect(f.operator).withdraw(other.target, f.venue.address, e('1'))
+    await f.guard.connect(f.gatekeeper).setDestinationAssets(f.venue.address, [f.collateral.target], false)
+    await expect(f.guard.connect(f.operator).withdraw(f.collateral.target, f.venue.address, u('1')))
+      .revertedWithCustomError(f.guard, 'AssetNotAllowedForDestination').withArgs(f.venue.address, f.collateral.target)
+    // Swap-and-pop reorders the set, so compare membership rather than position.
+    expect([...await f.guard.destinationAssets(f.venue.address)]).to.have.members([f.NATIVE, other.target])
+
+    await expect(f.guard.connect(f.gatekeeper).setDestinationAssets(f.insurance.address, [other.target], true))
+      .revertedWithCustomError(f.guard, 'NotWhitelistedDestination')
+    await expect(f.guard.connect(f.gatekeeper).setDestinationAssets(f.venue.address, [], true))
+      .revertedWithCustomError(f.guard, 'InvalidArrayLength')
+    await expect(f.guard.connect(f.operator).setDestinationAssets(f.venue.address, [other.target], false))
+      .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount').withArgs(f.operator.address, WHITELIST_MANAGER)
+
+    // Removing a destination clears its pairs, so re-adding it never resurrects old permissions.
+    await f.guard.connect(f.gatekeeper).removeDestination(f.stranger.address)
+    expect(await f.guard.destinationAssets(f.stranger.address)).deep.eq([])
+    await f.guard.connect(f.gatekeeper).addDestination(f.stranger.address, 'Bank A', [])
+    await expect(f.guard.connect(f.operator).withdraw(other.target, f.stranger.address, e('1')))
+      .revertedWithCustomError(f.guard, 'AssetNotAllowedForDestination').withArgs(f.stranger.address, other.target)
+
+    // Native currency needs its own entry, under the sentinel.
+    await f.admin.sendTransaction({ to: f.guard.target, value: e('1') })
+    await expect(f.guard.connect(f.operator).withdrawNative(f.stranger.address, e('1')))
+      .revertedWithCustomError(f.guard, 'AssetNotAllowedForDestination').withArgs(f.stranger.address, f.NATIVE)
+    await f.guard.connect(f.gatekeeper).setDestinationAssets(f.stranger.address, [f.NATIVE], true)
+    await expect(f.guard.connect(f.operator).withdrawNative(f.stranger.address, e('1')))
+      .changeEtherBalances([f.guard, f.stranger], [-e('1'), e('1')])
+  })
+
+  it('holds a change of the redemption sink for its cooldown', async () => {
+    const f = await loadFixture(fixture)
+    const DAY = 86400
+    const guard: any = await ethers.deployContract('VaultAssetGuard', [f.minting.target, f.admin.address, 86400, [], [], [], 0, DAY])
+    expect(await guard.mintingChangeDelay()).eq(DAY)
+    const next: any = await ethers.deployContract('TestToken', ['Next Minting', 'NXT', 6])
+
+    await expect(guard.applyMintingAddressChange()).revertedWithCustomError(guard, 'NoPendingMintingChange')
+    await expect(guard.cancelMintingAddressChange()).revertedWithCustomError(guard, 'NoPendingMintingChange')
+
+    const started = await guard.beginMintingAddressChange(next.target)
+    const activeAt = BigInt((await ethers.provider.getBlock(started.blockNumber!))!.timestamp) + BigInt(DAY)
+    await expect(started).emit(guard, 'MintingAddressChangeStarted').withArgs(next.target, activeAt)
+    expect(await guard.pendingMintingAddress()).eq(next.target)
+    expect(await guard.mintingChangeActiveAt()).eq(activeAt)
+    // The sink does not move while the cooldown runs.
+    expect(await guard.mintingAddress()).eq(f.minting.target)
+    await expect(guard.applyMintingAddressChange())
+      .revertedWithCustomError(guard, 'MintingChangeInCooldown').withArgs(next.target, activeAt)
+
+    // A pending sink cannot be whitelisted, so the scheduled change cannot be blocked from under it.
+    await guard.grantRole(WHITELIST_MANAGER, f.gatekeeper.address)
+    await expect(guard.connect(f.gatekeeper).addDestination(next.target, 'Pending sink', []))
+      .revertedWithCustomError(guard, 'InvalidAddress')
+
+    await time.setNextBlockTimestamp(activeAt)
+    await expect(guard.applyMintingAddressChange()).emit(guard, 'MintingAddressChanged').withArgs(next.target)
+    expect(await guard.mintingAddress()).eq(next.target)
+    expect(await guard.pendingMintingAddress()).eq(z)
+    expect(await guard.mintingChangeActiveAt()).eq(0)
+
+    // And a proposal can be abandoned before it matures.
+    await guard.beginMintingAddressChange(f.minting.target)
+    await expect(guard.cancelMintingAddressChange()).emit(guard, 'MintingAddressChangeCancelled').withArgs(f.minting.target)
+    expect(await guard.pendingMintingAddress()).eq(z)
+    await time.increase(DAY + 1)
+    await expect(guard.applyMintingAddressChange()).revertedWithCustomError(guard, 'NoPendingMintingChange')
+    expect(await guard.mintingAddress()).eq(next.target)
   })
 
   it('returns nothing when there is nothing to move', async () => {

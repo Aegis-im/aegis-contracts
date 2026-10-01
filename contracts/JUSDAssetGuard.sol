@@ -132,8 +132,10 @@ contract JUSDAssetGuard is VaultAssetGuard {
         uint48 _initialDelay,
         address[] memory _destinations,
         string[] memory _labels,
-        uint256 _whitelistCooldown
-    ) VaultAssetGuard(_mintingAddress, _admin, _initialDelay, _destinations, _labels, _whitelistCooldown) {}
+        address[][] memory _assets,
+        uint256 _whitelistCooldown,
+        uint256 _mintingChangeDelay
+    ) VaultAssetGuard(_mintingAddress, _admin, _initialDelay, _destinations, _labels, _assets, _whitelistCooldown, _mintingChangeDelay) {}
 
     // ============================================
     // ONDO LEG
@@ -205,7 +207,12 @@ contract JUSDAssetGuard is VaultAssetGuard {
      */
     function setOndoMultisig(address multisig) external onlyRole(WHITELIST_MANAGER_ROLE) {
         if (multisig == address(0)) revert ZeroAddress();
-        if (multisig == address(this) || multisig == mintingAddress || isDestination(multisig)) revert InvalidAddress();
+        if (
+            multisig == address(this) ||
+            multisig == mintingAddress ||
+            multisig == pendingMintingAddress ||
+            isDestination(multisig)
+        ) revert InvalidAddress();
         if (ondoOutstanding != 0) revert OutstandingNotSettled(ondoOutstanding);
 
         ondoMultisig = multisig;
@@ -320,14 +327,15 @@ contract JUSDAssetGuard is VaultAssetGuard {
     }
 
     /// @dev The multisig is never reachable through the plain whitelist, in either direction
-    function _addDestination(address destination, string memory label) internal override {
+    function _addDestination(address destination, string memory label, address[] memory assets) internal override {
         if (ondoMultisig != address(0) && destination == ondoMultisig) revert InvalidAddress();
-        super._addDestination(destination, label);
+        super._addDestination(destination, label, assets);
     }
 
-    /// @dev The redemption sink is never the multisig either
-    function _setMintingAddress(address _mintingAddress) internal override {
+    /// @dev The redemption sink is never the multisig either — checked when a change is proposed
+    ///      and again when it is applied, so a multisig rotation in between cannot slip past.
+    function _validateMintingAddress(address _mintingAddress) internal view override {
         if (ondoMultisig != address(0) && _mintingAddress == ondoMultisig) revert InvalidAddress();
-        super._setMintingAddress(_mintingAddress);
+        super._validateMintingAddress(_mintingAddress);
     }
 }
