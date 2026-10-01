@@ -1,0 +1,83 @@
+{
+  "checkedAt": "2026-09-28T21:30:37.017Z",
+  "chainId": 11155111,
+  "wallet": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+  "requestId": "89048a34-6063-4045-9e07-c2f6b47e477c",
+  "transactions": [
+    {
+      "action": "approve collateral",
+      "hash": "0x5354357aa144f2ef0ef061514e476f63850c2ba0d7942f3aea19aa3d904293fc",
+      "block": 11803206
+    },
+    {
+      "action": "mint intermediary",
+      "hash": "0x5114e5d96098d8c0d0b87cacbca9a9a87a5ec763b33b301036251cfc775ad700",
+      "block": 11803208
+    },
+    {
+      "action": "approve staking",
+      "hash": "0x898fe12f9d690dc56f57adc766c5b4f2948f9bf5f52e0466f7d93a24cce5812a",
+      "block": 11803209
+    },
+    {
+      "action": "stake into vault",
+      "hash": "0x3fc005cb5137060de8a4f50873e65bdc10233e42aaa8157af7c916c4922ffa15",
+      "block": 11803210
+    },
+    {
+      "action": "transfer deposited USDC to custody",
+      "hash": "0x64ddd18e2fedd07282658245b3142d5ea0ebe81686b819f1cb0b4cac873129e7",
+      "block": 11803211
+    },
+    {
+      "action": "immediate ERC4626 exit",
+      "hash": "0xd6bb6de480b4325439baef488617fcc1b2a1b149145c8ab79d5ea5dd1f887f16",
+      "block": 11803213
+    },
+    {
+      "action": "return redemption liquidity",
+      "hash": "0xfa01abfacde39031e19df8403bddd77a780193f28be80d8d057674468d13efab",
+      "block": 11803214
+    },
+    {
+      "action": "approve token redemption",
+      "hash": "0xb393428dc12712e7ea72c3bce628272d57e6d6716859c5c4dee50b42bfabb308",
+      "block": 11803215
+    },
+    {
+      "action": "request bank redemption",
+      "hash": "0x56cf5788c2bf59108337311026ae46b111df8b83ebb17dd66d9f308ad8d2ca13",
+      "block": 11803216
+    },
+    {
+      "action": "approve and pay bank redemption",
+      "hash": "0x0bd7839fd0e716d96bd932d9e9688305b622ea1f3061394a1fae836a31fb63f7",
+      "block": 11803217
+    },
+    {
+      "action": "approve income collateral",
+      "hash": "0xf07dcf844154642f4d4c2e24413046b4adcdb8bf4e9ef13d51c218645dd65b03",
+      "block": 11803218
+    },
+    {
+      "action": "mint collateralized income",
+      "hash": "0xdeea2f6e105db42964a1cc39c12fc53b90a74807b1603f959d2a2825bdfabb35",
+      "block": 11803219
+    },
+    {
+      "action": "fund staking yield without rewards contracts",
+      "hash": "0x490930ed1d99787bc7135b6a67ae6b567ccb5200ba2a7aca3a450ff70c71f811",
+      "block": 11803221
+    }
+  ],
+  "assertions": [
+    "minted collateral-backed intermediary tokens",
+    "received previewed staking shares",
+    "moved USDC into configured custody",
+    "received previewed immediate exit amount",
+    "paid an approved bank redemption",
+    "increased staking share value with funded income while rewards remain absent"
+  ],
+  "remainingShares": "900000000000000000",
+  "totalStaked": "910000000000000000"
+}

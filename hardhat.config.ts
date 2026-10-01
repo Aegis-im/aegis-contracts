@@ -92,7 +92,7 @@ const config: HardhatUserConfig = {
       url: process.env.SEPOLIA_RPC_URL || networksConfig.networks.sepolia.rpcUrl,
       chainId: networksConfig.networks.sepolia.chainId,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      gasPrice: networksConfig.networks.sepolia.gasPrice,
+      gasPrice: process.env.VAULT_GAS_PRICE_WEI === "auto" ? "auto" : process.env.VAULT_GAS_PRICE_WEI ? Number(process.env.VAULT_GAS_PRICE_WEI) : networksConfig.networks.sepolia.gasPrice,
     },
     avalancheFuji: {
       url: process.env.AVALANCHE_FUJI_RPC_URL || networksConfig.networks.avalancheFuji.rpcUrl,

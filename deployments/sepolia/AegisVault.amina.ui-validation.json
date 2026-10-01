@@ -1,0 +1,12 @@
+{
+  "checkedAt": "2026-09-28T22:58:47.671Z",
+  "block": 11803661,
+  "app": "/Users/michaelegorov/code/aegis/aegis-app",
+  "assertions": [
+    "frontend ABIs match compiled contracts",
+    "frontend addresses match deployed record",
+    "ethers v5 reads live token names and staking rate",
+    "local HTTP quote signature verified against configured signer",
+    "untrusted origin and income-order signing rejected"
+  ]
+}
