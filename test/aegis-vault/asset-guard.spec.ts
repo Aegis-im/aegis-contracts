@@ -31,11 +31,9 @@ async function fixture() {
   // The guard replaces the custody wallet: registered as a custodian address at
   // minting, and holding minting's collateral manager role so it can draw collateral itself.
   const NATIVE = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
-  const guard: any = await ethers.deployContract('VaultAssetGuard', [minting.target, admin.address, 86400, [venue.address], ['Trading venue'], [[collateral.target, NATIVE]], 0, 0])
+  const guard: any = await ethers.deployContract('VaultAssetGuard', [minting.target, admin.address, 86400, [venue.address], ['Trading venue'], [[collateral.target, NATIVE]], 0, 0, [operator.address], [gatekeeper.address]])
   await minting.addCustodianAddress(guard.target)
   await minting.grantRole(COLLATERAL_MANAGER, guard.target)
-  await guard.grantRole(COLLATERAL_MANAGER, operator.address)
-  await guard.grantRole(WHITELIST_MANAGER, gatekeeper.address)
 
   await collateral.mint(investor.address, u('10000'))
   await collateral.connect(investor).approve(minting.target, ethers.MaxUint256)
@@ -115,11 +113,50 @@ describe('VaultAssetGuard gated asset management', () => {
       .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount')
     await expect(f.guard.connect(f.stranger).withdraw(f.collateral.target, f.venue.address, u('1')))
       .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount')
-    // Neither operational role can repoint the redemption sink.
-    await expect(f.guard.connect(f.gatekeeper).beginMintingAddressChange(f.minting.target))
+    // The redemption sink belongs to the whitelist manager — not to the mover, and not to admin.
+    for (const who of [f.operator, f.admin, f.stranger]) {
+      await expect(f.guard.connect(who).beginMintingAddressChange(f.minting.target))
+        .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount').withArgs(who.address, WHITELIST_MANAGER)
+      await expect(f.guard.connect(who).applyMintingAddressChange())
+        .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount').withArgs(who.address, WHITELIST_MANAGER)
+      await expect(f.guard.connect(who).cancelMintingAddressChange())
+        .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount').withArgs(who.address, WHITELIST_MANAGER)
+    }
+  })
+
+  it('fixes both roles at construction so no one can ever change them', async () => {
+    const f = await loadFixture(fixture)
+    expect(await f.guard.hasRole(COLLATERAL_MANAGER, f.operator.address)).eq(true)
+    expect(await f.guard.hasRole(WHITELIST_MANAGER, f.gatekeeper.address)).eq(true)
+
+    // Nobody grants or revokes — not the admin, not a role holder, not a stranger.
+    for (const who of [f.admin, f.gatekeeper, f.operator, f.stranger]) {
+      await expect(f.guard.connect(who).grantRole(COLLATERAL_MANAGER, f.stranger.address))
+        .revertedWithCustomError(f.guard, 'RolesAreImmutable')
+      await expect(f.guard.connect(who).revokeRole(WHITELIST_MANAGER, f.gatekeeper.address))
+        .revertedWithCustomError(f.guard, 'RolesAreImmutable')
+    }
+    // Nor can a holder drop its own role and strand the capability.
+    await expect(f.guard.connect(f.operator).renounceRole(COLLATERAL_MANAGER, f.operator.address))
+      .revertedWithCustomError(f.guard, 'RolesAreImmutable')
+    await expect(f.guard.connect(f.gatekeeper).renounceRole(WHITELIST_MANAGER, f.gatekeeper.address))
+      .revertedWithCustomError(f.guard, 'RolesAreImmutable')
+
+    // Admin is left with no power over the guard at all.
+    await expect(f.guard.connect(f.admin).setPaused(true))
       .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount')
-    await expect(f.guard.connect(f.gatekeeper).applyMintingAddressChange())
+    await expect(f.guard.connect(f.admin).withdraw(f.collateral.target, f.venue.address, u('1')))
       .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount')
+
+    // And a guard that could never move or never pause cannot be deployed in the first place.
+    const args = (cm: string[], wm: string[]) =>
+      [f.minting.target, f.admin.address, 86400, [], [], [], 0, 0, cm, wm]
+    await expect(ethers.deployContract('VaultAssetGuard', args([], [f.gatekeeper.address])))
+      .revertedWithCustomError(f.guard, 'NoRoleHolders').withArgs(COLLATERAL_MANAGER)
+    await expect(ethers.deployContract('VaultAssetGuard', args([f.operator.address], [])))
+      .revertedWithCustomError(f.guard, 'NoRoleHolders').withArgs(WHITELIST_MANAGER)
+    await expect(ethers.deployContract('VaultAssetGuard', args([z], [f.gatekeeper.address])))
+      .revertedWithCustomError(f.guard, 'ZeroAddress')
   })
 
   it('maintains the whitelist with labels and enumeration', async () => {
@@ -136,7 +173,7 @@ describe('VaultAssetGuard gated asset management', () => {
     await expect(f.guard.connect(f.gatekeeper).addDestination(f.minting.target, 'Minting', [])).revertedWithCustomError(f.guard, 'InvalidAddress')
     const other: any = await ethers.deployContract('TestToken', ['Other', 'OTH', 6])
     await f.guard.connect(f.gatekeeper).addDestination(other.target, 'Elsewhere', [])
-    await expect(f.guard.beginMintingAddressChange(other.target)).revertedWithCustomError(f.guard, 'InvalidAddress')
+    await expect(f.guard.connect(f.gatekeeper).beginMintingAddressChange(other.target)).revertedWithCustomError(f.guard, 'InvalidAddress')
     await f.guard.connect(f.gatekeeper).removeDestination(other.target)
 
     expect(await f.guard.destinationCount()).eq(2)
@@ -242,8 +279,8 @@ describe('VaultAssetGuard gated asset management', () => {
       .revertedWithCustomError(f.guard, 'NotSupportedAsset').withArgs(other.target)
 
     // A sink that is not a minting contract cannot vouch for any asset, so it receives nothing.
-    await f.guard.beginMintingAddressChange(other.target)
-    await f.guard.applyMintingAddressChange()
+    await f.guard.connect(f.gatekeeper).beginMintingAddressChange(other.target)
+    await f.guard.connect(f.gatekeeper).applyMintingAddressChange()
     await expect(f.guard.connect(f.operator).returnToMinting(f.collateral.target, u('1'))).reverted
     expect(await f.collateral.balanceOf(other.target)).eq(0)
   })
@@ -273,36 +310,33 @@ describe('VaultAssetGuard gated asset management', () => {
 
   it('restricts the redemption sink to a contract set by the admin', async () => {
     const f = await loadFixture(fixture)
-    await expect(f.guard.beginMintingAddressChange(z)).revertedWithCustomError(f.guard, 'ZeroAddress')
-    await expect(f.guard.beginMintingAddressChange(f.stranger.address)).revertedWithCustomError(f.guard, 'InvalidAddress')
-    await expect(f.guard.beginMintingAddressChange(f.guard.target)).revertedWithCustomError(f.guard, 'InvalidAddress')
+    await expect(f.guard.connect(f.gatekeeper).beginMintingAddressChange(z)).revertedWithCustomError(f.guard, 'ZeroAddress')
+    await expect(f.guard.connect(f.gatekeeper).beginMintingAddressChange(f.stranger.address)).revertedWithCustomError(f.guard, 'InvalidAddress')
+    await expect(f.guard.connect(f.gatekeeper).beginMintingAddressChange(f.guard.target)).revertedWithCustomError(f.guard, 'InvalidAddress')
     const replacement: any = await ethers.deployContract('TestToken', ['Next Minting', 'NXT', 6])
-    await f.guard.beginMintingAddressChange(replacement.target)
-    await expect(f.guard.applyMintingAddressChange())
+    await f.guard.connect(f.gatekeeper).beginMintingAddressChange(replacement.target)
+    await expect(f.guard.connect(f.gatekeeper).applyMintingAddressChange())
       .emit(f.guard, 'MintingAddressChanged').withArgs(replacement.target)
     expect(await f.guard.mintingAddress()).eq(replacement.target)
     // The immediate setter is reserved for a sink that was never named.
-    await expect(f.guard.setMintingAddress(replacement.target))
+    await expect(f.guard.connect(f.gatekeeper).setMintingAddress(replacement.target))
       .revertedWithCustomError(f.guard, 'MintingAlreadySet').withArgs(replacement.target)
 
     // A deployment that has not been pointed at minting yet cannot move funds there.
-    const unbound: any = await ethers.deployContract('VaultAssetGuard', [z, f.admin.address, 86400, [], [], [], 0, 0])
-    await unbound.grantRole(COLLATERAL_MANAGER, f.operator.address)
+    const unbound: any = await ethers.deployContract('VaultAssetGuard', [z, f.admin.address, 86400, [], [], [], 0, 0, [f.operator.address], [f.gatekeeper.address]])
     expect(await unbound.mintingAddress()).eq(z)
-    await expect(unbound.beginMintingAddressChange(replacement.target)).revertedWithCustomError(unbound, 'MintingNotConfigured')
+    await expect(unbound.connect(f.gatekeeper).beginMintingAddressChange(replacement.target)).revertedWithCustomError(unbound, 'MintingNotConfigured')
     await expect(unbound.connect(f.operator).returnToMinting(f.collateral.target, u('1'))).revertedWithCustomError(unbound, 'MintingNotConfigured')
     await expect(unbound.connect(f.operator).returnAllToMinting(f.collateral.target)).revertedWithCustomError(unbound, 'MintingNotConfigured')
     await expect(unbound.connect(f.operator).pullFromMinting(f.collateral.target, u('1'))).revertedWithCustomError(unbound, 'MintingNotConfigured')
     await expect(unbound.connect(f.operator).pullAllFromMinting(f.collateral.target)).revertedWithCustomError(unbound, 'MintingNotConfigured')
-    await expect(ethers.deployContract('VaultAssetGuard', [z, f.admin.address, 86400, [f.venue.address], [], [[]], 0, 0])).reverted
+    await expect(ethers.deployContract('VaultAssetGuard', [z, f.admin.address, 86400, [f.venue.address], [], [[]], 0, 0, [f.operator.address], [f.gatekeeper.address]])).reverted
   })
 
   it('holds a newly whitelisted destination in cooldown, but removes it immediately', async () => {
     const f = await loadFixture(fixture)
     const DAY = 86400
-    const guard: any = await ethers.deployContract('VaultAssetGuard', [f.minting.target, f.admin.address, 86400, [f.venue.address], ['Trading venue'], [[f.collateral.target, f.NATIVE]], DAY, 0])
-    await guard.grantRole(COLLATERAL_MANAGER, f.operator.address)
-    await guard.grantRole(WHITELIST_MANAGER, f.gatekeeper.address)
+    const guard: any = await ethers.deployContract('VaultAssetGuard', [f.minting.target, f.admin.address, 86400, [f.venue.address], ['Trading venue'], [[f.collateral.target, f.NATIVE]], DAY, 0, [f.operator.address], [f.gatekeeper.address]])
     expect(await guard.whitelistCooldown()).eq(DAY)
     await f.collateral.mint(guard.target, u('100'))
     await f.admin.sendTransaction({ to: guard.target, value: e('1') })
@@ -431,40 +465,39 @@ describe('VaultAssetGuard gated asset management', () => {
   it('holds a change of the redemption sink for its cooldown', async () => {
     const f = await loadFixture(fixture)
     const DAY = 86400
-    const guard: any = await ethers.deployContract('VaultAssetGuard', [f.minting.target, f.admin.address, 86400, [], [], [], 0, DAY])
+    const guard: any = await ethers.deployContract('VaultAssetGuard', [f.minting.target, f.admin.address, 86400, [], [], [], 0, DAY, [f.operator.address], [f.gatekeeper.address]])
     expect(await guard.mintingChangeDelay()).eq(DAY)
     const next: any = await ethers.deployContract('TestToken', ['Next Minting', 'NXT', 6])
 
-    await expect(guard.applyMintingAddressChange()).revertedWithCustomError(guard, 'NoPendingMintingChange')
-    await expect(guard.cancelMintingAddressChange()).revertedWithCustomError(guard, 'NoPendingMintingChange')
+    await expect(guard.connect(f.gatekeeper).applyMintingAddressChange()).revertedWithCustomError(guard, 'NoPendingMintingChange')
+    await expect(guard.connect(f.gatekeeper).cancelMintingAddressChange()).revertedWithCustomError(guard, 'NoPendingMintingChange')
 
-    const started = await guard.beginMintingAddressChange(next.target)
+    const started = await guard.connect(f.gatekeeper).beginMintingAddressChange(next.target)
     const activeAt = BigInt((await ethers.provider.getBlock(started.blockNumber!))!.timestamp) + BigInt(DAY)
     await expect(started).emit(guard, 'MintingAddressChangeStarted').withArgs(next.target, activeAt)
     expect(await guard.pendingMintingAddress()).eq(next.target)
     expect(await guard.mintingChangeActiveAt()).eq(activeAt)
     // The sink does not move while the cooldown runs.
     expect(await guard.mintingAddress()).eq(f.minting.target)
-    await expect(guard.applyMintingAddressChange())
+    await expect(guard.connect(f.gatekeeper).applyMintingAddressChange())
       .revertedWithCustomError(guard, 'MintingChangeInCooldown').withArgs(next.target, activeAt)
 
     // A pending sink cannot be whitelisted, so the scheduled change cannot be blocked from under it.
-    await guard.grantRole(WHITELIST_MANAGER, f.gatekeeper.address)
     await expect(guard.connect(f.gatekeeper).addDestination(next.target, 'Pending sink', []))
       .revertedWithCustomError(guard, 'InvalidAddress')
 
     await time.setNextBlockTimestamp(activeAt)
-    await expect(guard.applyMintingAddressChange()).emit(guard, 'MintingAddressChanged').withArgs(next.target)
+    await expect(guard.connect(f.gatekeeper).applyMintingAddressChange()).emit(guard, 'MintingAddressChanged').withArgs(next.target)
     expect(await guard.mintingAddress()).eq(next.target)
     expect(await guard.pendingMintingAddress()).eq(z)
     expect(await guard.mintingChangeActiveAt()).eq(0)
 
     // And a proposal can be abandoned before it matures.
-    await guard.beginMintingAddressChange(f.minting.target)
-    await expect(guard.cancelMintingAddressChange()).emit(guard, 'MintingAddressChangeCancelled').withArgs(f.minting.target)
+    await guard.connect(f.gatekeeper).beginMintingAddressChange(f.minting.target)
+    await expect(guard.connect(f.gatekeeper).cancelMintingAddressChange()).emit(guard, 'MintingAddressChangeCancelled').withArgs(f.minting.target)
     expect(await guard.pendingMintingAddress()).eq(z)
     await time.increase(DAY + 1)
-    await expect(guard.applyMintingAddressChange()).revertedWithCustomError(guard, 'NoPendingMintingChange')
+    await expect(guard.connect(f.gatekeeper).applyMintingAddressChange()).revertedWithCustomError(guard, 'NoPendingMintingChange')
     expect(await guard.mintingAddress()).eq(next.target)
   })
 

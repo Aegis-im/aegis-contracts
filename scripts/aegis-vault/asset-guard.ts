@@ -36,10 +36,12 @@ export async function attachAssetGuard(record: any) {
     if (await ethers.provider.getCode(a.assetGuard.address) === '0x') throw new Error('Missing code: assetGuard')
     guard = await ethers.getContractAt('VaultAssetGuard', a.assetGuard.address)
   } else {
+    // Roles are constructor-only now: VaultAssetGuard fixes them for the life of the contract.
     const args = [
       a.minting.address, c.admin, c.adminDelay,
       wanted.map(d => d.address), wanted.map(d => d.label), wanted.map(assetsFor),
       c.guardWhitelistCooldown ?? 0, c.guardMintingChangeDelay ?? 0,
+      [manager], [whitelistManager],
     ]
     guard = await ethers.deployContract('VaultAssetGuard', args)
     await guard.waitForDeployment()
@@ -66,8 +68,14 @@ export async function attachAssetGuard(record: any) {
     await confirmed(await minting.grantRole(collateralManager, guard.target))
   }
 
-  for (const [role, holder] of [[collateralManager, manager], [whitelistRole, whitelistManager]] as const) {
-    if (!await guard.hasRole(role, holder)) await confirmed(await guard.grantRole(role, holder))
+  // Roles came from the constructor and cannot be granted; verify rather than attempt.
+  for (const [name, role, holder] of [
+    ['COLLATERAL_MANAGER_ROLE', collateralManager, manager],
+    ['WHITELIST_MANAGER_ROLE', whitelistRole, whitelistManager],
+  ] as const) {
+    if (!await guard.hasRole(role, holder)) {
+      throw new Error(`${name} is not held by ${holder}; roles are immutable, so this guard must be redeployed`)
+    }
   }
   for (const destination of wanted) {
     const assets = assetsFor(destination)
@@ -77,7 +85,13 @@ export async function attachAssetGuard(record: any) {
     }
     const missing: string[] = []
     for (const asset of assets) if (!await guard.isDestinationAsset(destination.address, asset)) missing.push(asset)
-    if (missing.length > 0) await confirmed(await guard.setDestinationAssets(destination.address, missing, true))
+    if (missing.length > 0) {
+      if (!await guard.hasRole(whitelistRole, admin.address)) {
+        console.log(`  destination ${destination.address} is missing ${missing.length} asset(s); add them from ${whitelistManager}`)
+      } else {
+        await confirmed(await guard.setDestinationAssets(destination.address, missing, true))
+      }
+    }
   }
 
   // Retiring the old wallet is a governance decision; it is never implied by installing the guard.

@@ -43,7 +43,9 @@ import { AggregatorV3Interface } from "./AegisVault/interfaces/AggregatorV3Inter
  *
  *      Every limit, the multisig address, the Ondo asset registry and the price feeds belong to
  *      WHITELIST_MANAGER_ROLE — the same role that decides where funds may go. COLLATERAL_MANAGER_ROLE
- *      moves assets inside those bounds and can neither raise a limit nor reprice an asset.
+ *      moves assets inside those bounds and can neither raise a limit nor reprice an asset. Both
+ *      role lists are fixed at construction and can never be changed; DEFAULT_ADMIN_ROLE holds no
+ *      power here at all.
  */
 contract JUSDAssetGuard is VaultAssetGuard {
     using SafeERC20 for IERC20;
@@ -113,6 +115,13 @@ contract JUSDAssetGuard is VaultAssetGuard {
     // CONSTRUCTOR
     // ============================================
 
+    /// @notice One Ondo-leg asset and the feed that prices it
+    struct OndoAssetConfig {
+        address token;
+        AggregatorV3Interface feed;
+        uint32 heartbeat;
+    }
+
     /**
      * @param _mintingAddress AegisMintingJUSD contract that receives returned collateral
      * @param _admin          Initial DEFAULT_ADMIN_ROLE holder (expected to be a multisig)
@@ -134,8 +143,35 @@ contract JUSDAssetGuard is VaultAssetGuard {
         string[] memory _labels,
         address[][] memory _assets,
         uint256 _whitelistCooldown,
-        uint256 _mintingChangeDelay
-    ) VaultAssetGuard(_mintingAddress, _admin, _initialDelay, _destinations, _labels, _assets, _whitelistCooldown, _mintingChangeDelay) {}
+        uint256 _mintingChangeDelay,
+        address[] memory _collateralManagers,
+        address[] memory _whitelistManagers,
+        address _ondoMultisig,
+        uint256 _maxOndoOutstanding,
+        OndoAssetConfig[] memory _ondoAssetConfigs
+    ) VaultAssetGuard(
+        _mintingAddress, _admin, _initialDelay, _destinations, _labels, _assets,
+        _whitelistCooldown, _mintingChangeDelay, _collateralManagers, _whitelistManagers
+    ) {
+        // Order matters: an asset cannot be registered without a feed, and the multisig is checked
+        // against the whitelist the base constructor has already seeded. The cap goes last, so the
+        // leg is never momentarily open while half-configured.
+        for (uint256 i = 0; i < _ondoAssetConfigs.length; i++) {
+            OndoAssetConfig memory config = _ondoAssetConfigs[i];
+            _setPriceFeed(config.token, config.feed, config.heartbeat);
+            _setOndoAsset(config.token, true);
+        }
+
+        // Leaving the multisig unset keeps the leg closed; the cap alone cannot open it.
+        if (_ondoMultisig != address(0)) {
+            for (uint256 i = 0; i < _collateralManagers.length; i++) {
+                // The account authorising withdrawToOndo must not also be the recipient.
+                if (_collateralManagers[i] == _ondoMultisig) revert InvalidAddress();
+            }
+            _setOndoMultisig(_ondoMultisig);
+        }
+        if (_maxOndoOutstanding != 0) _setMaxOndoOutstanding(_maxOndoOutstanding);
+    }
 
     // ============================================
     // ONDO LEG
@@ -206,6 +242,10 @@ contract JUSDAssetGuard is VaultAssetGuard {
      *      requires a settled position, so outstanding value is never reattributed to a new holder.
      */
     function setOndoMultisig(address multisig) external onlyRole(WHITELIST_MANAGER_ROLE) {
+        _setOndoMultisig(multisig);
+    }
+
+    function _setOndoMultisig(address multisig) internal {
         if (multisig == address(0)) revert ZeroAddress();
         if (
             multisig == address(this) ||
@@ -221,6 +261,10 @@ contract JUSDAssetGuard is VaultAssetGuard {
 
     /// @notice Sets the cap on outstanding Ondo exposure, in USD with 18 decimals. Zero closes the leg.
     function setMaxOndoOutstanding(uint256 max) external onlyRole(WHITELIST_MANAGER_ROLE) {
+        _setMaxOndoOutstanding(max);
+    }
+
+    function _setMaxOndoOutstanding(uint256 max) internal {
         maxOndoOutstanding = max;
         emit MaxOndoOutstandingChanged(max);
     }
@@ -238,6 +282,10 @@ contract JUSDAssetGuard is VaultAssetGuard {
 
     /// @notice Allows or removes an asset on the Ondo leg
     function setOndoAsset(address asset, bool allowed) external onlyRole(WHITELIST_MANAGER_ROLE) {
+        _setOndoAsset(asset, allowed);
+    }
+
+    function _setOndoAsset(address asset, bool allowed) internal {
         if (asset == address(0)) revert ZeroAddress();
         if (allowed) {
             if (address(priceFeed[asset]) == address(0)) revert MissingPriceFeed(asset);
@@ -254,6 +302,10 @@ contract JUSDAssetGuard is VaultAssetGuard {
      *      repricing an asset is the same power as moving the cap.
      */
     function setPriceFeed(address asset, AggregatorV3Interface feed, uint32 heartbeat) external onlyRole(WHITELIST_MANAGER_ROLE) {
+        _setPriceFeed(asset, feed, heartbeat);
+    }
+
+    function _setPriceFeed(address asset, AggregatorV3Interface feed, uint32 heartbeat) internal {
         if (asset == address(0)) revert ZeroAddress();
         if (address(feed) != address(0) && (address(feed).code.length == 0 || heartbeat == 0)) revert InvalidAddress();
         if (address(feed) == address(0) && _ondoAssets.contains(asset)) revert OndoAssetInUse(asset);

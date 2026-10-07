@@ -36,11 +36,19 @@ import { IVaultMinting } from "./interfaces/IVaultMinting.sol";
  *      the whitelist manager already approved, and nowhere else. Recovering a stray token means
  *      whitelisting its recipient first, which leaves an on-chain record.
  *
- *      Roles:
- *        DEFAULT_ADMIN_ROLE      — points the contract at VaultMinting, administers roles.
+ *      Roles are fixed at construction and can never be granted, revoked or renounced. `grantRole`
+ *      and `revokeRole` always revert. Holders are expected to be multisigs, which rotate their own
+ *      signers internally, so the address in each role never needs to change:
+ *
  *        COLLATERAL_MANAGER_ROLE — moves assets: push to whitelisted destinations, return to
  *                                  minting, draw collateral out of minting.
- *        WHITELIST_MANAGER_ROLE  — maintains the destination whitelist and the pause switch.
+ *        WHITELIST_MANAGER_ROLE  — every boundary: the destination whitelist, the pause switch,
+ *                                  and the redemption sink.
+ *        DEFAULT_ADMIN_ROLE      — holds no power over this contract. It cannot move assets, set a
+ *                                  limit, pause, or change a role. It exists only because
+ *                                  AccessControlDefaultAdminRules requires an admin, and it can
+ *                                  retire itself by scheduling a transfer to the zero address and
+ *                                  renouncing. Nothing is lost when it does.
  *
  *      Pausing stops every outbound movement and every draw from minting. Returning collateral
  *      to minting is never paused: redemption liquidity must stay reachable during an incident.
@@ -158,6 +166,8 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
     error AssetNotAllowedForDestination(address destination, address asset);
     error Paused();
     error NativeTransferFailed();
+    error RolesAreImmutable();
+    error NoRoleHolders(bytes32 role);
 
     // ============================================
     // CONSTRUCTOR
@@ -175,6 +185,13 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
      *                        disables it. Applies to the initial whitelist too. Cannot be changed.
      * @param _mintingChangeDelay Seconds between proposing and applying a new minting address.
      *                        Cannot be changed.
+     * @param _collateralManagers Permanent holders of COLLATERAL_MANAGER_ROLE
+     * @param _whitelistManagers  Permanent holders of WHITELIST_MANAGER_ROLE
+     *
+     * @dev Both role lists are fixed here for the life of the contract — see the roles note in the
+     *      contract docs. Each must be non-empty: with no collateral manager the guard could never
+     *      move an asset again, and with no whitelist manager it could never be paused, and neither
+     *      mistake could be corrected afterwards.
      */
     constructor(
         address _mintingAddress,
@@ -184,13 +201,28 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
         string[] memory _labels,
         address[][] memory _assets,
         uint256 _whitelistCooldown,
-        uint256 _mintingChangeDelay
+        uint256 _mintingChangeDelay,
+        address[] memory _collateralManagers,
+        address[] memory _whitelistManagers
     ) AccessControlDefaultAdminRules(_initialDelay, _admin) {
         if (_destinations_.length != _labels.length || _destinations_.length != _assets.length) {
             revert InvalidArrayLength();
         }
+        if (_collateralManagers.length == 0) revert NoRoleHolders(COLLATERAL_MANAGER_ROLE);
+        if (_whitelistManagers.length == 0) revert NoRoleHolders(WHITELIST_MANAGER_ROLE);
+
         whitelistCooldown = _whitelistCooldown;
         mintingChangeDelay = _mintingChangeDelay;
+
+        for (uint256 i = 0; i < _collateralManagers.length; i++) {
+            if (_collateralManagers[i] == address(0)) revert ZeroAddress();
+            _grantRole(COLLATERAL_MANAGER_ROLE, _collateralManagers[i]);
+        }
+        for (uint256 i = 0; i < _whitelistManagers.length; i++) {
+            if (_whitelistManagers[i] == address(0)) revert ZeroAddress();
+            _grantRole(WHITELIST_MANAGER_ROLE, _whitelistManagers[i]);
+        }
+
         if (_mintingAddress != address(0)) _setMintingAddress(_mintingAddress);
 
         for (uint256 i = 0; i < _destinations_.length; i++) {
@@ -404,7 +436,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
     }
 
     // ============================================
-    // ADMIN
+    // REDEMPTION SINK
     // ============================================
 
     /**
@@ -412,7 +444,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
      * @dev Only while none is set — there is no sink to protect yet. Replacing a live one goes
      *      through the cooldown below.
      */
-    function setMintingAddress(address _mintingAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setMintingAddress(address _mintingAddress) external onlyRole(WHITELIST_MANAGER_ROLE) {
         if (mintingAddress != address(0)) revert MintingAlreadySet(mintingAddress);
         _setMintingAddress(_mintingAddress);
     }
@@ -424,7 +456,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
      *      time to react before collateral can be routed somewhere new. Validated now and again
      *      on apply, since the whitelist may move in between.
      */
-    function beginMintingAddressChange(address newMinting) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function beginMintingAddressChange(address newMinting) external onlyRole(WHITELIST_MANAGER_ROLE) {
         if (mintingAddress == address(0)) revert MintingNotConfigured();
         _validateMintingAddress(newMinting);
 
@@ -436,7 +468,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
     }
 
     /// @notice Applies a proposed minting contract once its cooldown has elapsed
-    function applyMintingAddressChange() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function applyMintingAddressChange() external onlyRole(WHITELIST_MANAGER_ROLE) {
         address pending = pendingMintingAddress;
         if (pending == address(0)) revert NoPendingMintingChange();
 
@@ -450,7 +482,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
     }
 
     /// @notice Abandons a proposed minting contract
-    function cancelMintingAddressChange() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function cancelMintingAddressChange() external onlyRole(WHITELIST_MANAGER_ROLE) {
         address pending = pendingMintingAddress;
         if (pending == address(0)) revert NoPendingMintingChange();
 
@@ -458,6 +490,38 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
         delete mintingChangeActiveAt;
 
         emit MintingAddressChangeCancelled(pending);
+    }
+
+    // ============================================
+    // ROLE LOCK
+    // ============================================
+
+    /**
+     * @notice Roles cannot be granted after deployment. Always reverts.
+     * @dev Both operational roles are set in the constructor and fixed for the life of the
+     *      contract. Without this, DEFAULT_ADMIN_ROLE could grant itself COLLATERAL_MANAGER_ROLE
+     *      and WHITELIST_MANAGER_ROLE in a single transaction and hold every power the guard has.
+     *      Holders are Safes, so signer rotation happens inside them and never needs this.
+     */
+    function grantRole(bytes32, address) public pure override {
+        revert RolesAreImmutable();
+    }
+
+    /// @notice Roles cannot be revoked after deployment. Always reverts.
+    function revokeRole(bytes32, address) public pure override {
+        revert RolesAreImmutable();
+    }
+
+    /**
+     * @notice An operational role holder cannot drop its own role; the default admin can retire.
+     * @dev Letting a holder renounce would be a one-way loss of a capability nothing can restore —
+     *      an operator mistake, or a griefing move by a compromised key. Renouncing
+     *      DEFAULT_ADMIN_ROLE stays available (after its scheduled transfer to the zero address),
+     *      because an admin with nothing left to administer should be able to step away.
+     */
+    function renounceRole(bytes32 role, address account) public override {
+        if (role == COLLATERAL_MANAGER_ROLE || role == WHITELIST_MANAGER_ROLE) revert RolesAreImmutable();
+        super.renounceRole(role, account);
     }
 
     // ============================================

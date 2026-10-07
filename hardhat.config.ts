@@ -32,7 +32,8 @@ const config: HardhatUserConfig = {
     mainnet: {
       url: buildRpcUrl(networksConfig.networks.mainnet.rpcUrl),
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      gasPrice: networksConfig.networks.mainnet.gasPrice,
+      // Same override as sepolia: the config default stands unless VAULT_GAS_PRICE_WEI is set.
+      gasPrice: process.env.VAULT_GAS_PRICE_WEI === "auto" ? "auto" : process.env.VAULT_GAS_PRICE_WEI ? Number(process.env.VAULT_GAS_PRICE_WEI) : networksConfig.networks.mainnet.gasPrice,
     },
     bnbMainnet: {
       url: buildRpcUrl(networksConfig.networks.bnbMainnet.rpcUrl),

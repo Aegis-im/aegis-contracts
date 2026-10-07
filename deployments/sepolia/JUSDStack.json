@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "chainId": 11155111,
+  "admin": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+  "cooldown": 60,
+  "contracts": {
+    "usdTest": {
+      "address": "0xE3254ff58fF2FddB2D78f139DDC5fEac681C220E",
+      "contract": "USDTest",
+      "args": [
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      ],
+      "transactionHash": "0x3077acc3139e21f8f12196d5614210bca582915e70e5608053ba1643d95adeef"
+    },
+    "jusd": {
+      "address": "0x9Cbde374D450b286d33bB96E5Aa452946c554307",
+      "contract": "JUSD",
+      "args": [
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      ],
+      "transactionHash": "0x8d7daf4ca99ee0beb889e81211d021d8a5f394750e5ceea22842aafd5cd785c8"
+    },
+    "aegisConfig": {
+      "address": "0x87D49993d9CD0a7448848740df1Ac5b7865d2C05",
+      "contract": "AegisConfig",
+      "args": [
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+        [
+          "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+        ],
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      ],
+      "transactionHash": "0xab0912dadade72dd5624deb478ea2b3faed2235d510874eea11e24daf194cbd3"
+    },
+    "aegisOracleJUSD": {
+      "address": "0x85Fc06723e550D406Ab249c4f6c8d1645f9FbAB2",
+      "contract": "AegisOracleJUSD",
+      "args": [
+        [
+          "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+        ],
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      ],
+      "transactionHash": "0x8f3eb47ae65bdb1a94e6b0a0ab51a6dc6048c32cdf4a2501a06615a38bf672ca"
+    },
+    "aegisRewards": {
+      "address": "0x600f888a50c66bC39Ac83523EBdbba20Da984173",
+      "contract": "AegisRewards",
+      "args": [
+        "0x9Cbde374D450b286d33bB96E5Aa452946c554307",
+        "0x87D49993d9CD0a7448848740df1Ac5b7865d2C05",
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      ],
+      "transactionHash": "0x670d9b8cdd4dd783d62a9bd4d57bcee813918f16c626844f3318bf496b558af0"
+    },
+    "aegisMintingJUSD": {
+      "address": "0xA1C55BEF15a9AAC5E455D40BDf2896422F752399",
+      "contract": "AegisMintingJUSD",
+      "args": [
+        "0x9Cbde374D450b286d33bB96E5Aa452946c554307",
+        "0x87D49993d9CD0a7448848740df1Ac5b7865d2C05",
+        "0x600f888a50c66bC39Ac83523EBdbba20Da984173",
+        "0x85Fc06723e550D406Ab249c4f6c8d1645f9FbAB2",
+        "0x0000000000000000000000000000000000000000",
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+        [
+          "0xE3254ff58fF2FddB2D78f139DDC5fEac681C220E"
+        ],
+        [
+          86400
+        ],
+        [
+          "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+        ],
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      ],
+      "transactionHash": "0xb16f70ba31d25531d2d53c59f784dd9969a5433e3c6e5c7bc8472000cb6a5a63"
+    },
+    "jusdAssetGuard": {
+      "address": "0x9e9f449F22128C4DC3c59434555bCb8397568FD0",
+      "contract": "JUSDAssetGuard",
+      "args": [
+        "0xA1C55BEF15a9AAC5E455D40BDf2896422F752399",
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+        60,
+        [],
+        [],
+        [],
+        60,
+        60
+      ],
+      "transactionHash": "0xa4ddd503997d0a72bdae881f28496e6fb89a3ea6475a25c0615cd09859e03adf"
+    }
+  },
+  "steps": {
+    "jusd.setMinter": "2026-10-02T09:12:01.072Z",
+    "rewards.setAegisMintingAddress": "2026-10-02T09:12:13.907Z",
+    "oracle.updateJUSDPrice": "2026-10-02T09:12:25.379Z",
+    "minting.grantRole.SETTINGS_MANAGER_ROLE": "2026-10-02T09:12:37.101Z",
+    "minting.grantRole.FUNDS_MANAGER_ROLE": "2026-10-02T09:13:00.526Z",
+    "minting.grantRole.COLLATERAL_MANAGER_ROLE": "2026-10-02T09:13:12.783Z",
+    "rewards.grantRole.REWARDS_MANAGER_ROLE": "2026-10-02T09:13:24.338Z",
+    "config.whitelistAdmin": "2026-10-02T09:13:36.883Z",
+    "minting.addCustodianAddress.guard": "2026-10-02T09:13:48.823Z",
+    "minting.grantRole.COLLATERAL_MANAGER_ROLE.guard": "2026-10-02T09:14:00.731Z",
+    "guard.grantRole.COLLATERAL_MANAGER_ROLE": "2026-10-02T09:14:12.323Z",
+    "guard.grantRole.WHITELIST_MANAGER_ROLE": "2026-10-02T09:14:24.385Z",
+    "guard.addDestination.admin": "2026-10-02T09:14:39.792Z"
+  },
+  "status": "ready",
+  "deployedAt": "2026-10-02T09:14:39.794Z"
+}

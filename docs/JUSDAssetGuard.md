@@ -87,6 +87,55 @@ Separately, `AegisMintingJUSD` must `addCustodianAddress(guard)` for collateral 
 
 Rotating the multisig requires a settled position (`ondoOutstanding == 0`), so outstanding value is never reattributed to a new holder.
 
+## Sepolia deployment
+
+A fresh, self-contained JUSD stack with the guard in place of a custody wallet, independent of the
+older Sepolia JUSD addresses. All seven contracts are verified on Etherscan.
+
+| Contract | Address |
+| --- | --- |
+| `JUSDAssetGuard` | [`0x9e9f449F22128C4DC3c59434555bCb8397568FD0`](https://sepolia.etherscan.io/address/0x9e9f449F22128C4DC3c59434555bCb8397568FD0#code) |
+| `AegisMintingJUSD` | [`0xA1C55BEF15a9AAC5E455D40BDf2896422F752399`](https://sepolia.etherscan.io/address/0xA1C55BEF15a9AAC5E455D40BDf2896422F752399#code) |
+| `JUSD` | [`0x9Cbde374D450b286d33bB96E5Aa452946c554307`](https://sepolia.etherscan.io/address/0x9Cbde374D450b286d33bB96E5Aa452946c554307#code) |
+| `USDTest` (mock collateral, 6 dp) | [`0xE3254ff58fF2FddB2D78f139DDC5fEac681C220E`](https://sepolia.etherscan.io/address/0xE3254ff58fF2FddB2D78f139DDC5fEac681C220E#code) |
+| `AegisConfig` | [`0x87D49993d9CD0a7448848740df1Ac5b7865d2C05`](https://sepolia.etherscan.io/address/0x87D49993d9CD0a7448848740df1Ac5b7865d2C05#code) |
+| `AegisOracleJUSD` | [`0x85Fc06723e550D406Ab249c4f6c8d1645f9FbAB2`](https://sepolia.etherscan.io/address/0x85Fc06723e550D406Ab249c4f6c8d1645f9FbAB2#code) |
+| `AegisRewards` | [`0x600f888a50c66bC39Ac83523EBdbba20Da984173`](https://sepolia.etherscan.io/address/0x600f888a50c66bC39Ac83523EBdbba20Da984173#code) |
+
+`0x84fE172c15bb030BAA0dD497D30DD436c6b750E9` holds every role — minting's admin, settings, funds and collateral manager; the guard's
+admin, collateral manager and whitelist manager; the config operator and trusted signer; the oracle
+operator; and the USDTest owner. It is also the single whitelisted destination, allowed to receive
+USDTest. Both guard cooldowns are **60 seconds**: a newly whitelisted destination waits a minute
+before it can receive funds, and replacing the redemption sink waits a minute between propose and
+apply. The Ondo leg ships closed — no multisig, no registered assets, zero cap.
+
+`USDTest` is mock collateral with no backing, minted without limit by its owner. Testnet only.
+
+```sh
+# deploy (idempotent — a run that dies midway resumes from the record)
+VAULT_GAS_PRICE_WEI=auto npx hardhat run scripts/jusd/deploy-jusd-stack.ts --network sepolia
+# exercise it: mint collateral and JUSD, move through the guard, redeem
+VAULT_GAS_PRICE_WEI=auto npx hardhat run scripts/jusd/smoke-jusd-stack.ts --network sepolia
+# verify sources on the explorer
+npx hardhat run scripts/jusd/verify-jusd-stack.ts --network sepolia
+```
+
+Both scripts rehearse against a local node before touching a live network: start `npx hardhat node`
+and run them with `--network localhost`. The admin account is impersonated there, using the real
+key when `PRIVATE_KEY` matches so EIP-712 order signing works.
+
+Record: `deployments/sepolia/JUSDStack.json` — addresses, constructor arguments, transaction hashes
+and which wiring steps have landed.
+
+## Admin panel
+
+`aegis-admin-panel` gains a **Manage JUSD** tab (Web3 page) that appears on any chain present in
+`JUSD_STACK`. It covers the guard end to end: role banner and balances, the USDTest faucet, the
+withdrawal whitelist as destination/asset pairs with live cooldown countdowns, the three asset legs
+(push to a destination, return to minting, draw from minting), the propose/apply/cancel flow for the
+redemption sink, and the Ondo leg including limits, price feeds and the metered transfers. Reverts
+are decoded against the guard's custom errors rather than shown as raw calldata.
+
 ## Validation
 
 ```sh
