@@ -333,6 +333,40 @@ describe('VaultAssetGuard gated asset management', () => {
     await expect(ethers.deployContract('VaultAssetGuard', [z, f.admin.address, 86400, [f.venue.address], [], [[]], 0, 0, [f.operator.address], [f.gatekeeper.address]])).reverted
   })
 
+  it('makes the constructor whitelist usable from deployment, unlike later additions', async () => {
+    const f = await loadFixture(fixture)
+    const DAY = 86400
+    // Same cooldown, two destinations: one seeded at construction, one added afterwards.
+    const guard: any = await ethers.deployContract('VaultAssetGuard', [
+      f.minting.target, f.admin.address, 86400,
+      [f.venue.address], ['Trading venue'], [[f.collateral.target]],
+      DAY, 0, [f.operator.address], [f.gatekeeper.address],
+    ])
+    await f.collateral.mint(guard.target, u('100'))
+
+    // Seeded at construction: live right now, no waiting.
+    const deployedAt = BigInt((await ethers.provider.getBlock(guard.deploymentTransaction()!.blockNumber!))!.timestamp)
+    expect(await guard.destinationActiveAt(f.venue.address)).eq(deployedAt)
+    await expect(guard.connect(f.operator).withdraw(f.collateral.target, f.venue.address, u('1')))
+      .emit(guard, 'Withdrawal').withArgs(f.collateral.target, f.venue.address, u('1'))
+
+    // Added afterwards: the cooldown applies, because now it is an address appearing on a live contract.
+    await guard.connect(f.gatekeeper).addDestination(f.stranger.address, 'Bank A', [f.collateral.target])
+    const addedAt = BigInt((await ethers.provider.getBlock('latest'))!.timestamp)
+    expect(await guard.destinationActiveAt(f.stranger.address)).eq(addedAt + BigInt(DAY))
+    await expect(guard.connect(f.operator).withdraw(f.collateral.target, f.stranger.address, u('1')))
+      .revertedWithCustomError(guard, 'DestinationInCooldown').withArgs(f.stranger.address, addedAt + BigInt(DAY))
+    await time.increase(DAY + 1)
+    await guard.connect(f.operator).withdraw(f.collateral.target, f.stranger.address, u('1'))
+
+    // Re-adding a constructor destination does NOT keep the exemption — it is a later addition now.
+    await guard.connect(f.gatekeeper).removeDestination(f.venue.address)
+    expect(await guard.destinationActiveAt(f.venue.address)).eq(0)
+    await guard.connect(f.gatekeeper).addDestination(f.venue.address, 'Trading venue', [f.collateral.target])
+    await expect(guard.connect(f.operator).withdraw(f.collateral.target, f.venue.address, u('1')))
+      .revertedWithCustomError(guard, 'DestinationInCooldown')
+  })
+
   it('holds a newly whitelisted destination in cooldown, but removes it immediately', async () => {
     const f = await loadFixture(fixture)
     const DAY = 86400
@@ -341,33 +375,31 @@ describe('VaultAssetGuard gated asset management', () => {
     await f.collateral.mint(guard.target, u('100'))
     await f.admin.sendTransaction({ to: guard.target, value: e('1') })
 
-    // The constructor whitelist is subject to the cooldown too.
-    const activeAt = await guard.destinationActiveAt(f.venue.address)
-    const deployedAt = (await ethers.provider.getBlock(guard.deploymentTransaction().blockNumber))!.timestamp
-    expect(await guard.destinationAddedAt(f.venue.address)).eq(deployedAt)
-    expect(activeAt).eq(BigInt(deployedAt) + BigInt(DAY))
-    await expect(guard.connect(f.operator).withdraw(f.collateral.target, f.venue.address, u('1')))
-      .revertedWithCustomError(guard, 'DestinationInCooldown').withArgs(f.venue.address, activeAt)
-    await expect(guard.connect(f.operator).withdrawAll(f.collateral.target, f.venue.address))
+    // A destination added after deployment carries the cooldown, on every push path.
+    await guard.connect(f.gatekeeper).addDestination(f.stranger.address, 'Bank A', [f.collateral.target, f.NATIVE])
+    const addedAt = (await ethers.provider.getBlock('latest'))!.timestamp
+    const activeAt = await guard.destinationActiveAt(f.stranger.address)
+    expect(await guard.destinationAddedAt(f.stranger.address)).eq(addedAt)
+    expect(activeAt).eq(BigInt(addedAt) + BigInt(DAY))
+    await expect(guard.connect(f.operator).withdraw(f.collateral.target, f.stranger.address, u('1')))
+      .revertedWithCustomError(guard, 'DestinationInCooldown').withArgs(f.stranger.address, activeAt)
+    await expect(guard.connect(f.operator).withdrawAll(f.collateral.target, f.stranger.address))
       .revertedWithCustomError(guard, 'DestinationInCooldown')
-    await expect(guard.connect(f.operator).withdrawBatch([f.collateral.target], [f.venue.address], [u('1')]))
+    await expect(guard.connect(f.operator).withdrawBatch([f.collateral.target], [f.stranger.address], [u('1')]))
       .revertedWithCustomError(guard, 'DestinationInCooldown')
-    await expect(guard.connect(f.operator).withdrawNative(f.venue.address, 1))
+    await expect(guard.connect(f.operator).withdrawNative(f.stranger.address, 1))
       .revertedWithCustomError(guard, 'DestinationInCooldown')
 
-    // Still locked at exactly addedAt + cooldown; open one second later.
-    await time.setNextBlockTimestamp(activeAt)
-    await expect(guard.connect(f.operator).withdraw(f.collateral.target, f.venue.address, u('1')))
-      .revertedWithCustomError(guard, 'DestinationInCooldown')
-    await time.setNextBlockTimestamp(activeAt + 1n)
-    await expect(guard.connect(f.operator).withdraw(f.collateral.target, f.venue.address, u('1')))
-      .emit(guard, 'Withdrawal').withArgs(f.collateral.target, f.venue.address, u('1'))
-    await guard.connect(f.operator).withdrawNative(f.venue.address, 1)
-
-    // A destination added later starts its own cooldown; the existing one is unaffected.
-    await guard.connect(f.gatekeeper).addDestination(f.stranger.address, 'Bank A', [f.collateral.target])
+    // Locked one second before; open exactly at activeAt.
+    await time.setNextBlockTimestamp(activeAt - 1n)
     await expect(guard.connect(f.operator).withdraw(f.collateral.target, f.stranger.address, u('1')))
       .revertedWithCustomError(guard, 'DestinationInCooldown')
+    await time.setNextBlockTimestamp(activeAt)
+    await expect(guard.connect(f.operator).withdraw(f.collateral.target, f.stranger.address, u('1')))
+      .emit(guard, 'Withdrawal').withArgs(f.collateral.target, f.stranger.address, u('1'))
+    await guard.connect(f.operator).withdrawNative(f.stranger.address, 1)
+
+    // The constructor destination was never delayed and still is not.
     await guard.connect(f.operator).withdraw(f.collateral.target, f.venue.address, u('1'))
 
     // Removal is immediate, and re-adding restarts the cooldown from scratch.

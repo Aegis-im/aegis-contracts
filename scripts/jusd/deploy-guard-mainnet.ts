@@ -86,8 +86,9 @@ const CONFIG = {
     usdy: {
       token: '0x96F6eF951840721AdBF46Ac996b59E0235CB985C',
       oracle: '0xA0219AA5B31e65Bc920B5b6DFb8EdF0988121De0',
-      deployAdapter: true,
-      feed: null as string | null,
+      // Already deployed and verified on mainnet; reused rather than redeployed.
+      deployAdapter: false,
+      feed: '0x6526966D92d6Ac5AA3D3f619A8A8989F3fD1a0F4' as string | null,
       // Ondo republishes monthly, so 30 days would revert on any late update and shut the leg.
       // 35 days leaves five days of grace while still catching an abandoned oracle. Unlike the
       // two cooldowns this is NOT immutable — the whitelist manager can retune it via setPriceFeed.
@@ -113,7 +114,7 @@ const CONFIG = {
   },
 
   // --- Mechanics -------------------------------------------------------------
-  maxGasPriceGwei: 1.75 as number | null, // refuse to deploy above this
+  maxGasPriceGwei: 1.4 as number | null, // refuse to deploy above this
   verify: true,
 
   /**
@@ -216,8 +217,13 @@ async function preflight(deployer: any) {
     console.log(`note: network is at ${networkGwei.toFixed(2)} gwei but sending at ${sendGwei.toFixed(3)} gwei — transactions will pend until the base fee falls`)
   }
 
-  // A feed that cannot answer now would brick the Ondo leg the moment it is used.
-  for (const a of c.ondo.assets) {
+  // A feed that cannot answer now would brick the Ondo leg the moment it is used. The USDY feed
+  // is checked alongside the rest, including when it is a reused adapter rather than a fresh one.
+  const feedsToCheck = [
+    ...(c.ondo.usdy.deployAdapter ? [] : [{ symbol: 'USDY', feed: c.ondo.usdy.feed!, heartbeat: c.ondo.usdy.heartbeat! }]),
+    ...c.ondo.assets,
+  ]
+  for (const a of feedsToCheck) {
     try {
       // Fully qualified: three AggregatorV3Interface artifacts exist in this project.
       const feed = await ethers.getContractAt('contracts/AegisVault/interfaces/AggregatorV3Interface.sol:AggregatorV3Interface', a.feed)

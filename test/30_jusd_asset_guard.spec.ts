@@ -219,11 +219,15 @@ describe('JUSDAssetGuard Ondo reserve leg', () => {
     await guard.connect(f.gatekeeper).setMaxOndoOutstanding(usd('1000'))
     await f.usdc.mint(guard.target, u('1000'))
 
-    await expect(guard.connect(f.operator).withdraw(f.usdc.target, f.venue.address, u('1')))
+    // The constructor venue is live immediately; a later one waits.
+    await guard.connect(f.operator).withdraw(f.usdc.target, f.venue.address, u('1'))
+    await guard.connect(f.gatekeeper).addDestination(f.stranger.address, 'Later venue', [f.usdc.target])
+    await expect(guard.connect(f.operator).withdraw(f.usdc.target, f.stranger.address, u('1')))
       .revertedWithCustomError(guard, 'DestinationInCooldown')
+    // The Ondo multisig is not a whitelist entry, so it is never delayed by this at all.
     await guard.connect(f.operator).withdrawToOndo(f.usdc.target, u('1'))
     await time.increase(3601)
-    await guard.connect(f.operator).withdraw(f.usdc.target, f.venue.address, u('1'))
+    await guard.connect(f.operator).withdraw(f.usdc.target, f.stranger.address, u('1'))
   })
 
   it('refuses to return the USDY reserve to minting, which could never release it', async () => {

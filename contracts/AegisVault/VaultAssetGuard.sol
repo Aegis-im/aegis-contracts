@@ -100,6 +100,9 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
     /// @notice Timestamp at which each destination was whitelisted; cleared on removal
     mapping(address => uint256) public destinationAddedAt;
 
+    /// @notice First timestamp at which each destination may receive funds; cleared on removal
+    mapping(address => uint256) public destinationActiveFrom;
+
     /// @dev Addresses this contract is allowed to withdraw to
     EnumerableSet.AddressSet private _destinations;
 
@@ -226,7 +229,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
         if (_mintingAddress != address(0)) _setMintingAddress(_mintingAddress);
 
         for (uint256 i = 0; i < _destinations_.length; i++) {
-            _addDestination(_destinations_[i], _labels[i], _assets[i]);
+            _addDestination(_destinations_[i], _labels[i], _assets[i], true);
         }
     }
 
@@ -370,7 +373,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
         string calldata label,
         address[] calldata assets
     ) external onlyRole(WHITELIST_MANAGER_ROLE) {
-        _addDestination(destination, label, assets);
+        _addDestination(destination, label, assets, false);
     }
 
     /// @notice Adds several destinations in one call, each with its own asset list
@@ -384,7 +387,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
         }
 
         for (uint256 i = 0; i < destinations_.length; i++) {
-            _addDestination(destinations_[i], labels[i], assets[i]);
+            _addDestination(destinations_[i], labels[i], assets[i], false);
         }
     }
 
@@ -410,6 +413,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
         if (!_destinations.remove(destination)) revert NotWhitelistedDestination(destination);
         delete destinationLabel[destination];
         delete destinationAddedAt[destination];
+        delete destinationActiveFrom[destination];
         _clearDestinationAssets(destination);
 
         emit DestinationRemoved(destination);
@@ -423,6 +427,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
             if (!_destinations.remove(destinations_[i])) revert NotWhitelistedDestination(destinations_[i]);
             delete destinationLabel[destinations_[i]];
             delete destinationAddedAt[destinations_[i]];
+            delete destinationActiveFrom[destinations_[i]];
             _clearDestinationAssets(destinations_[i]);
 
             emit DestinationRemoved(destinations_[i]);
@@ -534,11 +539,11 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
     }
 
     /// @notice First timestamp at which `destination` can receive funds; zero if not whitelisted
-    /// @dev With a cooldown configured, withdrawals are allowed once `block.timestamp` is strictly
-    ///      greater than this value; without one, a destination is usable as soon as it is added
+    /// @dev Withdrawals are allowed once `block.timestamp` reaches this value. Destinations seeded
+    ///      in the constructor are active from deployment; ones added later wait out the cooldown.
     function destinationActiveAt(address destination) public view returns (uint256) {
         if (!_destinations.contains(destination)) return 0;
-        return destinationAddedAt[destination] + whitelistCooldown;
+        return destinationActiveFrom[destination];
     }
 
     /// @notice Whether `destination` is allowed to receive `asset`
@@ -590,11 +595,8 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
     ///      takes effect immediately; re-adding a destination restarts its cooldown.
     function _checkDestination(address to) internal view {
         if (!_destinations.contains(to)) revert NotWhitelistedDestination(to);
-        uint256 cooldown = whitelistCooldown;
-        if (cooldown != 0) {
-            uint256 activeAt = destinationAddedAt[to] + cooldown;
-            if (block.timestamp <= activeAt) revert DestinationInCooldown(to, activeAt);
-        }
+        uint256 activeFrom = destinationActiveFrom[to];
+        if (block.timestamp < activeFrom) revert DestinationInCooldown(to, activeFrom);
     }
 
     function _returnToMinting(address asset, uint256 amount) internal {
@@ -610,7 +612,19 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
         emit ReturnedToMinting(asset, minting, amount);
     }
 
-    function _addDestination(address destination, string memory label, address[] memory assets) internal virtual {
+    /**
+     * @param immediate Skip the cooldown. True only for the constructor's initial whitelist, which
+     *        is part of the deployment the operator is already inspecting — a guard that cannot use
+     *        its own configured destinations until days after launch is not deployed, it is
+     *        half-deployed. Every destination added afterwards waits, because that is the case the
+     *        cooldown exists for: an address appearing on a live contract.
+     */
+    function _addDestination(
+        address destination,
+        string memory label,
+        address[] memory assets,
+        bool immediate
+    ) internal virtual {
         if (destination == address(0)) revert ZeroAddress();
         // The two exit routes stay disjoint: minting is reached through returnToMinting, never
         // through withdraw, so every movement is unambiguous in the event log. A pending minting
@@ -622,6 +636,7 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
 
         destinationLabel[destination] = label;
         destinationAddedAt[destination] = block.timestamp;
+        destinationActiveFrom[destination] = immediate ? block.timestamp : block.timestamp + whitelistCooldown;
 
         emit DestinationAdded(destination, label);
 

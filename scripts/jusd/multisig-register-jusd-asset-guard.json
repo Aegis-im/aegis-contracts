@@ -9,13 +9,13 @@
     {
       "to": "0xBB0F32D176590faEdC7bc552b7EAD7A86809b520",
       "value": "0",
-      "data": "0x4be7a64b0000000000000000000000001beae6a403d105bceb00d3d605a16b4c0ba65908",
+      "data": "0x4be7a64b00000000000000000000000084f5fa8be74edfbc742ebe0e332b713bbb09f7e8",
       "description": "Register the guard as a custodian so collateral can be transferred to it"
     },
     {
       "to": "0xBB0F32D176590faEdC7bc552b7EAD7A86809b520",
       "value": "0",
-      "data": "0x2f2ff15d85e8f2d6819d6b24108062d87ea08f54651bcb8960d98062d3faf96e7873b8b90000000000000000000000001beae6a403d105bceb00d3d605a16b4c0ba65908",
+      "data": "0x2f2ff15d85e8f2d6819d6b24108062d87ea08f54651bcb8960d98062d3faf96e7873b8b900000000000000000000000084f5fa8be74edfbc742ebe0e332b713bbb09f7e8",
       "description": "OPTIONAL — lets the guard draw collateral itself via pullFromMinting"
     }
   ]

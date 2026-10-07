@@ -29,8 +29,8 @@
       "usdy": {
         "token": "0x96F6eF951840721AdBF46Ac996b59E0235CB985C",
         "oracle": "0xA0219AA5B31e65Bc920B5b6DFb8EdF0988121De0",
-        "deployAdapter": true,
-        "feed": null,
+        "deployAdapter": false,
+        "feed": "0x6526966D92d6Ac5AA3D3f619A8A8989F3fD1a0F4",
         "heartbeat": 3024000
       },
       "assets": [
@@ -42,22 +42,13 @@
         }
       ]
     },
-    "maxGasPriceGwei": 1.75,
+    "maxGasPriceGwei": 1.4,
     "verify": true,
     "adminHandoverTo": "0x0000000000000000000000000000000000000000"
   },
   "contracts": {
-    "ondoPriceFeedAdapter": {
-      "address": "0x6526966D92d6Ac5AA3D3f619A8A8989F3fD1a0F4",
-      "contract": "OndoPriceFeedAdapter",
-      "args": [
-        "0xA0219AA5B31e65Bc920B5b6DFb8EdF0988121De0",
-        "USDY / USD (Ondo)"
-      ],
-      "transactionHash": "0x361a294ef9629f1255964010baec875584349e7443b9de1448cc09236d34ff98"
-    },
     "jusdAssetGuard": {
-      "address": "0x1beae6a403d105BcEb00D3D605A16B4C0ba65908",
+      "address": "0x84f5FA8Be74EDFbC742ebe0e332b713bbB09f7E8",
       "contract": "JUSDAssetGuard",
       "args": [
         "0xBB0F32D176590faEdC7bc552b7EAD7A86809b520",
@@ -98,12 +89,12 @@
           }
         ]
       ],
-      "transactionHash": "0x12c07b9887d47d940d3ea22f7cf79ae1af185c923290d7e66b45b4ecb09ccc31"
+      "transactionHash": "0xd52be2caff68fccce3d60345068a29008c238d52779817fd685f10c2b9da869e"
     }
   },
   "steps": {
-    "beginDefaultAdminTransfer.0x0000000000000000000000000000000000000000": "2026-10-07T17:30:39.745Z"
+    "beginDefaultAdminTransfer.0x0000000000000000000000000000000000000000": "2026-10-07T18:05:49.317Z"
   },
   "status": "ready",
-  "deployedAt": "2026-10-07T17:30:39.804Z"
+  "deployedAt": "2026-10-07T18:05:49.374Z"
 }

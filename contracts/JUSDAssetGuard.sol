@@ -379,9 +379,14 @@ contract JUSDAssetGuard is VaultAssetGuard {
     }
 
     /// @dev The multisig is never reachable through the plain whitelist, in either direction
-    function _addDestination(address destination, string memory label, address[] memory assets) internal override {
+    function _addDestination(
+        address destination,
+        string memory label,
+        address[] memory assets,
+        bool immediate
+    ) internal override {
         if (ondoMultisig != address(0) && destination == ondoMultisig) revert InvalidAddress();
-        super._addDestination(destination, label, assets);
+        super._addDestination(destination, label, assets, immediate);
     }
 
     /// @dev The redemption sink is never the multisig either — checked when a change is proposed
