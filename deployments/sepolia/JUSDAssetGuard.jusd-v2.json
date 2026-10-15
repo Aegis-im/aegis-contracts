@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "chainId": 11155111,
+  "config": {
+    "id": "jusd-v2",
+    "chainId": 11155111,
+    "mintingAddress": "0x1FE05C75a8affb3889a3078dA7EcCc0805Dc727A",
+    "admin": "0x8aF05B6Df31035aeBA506e7aFC40AF348cBE4AE1",
+    "collateralManager": "0x8aF05B6Df31035aeBA506e7aFC40AF348cBE4AE1",
+    "whitelistManager": "0x8aF05B6Df31035aeBA506e7aFC40AF348cBE4AE1",
+    "initialDelay": 0,
+    "whitelistCooldown": 600,
+    "mintingChangeDelay": 600,
+    "destinations": [],
+    "labels": [],
+    "assets": [],
+    "registerCustodian": true,
+    "grantDrawRole": true,
+    "explorer": "https://sepolia.etherscan.io",
+    "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com"
+  },
+  "contracts": {
+    "guard": {
+      "address": "0x2Ea203092F5BA4d4a08E9ee978D10E46dD735944",
+      "contract": "JUSDAssetGuard",
+      "args": [
+        "0x1FE05C75a8affb3889a3078dA7EcCc0805Dc727A",
+        "0x8aF05B6Df31035aeBA506e7aFC40AF348cBE4AE1",
+        0,
+        [],
+        [],
+        [],
+        600,
+        600
+      ],
+      "transactionHash": "0xb617d29ef4e85ee207a88a5d3e8ee6647eca39863fdba79706d5261bdaf57f7c"
+    }
+  },
+  "status": "ready",
+  "deployedAt": "2026-10-09T12:40:04.253Z"
+}
