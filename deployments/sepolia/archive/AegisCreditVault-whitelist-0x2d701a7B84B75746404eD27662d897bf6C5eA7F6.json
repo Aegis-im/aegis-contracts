@@ -1,0 +1,11 @@
+{
+  "address": "0x2d701a7B84B75746404eD27662d897bf6C5eA7F6",
+  "chainId": "11155111",
+  "asset": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+  "aegisConfig": "0x1dAe7eBfb0Daa9AEb8a956f38df6f297b9e32B29",
+  "counterparty": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+  "admin": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+  "manager": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+  "redemptionCooldown": 2592000,
+  "transactionHash": "0x61eabca24dd35bebd3e379951b164858bd061fd3a67757a79a392196ff384a8a"
+}

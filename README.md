@@ -2,6 +2,11 @@
 
 This repository contains smart contracts for the Aegis protocol.
 
+The [XRPL Testnet package](xrpl/README.md) provisions native trust-line YUSD and
+mints it after validated incoming collateral payments. It runs independently of
+Hardhat and requires Node.js 22.14 or newer. The [XRPL proposal](docs/xrpl/YUSD-XRPL-TECH-PROPOSAL.md)
+describes the payment flow and deferred redemption scope.
+
 ## Prerequisites
 
 Before running tests, ensure you have the following installed:
@@ -148,3 +153,11 @@ npx prettier --write "**/*.{js,ts,sol}"
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## JUSDAssetGuard
+
+Gated push/pull replacement for the JUSD custody wallet, with a metered leg for the Ondo/USDY reserve program: [design and operation](docs/JUSDAssetGuard.md).
+
+## AegisVault
+
+Reusable bank vault infrastructure and the Amina Sepolia deployment: [deployment and operation guide](docs/AegisVault/README.md). Amina Deposit USDG (`adUSDG`) is the deposit intermediary; Amina USDG (`ausdg`) is the ERC-4626 yield-bearing vault token.
