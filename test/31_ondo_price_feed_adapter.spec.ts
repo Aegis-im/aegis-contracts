@@ -56,7 +56,7 @@ describe('OndoPriceFeedAdapter', () => {
     const [admin, operator, gatekeeper] = await ethers.getSigners()
     const usdy: any = await ethers.deployContract('TestToken', ['Ondo US Dollar Yield', 'USDY', 18])
     const minting: any = await ethers.deployContract('TestToken', ['Sink', 'SINK', 6])
-    const guard: any = await ethers.deployContract('JUSDAssetGuard', [minting.target, admin.address, 86400, [], [], [], 0, 0, [operator.address], [gatekeeper.address], ethers.ZeroAddress, 0, []])
+    const guard: any = await ethers.deployContract('JUSDAssetGuard', [minting.target, admin.address, 86400, [], [], [], 0, 0, [operator.address], [gatekeeper.address], ethers.ZeroAddress, [], ethers.ZeroAddress, 0, []])
     await guard.connect(gatekeeper).setPriceFeed(usdy.target, f.adapter.target, 86400)
     await guard.connect(gatekeeper).setOndoAsset(usdy.target, true)
 

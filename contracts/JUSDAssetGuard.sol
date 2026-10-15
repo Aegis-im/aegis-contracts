@@ -21,6 +21,8 @@ import { AggregatorV3Interface } from "./AegisVault/interfaces/AggregatorV3Inter
  *      makes the meter meaningful:
  *
  *        withdraw(...)       → whitelisted venue/bank. Does not touch the counter.
+ *        bridgeCctp(...)     → whitelisted route on another chain. Does not touch the counter, and
+ *                              cannot name the multisig's address on any chain.
  *        withdrawToOndo(...) → the multisig. Raises `ondoOutstanding` by the USD value sent.
  *        pullFromOndo(...)   → draws assets back out of the multisig. Lowers it by what arrives.
  *
@@ -128,12 +130,15 @@ contract JUSDAssetGuard is VaultAssetGuard {
      * @param _initialDelay   AccessControlDefaultAdminRules handover delay, in seconds
      * @param _destinations   Initial whitelist of addresses assets may be withdrawn to
      * @param _labels         Operator labels matching `_destinations`, one per entry
-     * @param _whitelistCooldown Seconds before a newly added destination can receive funds; zero
-     *                        disables it. Cannot be changed after deployment.
+     * @param _whitelistCooldown Seconds before a newly added destination or bridge route becomes
+     *                        usable; zero disables it. Cannot be changed after deployment.
+     * @param _cctpTokenMessenger Circle CCTP TokenMessenger, or zero to leave bridging unavailable
+     *                        for the life of the contract. Cannot be changed.
+     * @param _cctpRoutes     Bridge routes to seed, usable from deployment. May be empty.
      *
-     * @dev The Ondo leg starts closed: no multisig, no allowed assets and a zero cap. The whitelist
-     *      manager opens it by setting the multisig, registering USDC/USDY with their feeds and
-     *      raising the cap.
+     * @dev The Ondo leg starts closed unless configured here: no multisig, no allowed assets and a
+     *      zero cap. The whitelist manager opens it by setting the multisig, registering USDC/USDY
+     *      with their feeds and raising the cap.
      */
     constructor(
         address _mintingAddress,
@@ -146,12 +151,15 @@ contract JUSDAssetGuard is VaultAssetGuard {
         uint256 _mintingChangeDelay,
         address[] memory _collateralManagers,
         address[] memory _whitelistManagers,
+        address _cctpTokenMessenger,
+        CctpRouteConfig[] memory _cctpRoutes,
         address _ondoMultisig,
         uint256 _maxOndoOutstanding,
         OndoAssetConfig[] memory _ondoAssetConfigs
     ) VaultAssetGuard(
         _mintingAddress, _admin, _initialDelay, _destinations, _labels, _assets,
-        _whitelistCooldown, _mintingChangeDelay, _collateralManagers, _whitelistManagers
+        _whitelistCooldown, _mintingChangeDelay, _collateralManagers, _whitelistManagers,
+        _cctpTokenMessenger, _cctpRoutes
     ) {
         // Order matters: an asset cannot be registered without a feed, and the multisig is checked
         // against the whitelist the base constructor has already seeded. The cap goes last, so the
@@ -162,14 +170,17 @@ contract JUSDAssetGuard is VaultAssetGuard {
             _setOndoAsset(config.token, true);
         }
 
-        // Leaving the multisig unset keeps the leg closed; the cap alone cannot open it.
-        if (_ondoMultisig != address(0)) {
-            for (uint256 i = 0; i < _collateralManagers.length; i++) {
-                // The account authorising withdrawToOndo must not also be the recipient.
-                if (_collateralManagers[i] == _ondoMultisig) revert InvalidAddress();
-            }
-            _setOndoMultisig(_ondoMultisig);
-        }
+        /*
+         * Leaving the multisig unset keeps the leg closed; the cap alone cannot open it.
+         *
+         * The multisig may be a collateral manager. That makes one account both the sender and the
+         * recipient of withdrawToOndo, which is the intended shape here: a single operations
+         * multisig runs the Ondo round trip end to end, taking collateral out and returning USDY.
+         * What bounds it is maxOndoOutstanding, and the counter can only be reset by
+         * WHITELIST_MANAGER_ROLE — so the party holding the outstanding value is not the party that
+         * decides it has been returned. Keep those two roles on different accounts.
+         */
+        if (_ondoMultisig != address(0)) _setOndoMultisig(_ondoMultisig);
         if (_maxOndoOutstanding != 0) _setMaxOndoOutstanding(_maxOndoOutstanding);
     }
 
@@ -251,7 +262,8 @@ contract JUSDAssetGuard is VaultAssetGuard {
             multisig == address(this) ||
             multisig == mintingAddress ||
             multisig == pendingMintingAddress ||
-            isDestination(multisig)
+            isDestination(multisig) ||
+            _isCctpRouteRecipient(addressToBytes32(multisig))
         ) revert InvalidAddress();
         if (ondoOutstanding != 0) revert OutstandingNotSettled(ondoOutstanding);
 
@@ -387,6 +399,23 @@ contract JUSDAssetGuard is VaultAssetGuard {
     ) internal override {
         if (ondoMultisig != address(0) && destination == ondoMultisig) revert InvalidAddress();
         super._addDestination(destination, label, assets, immediate);
+    }
+
+    /**
+     * @dev Nor through the bridge. A Safe deployed through the usual factory has the same address on
+     *      every chain, so a route naming the multisig's own address on Arbitrum or Base would hand
+     *      the same counterparty the same exposure with the meter untouched. `withdrawToOndo` is the
+     *      only way value reaches it, on any chain.
+     */
+    function _addCctpRoute(
+        uint32 domain,
+        bytes32 mintRecipient,
+        string memory label,
+        address[] memory assets,
+        bool immediate
+    ) internal override {
+        if (ondoMultisig != address(0) && mintRecipient == addressToBytes32(ondoMultisig)) revert InvalidAddress();
+        super._addCctpRoute(domain, mintRecipient, label, assets, immediate);
     }
 
     /// @dev The redemption sink is never the multisig either — checked when a change is proposed

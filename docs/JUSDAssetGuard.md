@@ -2,14 +2,15 @@
 
 `contracts/JUSDAssetGuard.sol` extends [`VaultAssetGuard`](AegisVault/README.md#custody-and-redemption) with a metered leg for the Ondo reserve program. JUSD holds part of its reserves as USDY on this contract; USDC is routed to a 2/4 multisig that mints USDY at Ondo and sends it back.
 
-It is registered as a custodian address in `AegisMintingJUSD` and replaces the custody wallet there, so it inherits the whole base gate: assets leave only to whitelisted destination/asset pairs or back to minting, there is no arbitrary-destination rescue and no ERC-20 approval surface, and returning collateral to minting is never paused.
+It is registered as a custodian address in `AegisMintingJUSD` and replaces the custody wallet there, so it inherits the whole base gate: assets leave only to whitelisted destination/asset pairs, back to minting, or across a whitelisted CCTP bridge route; there is no arbitrary-destination rescue; and returning collateral to minting is never paused.
 
-## Three exits, one of them metered
+## Four exits, one of them metered
 
 | Call | Destination | Counter |
 | --- | --- | --- |
 | `withdraw` / `withdrawBatch` / `withdrawAll` | whitelisted venue, bank, sub-custodian | untouched |
 | `returnToMinting` / `returnAllToMinting` | `AegisMintingJUSD` — supported collateral only; becomes redemption liquidity | untouched |
+| `bridgeCctp` | whitelisted CCTP route — a (domain, recipient) pair on another chain | untouched |
 | `withdrawToOndo` | the Ondo multisig | **raises** `ondoOutstanding` |
 | `pullFromOndo` | draws assets back out of the multisig | **lowers** `ondoOutstanding` |
 
@@ -19,7 +20,36 @@ The Ondo multisig is not an entry on the withdrawal whitelist. It is its own des
 
 The base whitelist cooldown, if configured at deployment, applies to venue withdrawals only; the Ondo multisig is not a whitelist entry and is not delayed by it. For the same reason the multisig carries no per-destination asset list — what it may receive is governed by the Ondo asset registry instead. A venue, by contrast, needs USDY on its own list before any reserve can reach it.
 
-The multisig is also kept apart from a scheduled change of the redemption sink: it cannot be proposed as the new sink, and a pending sink cannot be made the multisig.
+The multisig is also kept apart from a scheduled change of the redemption sink: it cannot be proposed as the new sink, and a pending sink cannot be made the multisig. The same holds for the bridge, and for a reason worth stating: a Safe deployed through the usual factory has the same address on every chain, so a route naming the multisig's own address on Arbitrum would hand the same counterparty the same exposure with the meter untouched. A route cannot name the multisig, and an address already reachable by bridge cannot become the multisig.
+
+## The CCTP bridge
+
+`bridgeCctp(asset, domain, mintRecipient, amount)` burns through Circle's CCTP TokenMessenger so the asset mints on another chain. It is the guard's one ERC-20 allowance, and it exists for the length of a single external call:
+
+```text
+forceApprove(messenger, amount)  →  depositForBurn(...)  →  forceApprove(messenger, 0)
+                                                         →  assert balance delta == amount
+```
+
+Between transactions the allowance is always zero, so there is no standing approval for a later caller to drain. Three things make that containable rather than merely tidy:
+
+- **The spender is immutable.** `cctpTokenMessenger` is fixed in the constructor and has no setter. No role — including `DEFAULT_ADMIN_ROLE`, which holds no power here anyway — can repoint the approval at a contract of its own choosing. A deployment with the zero address can never bridge; enabling it means a redeploy.
+- **The amount is exact, never unlimited.** A messenger that tried to pull twice would fail on the second pull and take the whole call with it.
+- **The balance delta is asserted.** If the messenger took more than `amount`, or took it and handed some back, `BridgeAmountMismatch` reverts the call. The event log cannot claim an amount that did not move.
+
+A route is the **pair** `(domain, mintRecipient)`, keyed as `cctpRouteId(domain, mintRecipient)`. Approving a recipient on Arbitrum approves nothing on Base, and the recipient is never chosen at send time — only a whitelisted one can be named. Each route carries its own asset list, exactly as a destination does: a route with an empty list can carry nothing.
+
+Routes are governed by `WHITELIST_MANAGER_ROLE` (`addCctpRoute`, `setCctpRouteAssets`, `removeCctpRoute`) and use the **same `whitelistCooldown`** as the destination whitelist — one immutable value, because both are the same decision: naming an address funds may reach. Routes seeded in the constructor are usable from deployment; routes added to a live contract wait. Removal is immediate, and re-adding restarts the wait. `COLLATERAL_MANAGER_ROLE` moves funds along a route and can neither create one nor pick a recipient.
+
+`addCctpRoute` checks the domain against Circle's own `remoteTokenMessengers` registry, which rejects a mistyped domain immediately rather than after the cooldown has been spent. It also rules out a route home: the local domain has no remote messenger.
+
+Two operational facts the contract does not paper over:
+
+- **It is CCTP v2, standard transfer only.** The messenger is v2 (`0x28b5a0e9…cf5d`), because HyperEVM (domain 19) is served only by v2. Every burn waits for finality, pays no fee and leaves the destination caller open, so anyone holding the attestation can complete the mint; none of these is an operator parameter.
+- **Circle caps a single burn** — 10,000,000 USDC on Ethereum at the time of writing. `cctpBurnLimit(asset)` reads it live. Larger moves are several `bridgeCctp` calls; the guard deliberately does not loop, so the cap stays visible to whoever signs.
+- **The mint is not atomic.** The burn happens here; the mint needs Circle's attestation fetched and submitted on the destination chain, roughly 13-19 minutes at standard finality. Until then the value exists only as a burned message identified by the burn transaction hash, which is what Circle's attestation API looks up. Nothing in this contract can complete or recall it.
+
+Bridging is paused by the pause switch, like every other outbound path.
 
 ## What the counter measures
 
@@ -61,12 +91,12 @@ A feed cannot be unset while its asset is still registered on the Ondo leg, and 
 | Role | Powers |
 | --- | --- |
 | `DEFAULT_ADMIN_ROLE` | Names the redemption sink, and replaces a live one through `beginMintingAddressChange` / `applyMintingAddressChange` on the deployment's cooldown. Administers roles. Expected to be a multisig; handover is delayed by `AccessControlDefaultAdminRules`. |
-| `WHITELIST_MANAGER_ROLE` | Every boundary: the destination whitelist and each destination's asset list, the pause switch, the Ondo multisig address, `maxOndoOutstanding`, the Ondo asset registry, price feeds, and counter reconciliation. |
-| `COLLATERAL_MANAGER_ROLE` | Moves assets inside those boundaries. Cannot raise a limit, reprice an asset, change the multisig, or whitelist a destination. |
+| `WHITELIST_MANAGER_ROLE` | Every boundary: the destination whitelist and each destination's asset list, the CCTP bridge routes and their asset lists, the pause switch, the Ondo multisig address, `maxOndoOutstanding`, the Ondo asset registry, price feeds, and counter reconciliation. |
+| `COLLATERAL_MANAGER_ROLE` | Moves assets inside those boundaries. Cannot raise a limit, reprice an asset, change the multisig, whitelist a destination, or add a bridge route. |
 
 Price feeds sit with the limit-setting role on purpose: a price decides how much headroom a transfer consumes, so repricing an asset is the same power as moving the cap.
 
-Pausing stops outbound movement, draws from minting, and `withdrawToOndo`. It never stops `returnToMinting` or `pullFromOndo` — value coming back must stay reachable during an incident.
+Pausing stops outbound movement, draws from minting, `bridgeCctp`, and `withdrawToOndo`. It never stops `returnToMinting` or `pullFromOndo` — value coming back must stay reachable during an incident.
 
 ## Opening the leg
 
@@ -81,7 +111,12 @@ setOndoMultisig(multisig)         # refused if already whitelisted
 setMaxOndoOutstanding(cap)        # zero cap keeps the leg shut
 ```
 
-Venues are configured independently of the Ondo leg: each is added with the assets it may receive, and `setDestinationAssets` opens or closes single pairs later.
+Venues are configured independently of the Ondo leg: each is added with the assets it may receive, and `setDestinationAssets` opens or closes single pairs later. Bridge routes are configured the same way, and on the same cooldown:
+
+```text
+addCctpRoute(3, zeroPad(recipient, 32), 'Hyperliquid deposit', [USDC])
+# usable after whitelistCooldown; setCctpRouteAssets opens or closes single pairs later
+```
 
 Separately, `AegisMintingJUSD` must `addCustodianAddress(guard)` for collateral to reach it, and — only if the guard should draw collateral itself via `pullFromMinting` — grant it `COLLATERAL_MANAGER_ROLE`.
 

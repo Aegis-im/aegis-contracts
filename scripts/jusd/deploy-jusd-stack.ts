@@ -117,11 +117,19 @@ async function main() {
   // address only, but the admin is added afterwards so its 60s cooldown starts from a known block.
   // Roles and the whole Ondo leg are constructor-only now. Sepolia seeds the admin as both role
   // holder and sole destination; the Ondo leg stays closed (zero multisig, zero cap, no assets).
+  // The real Sepolia TokenMessenger only burns Sepolia USDC, which this stack does not use — so the
+  // bridge would be present but untestable. A mock stands in, registering Arbitrum and Base, so the
+  // whole path (route cooldown, per-route assets, exact-allowance burn) is exercisable with USDTest.
+  // Testnet only: mainnet points at Circle's own contract.
+  const ARBITRUM = 3, BASE = 6
+  const messenger = await deploy('mockTokenMessenger', 'MockTokenMessenger', [[ARBITRUM, BASE]])
   const guard = await deploy('jusdAssetGuard', 'JUSDAssetGuard', [
     minting.target, ADMIN, COOLDOWN,
     [ADMIN], ['Admin wallet'], [[usdTest.target]],
     COOLDOWN, COOLDOWN,
     [ADMIN], [ADMIN],
+    messenger.target,
+    [{ domain: ARBITRUM, mintRecipient: ethers.zeroPadValue(ADMIN, 32), label: 'Admin on Arbitrum', assets: [usdTest.target] }],
     z, 0, [],
   ])
 

@@ -27,7 +27,7 @@ const CONFIG = {
   // --- Constructor -----------------------------------------------------------
   mintingAddress: '0xBB0F32D176590faEdC7bc552b7EAD7A86809b520', // AegisMintingJUSD (mainnet)
   admin: '0x84fE172c15bb030BAA0dD497D30DD436c6b750E9',          // DEFAULT_ADMIN_ROLE; also the deployer
-  initialDelay: 3 * 24 * 60 * 60,                               // 259200 — admin handover delay
+  initialDelay: 24 * 60 * 60,                                   // 86400 — admin handover/retirement delay
 
   /**
    * IMMUTABLE. Seconds a newly whitelisted destination must wait before it can receive funds.
@@ -36,7 +36,7 @@ const CONFIG = {
    * Three days: long enough that a compromised whitelist manager cannot add a destination and
    * drain to it before anyone reads the DestinationAdded event.
    */
-  whitelistCooldown: (3 * 24 * 60 * 60) as number | null, // 259200
+  whitelistCooldown: (24 * 60 * 60) as number | null, // 86400
 
   /**
    * IMMUTABLE. Seconds between proposing and applying a new redemption sink. Same warning.
@@ -44,13 +44,21 @@ const CONFIG = {
    * Also three days, matching the whitelist cooldown and the admin handover delay, so every
    * privileged change on this contract gives the same window to react.
    */
-  mintingChangeDelay: (3 * 24 * 60 * 60) as number | null, // 259200
+  mintingChangeDelay: (24 * 60 * 60) as number | null, // 86400
 
   // Initial whitelist. Each destination receives ONLY the assets listed beside it.
   destinations: [
     {
       address: '0xf20de4ab8b2c45fceafc01c2baa134ef694ebacc',
       label: 'binance',
+      assets: [
+        '0xdAC17F958D2ee523a2206206994597C13D831ec7', // USDT
+        '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', // USDC
+      ],
+    },
+    {
+      address: '0x32CDe6cf5Fd70549e5230f86D687e94Ba7e34711',
+      label: 'bybit',
       assets: [
         '0xdAC17F958D2ee523a2206206994597C13D831ec7', // USDT
         '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', // USDC
@@ -64,18 +72,48 @@ const CONFIG = {
    * cannot renounce. Rotation happens inside each Safe, never here. A wrong address means
    * redeploying the guard.
    */
-  collateralManagers: ['0x4d19433297498E097e701ABc64a886942895CfCd'], // Safe 2/4 — moves assets
+  collateralManagers: ['0x4d19433297498E097e701ABc64a886942895CfCd'], // Safe 2/4 — also the Ondo multisig
   whitelistManagers: ['0x4Fe78eF65BD8EDDED480efaB030BA680646503c8'], // Safe 3/5
+
+  // --- CCTP bridge -----------------------------------------------------------
+  cctp: {
+    /**
+     * IMMUTABLE. Circle's CCTP v2 TokenMessenger on Ethereum mainnet. v2, not v1: HyperEVM
+     * (domain 19) is served only by v2, and v1 is Circle's legacy path. This is the only address the
+     * guard ever grants an ERC-20 allowance to, and it cannot be changed after deployment — which
+     * is the point: no role can repoint the approval at a contract of its own choosing.
+     *
+     * Set to the zero address to leave bridging unavailable for the life of the contract. There is
+     * no setter, so enabling it later means redeploying the guard.
+     *
+     * Verified on chain (2026-10-13): remote messengers registered for Arbitrum 3, Base 6 and
+     * HyperEVM 19; localMinter 0xfd78EE919681417d192449715b2594ab58f5D002, USDC burn cap
+     * 10,000,000 per message.
+     */
+    tokenMessenger: '0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d' as string,
+
+    /**
+     * Routes usable from deployment — no cooldown, same rule as the initial whitelist. Routes
+     * added later wait out `whitelistCooldown`.
+     *
+     * EMPTY ON PURPOSE. The Hyperliquid deposit recipient is not settled: Hyperliquid credits
+     * whoever owned the USDC, so the recipient must be an account that can sign there, and whether
+     * a Safe can hold a Hyperliquid account is an open question. Adding the route later costs one
+     * whitelist-manager transaction plus the 24h cooldown.
+     *
+     * Domains are Circle's numbering, not chain ids: Arbitrum 3, Base 6, OP 2, Polygon PoS 7.
+     */
+    routes: [] as { domain: number, recipient: string, label: string, assets: string[] }[],
+  },
 
   // --- Ondo leg --------------------------------------------------------------
   ondo: {
     /**
-     * Safe 3/5 — mints USDY at Ondo. Note this is also the WHITELIST_MANAGER_ROLE holder, so the
-     * account that sets maxOndoOutstanding is the same one holding the outstanding value. Chosen
-     * deliberately; the cap is self-set rather than set by an independent party.
+     * Safe 2/4 — mints USDY at Ondo. Separate from the whitelist manager, so the account holding
+     * the outstanding value is no longer the one that can zero the counter or move the cap.
      */
-    multisig: '0x4Fe78eF65BD8EDDED480efaB030BA680646503c8',
-    maxOutstandingUsd: '1000000', // whole USD; scaled to 18 dp below
+    multisig: '0x4d19433297498E097e701ABc64a886942895CfCd',
+    maxOutstandingUsd: '50000', // whole USD; scaled to 18 dp below
 
     /**
      * Ondo's USDY oracle is not Chainlink-shaped — it exposes getPrice()/getPriceData() with no
@@ -131,6 +169,12 @@ const CONFIG = {
 }
 // ============================================================================
 
+/** Circle's CCTP domain numbering, which is not chain ids. */
+const DOMAINS: Record<number, string> = {
+  0: 'Ethereum', 1: 'Avalanche', 2: 'OP', 3: 'Arbitrum', 4: 'Noble', 5: 'Solana', 6: 'Base', 7: 'Polygon PoS',
+}
+const USDC_MAINNET = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
+
 const recordPath = resolve(process.env.GUARD_RECORD || `deployments/${network.name}/JUSDAssetGuard.json`)
 
 /** Constructor args carry BigInts (the Ondo cap) and addresses as objects, so serialize both. */
@@ -166,13 +210,50 @@ async function preflight(deployer: any) {
   if (c.ondo.usdy.heartbeat === null) problems.push('CONFIG.ondo.usdy.heartbeat is not set')
   if (c.collateralManagers.length === 0) problems.push('CONFIG.collateralManagers is empty — the guard could never move an asset, and the role cannot be granted later')
   if (c.whitelistManagers.length === 0) problems.push('CONFIG.whitelistManagers is empty — the guard could never be paused, and the role cannot be granted later')
-  for (const m of c.collateralManagers) {
-    if (m.toLowerCase() === c.ondo.multisig.toLowerCase()) {
-      problems.push(`collateral manager ${m} is also the Ondo multisig — it would authorise sends to itself`)
+  // The Ondo multisig may be a collateral manager — one operations Safe running the round trip.
+  // What must stay apart is the multisig and the whitelist manager: otherwise the account holding
+  // the outstanding value is also the one that can zero the counter measuring it.
+  for (const w of c.whitelistManagers) {
+    if (w.toLowerCase() === c.ondo.multisig.toLowerCase()) {
+      problems.push(`whitelist manager ${w} is also the Ondo multisig — it could zero its own outstanding balance`)
     }
   }
   if (!c.ondo.usdy.deployAdapter && !c.ondo.usdy.feed) {
     problems.push('CONFIG.ondo.usdy.feed must be set when deployAdapter is false')
+  }
+
+  // The messenger is immutable and is the sole allowance holder, so a wrong address here is not a
+  // config mistake to fix later — it is a redeploy. Check it answers as a TokenMessenger.
+  if (c.cctp.tokenMessenger === ethers.ZeroAddress) {
+    if (c.cctp.routes.length > 0) problems.push('CONFIG.cctp.routes is set but tokenMessenger is zero — the constructor rejects this')
+    else console.log('note: CCTP bridging is disabled for the life of this deployment (no tokenMessenger)')
+  } else {
+    if (await ethers.provider.getCode(c.cctp.tokenMessenger) === '0x') {
+      problems.push(`cctp.tokenMessenger ${c.cctp.tokenMessenger} has no code`)
+    } else {
+      const messenger = await ethers.getContractAt('ITokenMessenger', c.cctp.tokenMessenger)
+      for (const r of c.cctp.routes) {
+        if (r.assets.length === 0) problems.push(`cctp route ${r.label} has no assets and could carry nothing`)
+        if (!ethers.isAddress(r.recipient)) problems.push(`cctp route ${r.label} recipient ${r.recipient} is not an address`)
+        else if (r.recipient === ethers.ZeroAddress) problems.push(`cctp route ${r.label} recipient is the zero address`)
+        else if (c.ondo.multisig && r.recipient.toLowerCase() === c.ondo.multisig.toLowerCase()) {
+          problems.push(`cctp route ${r.label} is the Ondo multisig — a Safe shares its address across chains, and that would bypass the meter`)
+        }
+        try {
+          if (await messenger.remoteTokenMessengers(r.domain) === ethers.ZeroHash) {
+            problems.push(`cctp route ${r.label}: Circle serves no domain ${r.domain}`)
+          }
+        } catch (e: any) {
+          problems.push(`cctp route ${r.label}: could not read remoteTokenMessengers(${r.domain}) — ${e.message}`)
+        }
+      }
+      // Reported, not enforced: Circle can move it, and the guard reads it live.
+      try {
+        const minter = await messenger.localMinter()
+        const limit = await (await ethers.getContractAt('ITokenMinter', minter)).burnLimitsPerMessage(USDC_MAINNET)
+        console.log(`note: CCTP per-message burn cap for USDC is ${ethers.formatUnits(limit, 6)} — larger moves are several bridgeCctp calls`)
+      } catch { /* informational only */ }
+    }
   }
 
   for (const d of c.destinations) {
@@ -205,8 +286,9 @@ async function preflight(deployer: any) {
     problems.push(`would send at ${sendGwei.toFixed(3)} gwei, above the ${c.maxGasPriceGwei} gwei cap`)
   }
 
-  // ~3.22M gas measured on a mainnet fork; budget 4M so a mid-deploy shortfall is caught up front.
-  const GAS_BUDGET = 4_000_000n
+  // 5.64M measured for the guard itself plus the admin-transfer call; budget 6.5M so a mid-deploy
+  // shortfall is caught up front. The CCTP bridge added ~1.22M to the constructor.
+  const GAS_BUDGET = 6_500_000n
   const needed = GAS_BUDGET * BigInt(Math.ceil(sendGwei * 1e9))
   const balance = await ethers.provider.getBalance(deployer.address)
   if (!isLocal && balance < needed) {
@@ -242,8 +324,104 @@ async function preflight(deployer: any) {
   console.log(`preflight ok — sending at ${sendGwei.toFixed(3)} gwei (network ${networkGwei.toFixed(2)}), balance ${ethers.formatEther(balance)} ETH, deployer ${deployer.address}`)
 }
 
+/** Dumps every value that affects the deployment, then stops. GUARD_PRINT_ONLY=1 */
+async function printParameters() {
+  const c = CONFIG
+  const line = (k: string, v: any) => console.log('  ' + k.padEnd(24) + v)
+  const dur = (s: number | null) => `${s} s  (${((s ?? 0) / 3600).toFixed(0)}h)`
+  const SYMBOLS: Record<string, string> = {
+    '0xdac17f958d2ee523a2206206994597c13d831ec7': 'USDT',
+    '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': 'USDC',
+    '0x96f6ef951840721adbf46ac996b59e0235cb985c': 'USDY',
+  }
+  const sym = (a: string) => (SYMBOLS[a.toLowerCase()] ?? '????').padEnd(4)
+  const usdyFeed = c.ondo.usdy.deployAdapter ? '(new adapter)' : c.ondo.usdy.feed!
+
+  const net = await ethers.provider.getNetwork()
+  const signer = (await ethers.getSigners())[0]
+  const deployer = signer?.address ?? '(none)'
+  const fee = await ethers.provider.getFeeData()
+  const configured = (network.config as any).gasPrice
+  const sendGwei = typeof configured === 'number' && configured > 0 ? configured / 1e9 : Number(fee.gasPrice ?? 0n) / 1e9
+  const GAS = 5_750_000  // 5,644,670 measured for the guard + the admin-transfer call
+  const cost = GAS * sendGwei * 1e-9
+  const balance = signer ? await ethers.provider.getBalance(deployer) : 0n
+
+  console.log('\n================ TARGET ================')
+  line('network', `${network.name}  chainId ${net.chainId}`)
+  line('deployer', deployer)
+  line('deployer == admin', deployer.toLowerCase() === c.admin.toLowerCase() ? 'yes' : 'NO — preflight will refuse')
+  line('record file', recordPath)
+
+  console.log('\n========= CONSTRUCTOR ARGUMENTS =========')
+  line('1 mintingAddress', c.mintingAddress)
+  line('2 admin', c.admin)
+  line('3 initialDelay', dur(c.initialDelay))
+  console.log('  4 destinations           ' + c.destinations.length + ' entries')
+  c.destinations.forEach((d, i) => {
+    console.log(`      [${i}] ${d.label.padEnd(9)} ${d.address}`)
+    d.assets.forEach(a => console.log(`          allows ${sym(a)} ${a}`))
+  })
+  console.log('  5 labels                 ' + JSON.stringify(c.destinations.map(d => d.label)))
+  console.log('  6 assets                 (shown above, per destination)')
+  line('7 whitelistCooldown', dur(c.whitelistCooldown) + '   IMMUTABLE')
+  line('8 mintingChangeDelay', dur(c.mintingChangeDelay) + '   IMMUTABLE')
+  line('9 collateralManagers', c.collateralManagers.join(', ') || '(NOT SET)')
+  line('10 whitelistManagers', c.whitelistManagers.join(', ') || '(NOT SET)')
+  line('11 cctpTokenMessenger', (c.cctp.tokenMessenger === ethers.ZeroAddress
+    ? 'NONE — bridging permanently unavailable' : c.cctp.tokenMessenger) + '   IMMUTABLE')
+  console.log('  12 cctpRoutes             ' + (c.cctp.routes.length || 'none') + (c.cctp.routes.length ? ' entries (live from deployment)' : ' — add later with a 24h cooldown'))
+  c.cctp.routes.forEach((r, i) => {
+    console.log(`      [${i}] ${r.label.padEnd(9)} domain ${r.domain} (${DOMAINS[r.domain] ?? '?'})  ${r.recipient}`)
+    r.assets.forEach(x => console.log(`          carries ${sym(x)} ${x}`))
+  })
+  line('13 ondoMultisig', c.ondo.multisig)
+  line('14 maxOndoOutstanding', `$${c.ondo.maxOutstandingUsd}  (${ethers.parseEther(c.ondo.maxOutstandingUsd)} wei)`)
+  console.log('  15 ondoAssetConfigs       ' + (1 + c.ondo.assets.length) + ' entries')
+  console.log(`      USDY ${c.ondo.usdy.token}`)
+  console.log(`           feed      ${usdyFeed}`)
+  console.log(`           heartbeat ${c.ondo.usdy.heartbeat} s  (${((c.ondo.usdy.heartbeat ?? 0) / 86400).toFixed(0)}d)`)
+  c.ondo.assets.forEach(a => {
+    console.log(`      ${a.symbol} ${a.token}`)
+    console.log(`           feed      ${a.feed}`)
+    console.log(`           heartbeat ${a.heartbeat} s  (${(a.heartbeat / 3600).toFixed(0)}h)`)
+  })
+
+  console.log('\n=========== ROLE OVERLAPS ==============')
+  line('CM == ondoMultisig', c.collateralManagers.some(m => m.toLowerCase() === c.ondo.multisig.toLowerCase()) ? 'YES (allowed — one ops Safe runs the round trip)' : 'no')
+  line('WM == ondoMultisig', c.whitelistManagers.some(m => m.toLowerCase() === c.ondo.multisig.toLowerCase()) ? 'YES — preflight will refuse' : 'no')
+  line('CM == WM', c.collateralManagers.some(m => c.whitelistManagers.map(w => w.toLowerCase()).includes(m.toLowerCase())) ? 'YES' : 'no')
+
+  console.log('\n============ NOT DEPLOYED ==============')
+  line('adapter', c.ondo.usdy.deployAdapter ? 'deploy new from oracle ' + c.ondo.usdy.oracle : 'reuse ' + c.ondo.usdy.feed)
+  line('ondo oracle (upstream)', c.ondo.usdy.oracle)
+  line('register at minting', 'NO — emitted as a Safe bundle, unsent')
+  if (c.cctp.tokenMessenger !== ethers.ZeroAddress && c.cctp.routes.length === 0) {
+    line('cctp routes', 'NONE — bridge is wired but has no destination yet')
+  }
+
+  console.log('\n========== POST-DEPLOY STEPS ===========')
+  line('adminHandoverTo', c.adminHandoverTo === ethers.ZeroAddress
+    ? 'zero address — schedules admin retirement' : String(c.adminHandoverTo ?? 'none'))
+  line('etherscan verify', String(c.verify))
+
+  console.log('\n================ GAS ===================')
+  line('send price', sendGwei.toFixed(3) + ' gwei')
+  line('maxGasPriceGwei (cap)', String(c.maxGasPriceGwei))
+  line('network baseFee', (Number(fee.gasPrice ?? 0n) / 1e9).toFixed(3) + ' gwei')
+  line('measured gas', GAS.toLocaleString())
+  line('estimated cost', cost.toFixed(5) + ' ETH')
+  line('deployer balance', ethers.formatEther(balance) + ' ETH')
+  line('funded', Number(ethers.formatEther(balance)) >= cost ? 'yes' : `NO — short ${(cost - Number(ethers.formatEther(balance))).toFixed(5)} ETH`)
+  console.log()
+}
+
 async function main() {
   const c = CONFIG
+  if (process.env.GUARD_PRINT_ONLY === '1') {
+    await printParameters()
+    return
+  }
   const chainId = Number((await ethers.provider.getNetwork()).chainId)
   const deployer = isLocal
     ? await ethers.getImpersonatedSigner(c.admin).then(async s => {
@@ -305,6 +483,12 @@ async function main() {
     { token: c.ondo.usdy.token, feed: usdyFeed!, heartbeat: c.ondo.usdy.heartbeat! },
     ...c.ondo.assets.map(a => ({ token: a.token, feed: a.feed, heartbeat: a.heartbeat })),
   ]
+  const cctpRoutes = c.cctp.routes.map(r => ({
+    domain: r.domain,
+    mintRecipient: ethers.zeroPadValue(r.recipient, 32),
+    label: r.label,
+    assets: r.assets,
+  }))
   const guardArgs = [
     c.mintingAddress,
     c.admin,
@@ -316,6 +500,8 @@ async function main() {
     c.mintingChangeDelay,
     c.collateralManagers,
     c.whitelistManagers,
+    c.cctp.tokenMessenger,
+    cctpRoutes,
     c.ondo.multisig,
     ethers.parseEther(c.ondo.maxOutstandingUsd),
     ondoAssetConfigs,
@@ -335,6 +521,19 @@ async function main() {
       console.log(`  ${name} ${holder}`)
     }
   }
+
+  // ── 3b. CCTP bridge — set by the constructor, so only verify ──────────────
+  if (await guard.cctpTokenMessenger() !== c.cctp.tokenMessenger) throw new Error('CCTP messenger wrong — it is immutable, redeploy')
+  if (await guard.cctpRouteCount() !== BigInt(cctpRoutes.length)) throw new Error('CCTP route count wrong')
+  for (const r of cctpRoutes) {
+    if (!await guard.isCctpRoute(r.domain, r.mintRecipient)) throw new Error(`CCTP route missing: domain ${r.domain} ${r.label}`)
+    for (const asset of r.assets) {
+      if (!await guard.isCctpRouteAsset(r.domain, r.mintRecipient, asset)) throw new Error(`CCTP route ${r.label} missing asset ${asset}`)
+    }
+  }
+  console.log(c.cctp.tokenMessenger === ethers.ZeroAddress
+    ? '  cctp bridge: disabled (no messenger, permanently)'
+    : `  cctp bridge: messenger ${c.cctp.tokenMessenger}, ${cctpRoutes.length} route(s) live from deployment`)
 
   // ── 4. Ondo leg — set by the constructor, so only verify ──────────────────
   for (const asset of ondoAssetConfigs) {

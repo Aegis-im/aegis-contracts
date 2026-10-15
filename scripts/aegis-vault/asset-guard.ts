@@ -42,6 +42,15 @@ export async function attachAssetGuard(record: any) {
       wanted.map(d => d.address), wanted.map(d => d.label), wanted.map(assetsFor),
       c.guardWhitelistCooldown ?? 0, c.guardMintingChangeDelay ?? 0,
       [manager], [whitelistManager],
+      // Bridging is off unless the config names a CCTP TokenMessenger. Immutable either way:
+      // there is no setter, so a deployment without one can never bridge.
+      c.guardCctpMessenger ?? ethers.ZeroAddress,
+      (c.guardCctpRoutes ?? []).map((r: any) => ({
+        domain: r.domain,
+        mintRecipient: ethers.zeroPadValue(r.recipient, 32),
+        label: r.label,
+        assets: r.assets ?? [c.asset],
+      })),
     ]
     guard = await ethers.deployContract('VaultAssetGuard', args)
     await guard.waitForDeployment()

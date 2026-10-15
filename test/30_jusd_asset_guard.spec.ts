@@ -20,7 +20,7 @@ async function fixture() {
   await usdcFeed.updatePrice(100_000_000)  // $1.00
   await usdyFeed.updatePrice(109_000_000)  // $1.09
 
-  const guard: any = await ethers.deployContract('JUSDAssetGuard', [base.aegisMintingJUSDAddress, owner.address, 86400, [venue.address], ['Exchange'], [[usdc.target]], 0, 0, [operator.address], [gatekeeper.address], ethers.ZeroAddress, 0, []])
+  const guard: any = await ethers.deployContract('JUSDAssetGuard', [base.aegisMintingJUSDAddress, owner.address, 86400, [venue.address], ['Exchange'], [[usdc.target]], 0, 0, [operator.address], [gatekeeper.address], ethers.ZeroAddress, [], ethers.ZeroAddress, 0, []])
   await minting.addCustodianAddress(guard.target)
   await minting.grantRole(COLLATERAL_MANAGER_ROLE, guard.target)
   await minting.addSupportedAsset(usdc.target, 86400)
@@ -195,7 +195,7 @@ describe('JUSDAssetGuard Ondo reserve leg', () => {
 
   it('starts with the Ondo leg closed', async () => {
     const f = await loadFixture(fixture)
-    const fresh: any = await ethers.deployContract('JUSDAssetGuard', [f.aegisMintingJUSDAddress, f.owner.address, 86400, [], [], [], 0, 0, [f.operator.address], [f.gatekeeper.address], ethers.ZeroAddress, 0, []])
+    const fresh: any = await ethers.deployContract('JUSDAssetGuard', [f.aegisMintingJUSDAddress, f.owner.address, 86400, [], [], [], 0, 0, [f.operator.address], [f.gatekeeper.address], ethers.ZeroAddress, [], ethers.ZeroAddress, 0, []])
     expect(await fresh.ondoMultisig()).eq(z)
     expect(await fresh.maxOndoOutstanding()).eq(0)
     await expect(fresh.connect(f.operator).withdrawToOndo(f.usdc.target, u('1'))).revertedWithCustomError(fresh, 'OndoNotConfigured')
@@ -212,7 +212,7 @@ describe('JUSDAssetGuard Ondo reserve leg', () => {
 
   it('applies the whitelist cooldown to venues, not to the separately governed Ondo multisig', async () => {
     const f = await loadFixture(fixture)
-    const guard: any = await ethers.deployContract('JUSDAssetGuard', [f.aegisMintingJUSDAddress, f.owner.address, 86400, [f.venue.address], ['Exchange'], [[f.usdc.target]], 3600, 0, [f.operator.address], [f.gatekeeper.address], ethers.ZeroAddress, 0, []])
+    const guard: any = await ethers.deployContract('JUSDAssetGuard', [f.aegisMintingJUSDAddress, f.owner.address, 86400, [f.venue.address], ['Exchange'], [[f.usdc.target]], 3600, 0, [f.operator.address], [f.gatekeeper.address], ethers.ZeroAddress, [], ethers.ZeroAddress, 0, []])
     await guard.connect(f.gatekeeper).setOndoMultisig(f.ondo.address)
     await guard.connect(f.gatekeeper).setPriceFeed(f.usdc.target, f.usdcFeed.target, 86400)
     await guard.connect(f.gatekeeper).setOndoAsset(f.usdc.target, true)
@@ -262,6 +262,7 @@ describe('JUSDAssetGuard Ondo reserve leg', () => {
       [f.venue.address], ['Exchange'], [[f.usdc.target]],
       60, 60,
       [f.operator.address], [f.gatekeeper.address],
+      ethers.ZeroAddress, [],
       f.ondo.address, usd('1000000'),
       [
         { token: f.usdc.target, feed: f.usdcFeed.target, heartbeat: 86400 },
@@ -287,20 +288,79 @@ describe('JUSDAssetGuard Ondo reserve leg', () => {
     // The constructor enforces the same invariants the setters do.
     const args = (ondoMultisig: string, assets: any[]) => [
       f.aegisMintingJUSDAddress, f.owner.address, 86400, [], [], [], 60, 60,
-      [f.operator.address], [f.gatekeeper.address], ondoMultisig, usd('1'), assets,
+      [f.operator.address], [f.gatekeeper.address], ethers.ZeroAddress, [], ondoMultisig, usd('1'), assets,
     ]
     // An asset with no feed cannot be registered.
     await expect(ethers.deployContract('JUSDAssetGuard', args(z, [{ token: f.usdy.target, feed: z, heartbeat: 0 }])))
       .revertedWithCustomError(born, 'MissingPriceFeed').withArgs(f.usdy.target)
-    // The mover must not also be the recipient.
-    await expect(ethers.deployContract('JUSDAssetGuard', args(f.operator.address, [])))
-      .revertedWithCustomError(born, 'InvalidAddress')
+    // The mover MAY also be the recipient: one operations multisig runs the Ondo round trip.
+    const combined: any = await ethers.deployContract('JUSDAssetGuard', [
+      f.aegisMintingJUSDAddress, f.owner.address, 86400, [], [], [], 60, 60,
+      [f.operator.address], [f.gatekeeper.address],
+      ethers.ZeroAddress, [],
+      f.operator.address, usd('1000'),
+      [{ token: f.usdc.target, feed: f.usdcFeed.target, heartbeat: 86400 }],
+    ])
+    expect(await combined.ondoMultisig()).eq(f.operator.address)
+    expect(await combined.hasRole(COLLATERAL_MANAGER_ROLE, f.operator.address)).eq(true)
+    // It can send to itself, but only up to the cap, and the counter still records it.
+    await f.usdc.mint(combined.target, u('2000'))
+    await combined.connect(f.operator).withdrawToOndo(f.usdc.target, u('900'))
+    expect(await combined.ondoOutstanding()).eq(usd('900'))
+    await expect(combined.connect(f.operator).withdrawToOndo(f.usdc.target, u('200')))
+      .revertedWithCustomError(combined, 'OndoLimitExceeded')
+    // And it cannot clear its own debt — only the whitelist manager can.
+    await expect(combined.connect(f.operator).setOndoOutstanding(0))
+      .revertedWithCustomError(combined, 'AccessControlUnauthorizedAccount')
+      .withArgs(f.operator.address, WHITELIST_MANAGER_ROLE)
+    await combined.connect(f.gatekeeper).setOndoOutstanding(0)
+    expect(await combined.ondoHeadroom()).eq(usd('1000'))
     // Nor may the multisig be a whitelisted destination.
     await expect(ethers.deployContract('JUSDAssetGuard', [
       f.aegisMintingJUSDAddress, f.owner.address, 86400,
       [spare.address], ['Venue'], [[f.usdc.target]], 60, 60,
-      [f.operator.address], [f.gatekeeper.address], spare.address, usd('1'), [],
+      [f.operator.address], [f.gatekeeper.address], ethers.ZeroAddress, [], spare.address, usd('1'), [],
     ])).revertedWithCustomError(born, 'InvalidAddress')
+  })
+
+  it('keeps the Ondo multisig off the bridge on every chain, in both directions', async () => {
+    const f = await loadFixture(fixture)
+    const ARBITRUM = 3
+    const messenger: any = await ethers.deployContract('MockTokenMessenger', [[ARBITRUM]])
+    const guard: any = await ethers.deployContract('JUSDAssetGuard', [
+      f.aegisMintingJUSDAddress, f.owner.address, 86400, [], [], [], 0, 0,
+      [f.operator.address], [f.gatekeeper.address],
+      messenger.target, [],
+      f.ondo.address, usd('1000000'),
+      [{ token: f.usdc.target, feed: f.usdcFeed.target, heartbeat: 86400 }],
+    ])
+
+    // A Safe has the same address on every chain, so a route to the multisig's own address would
+    // hand the same counterparty the same exposure with the meter untouched.
+    const asBytes32 = await guard.addressToBytes32(f.ondo.address)
+    await expect(guard.connect(f.gatekeeper).addCctpRoute(ARBITRUM, asBytes32, 'Ondo on L2', [f.usdc.target]))
+      .revertedWithCustomError(guard, 'InvalidAddress')
+    // Nor can it be slipped in at construction.
+    await expect(ethers.deployContract('JUSDAssetGuard', [
+      f.aegisMintingJUSDAddress, f.owner.address, 86400, [], [], [], 0, 0,
+      [f.operator.address], [f.gatekeeper.address],
+      messenger.target, [{ domain: ARBITRUM, mintRecipient: asBytes32, label: 'Ondo on L2', assets: [f.usdc.target] }],
+      f.ondo.address, usd('1'), [{ token: f.usdc.target, feed: f.usdcFeed.target, heartbeat: 86400 }],
+    ])).revertedWithCustomError(guard, 'InvalidAddress')
+
+    // And the other way round: an address already reachable by bridge cannot become the multisig.
+    await guard.connect(f.gatekeeper).addCctpRoute(ARBITRUM, await guard.addressToBytes32(f.stranger.address), 'Hyperliquid', [f.usdc.target])
+    await expect(guard.connect(f.gatekeeper).setOndoMultisig(f.stranger.address))
+      .revertedWithCustomError(guard, 'InvalidAddress')
+    await guard.connect(f.gatekeeper).removeCctpRoute(ARBITRUM, await guard.addressToBytes32(f.stranger.address))
+    await expect(guard.connect(f.gatekeeper).setOndoMultisig(f.stranger.address)).emit(guard, 'OndoMultisigChanged')
+
+    // Venues are unaffected: the bridge is a third exit, and it does not touch the counter.
+    await f.usdc.mint(guard.target, u('1000'))
+    await guard.connect(f.gatekeeper).addCctpRoute(ARBITRUM, await guard.addressToBytes32(f.venue.address), 'Venue on L2', [f.usdc.target])
+    await guard.connect(f.operator).bridgeCctp(f.usdc.target, ARBITRUM, await guard.addressToBytes32(f.venue.address), u('400'))
+    expect(await guard.ondoOutstanding()).eq(0)
+    expect(await f.usdc.balanceOf(messenger.target)).eq(u('400'))
   })
 
   it('keeps a scheduled minting change and the Ondo multisig from colliding', async () => {

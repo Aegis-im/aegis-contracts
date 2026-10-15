@@ -10,11 +10,14 @@ const orderTypes = { Order: [
 ] }
 
 const z = ethers.ZeroAddress, e = ethers.parseEther, u = (v: string) => ethers.parseUnits(v, 6)
+// CCTP domains are Circle's own numbering, not chain ids.
+const ARBITRUM = 3, BASE = 6, SOLANA = 5, HYPEREVM = 19
+const b32 = (a: string) => ethers.zeroPadValue(a, 32)
 const data = (s: string) => ethers.AbiCoder.defaultAbiCoder().encode(['string'], [s])
 const COLLATERAL_MANAGER = ethers.id('COLLATERAL_MANAGER_ROLE'), WHITELIST_MANAGER = ethers.id('WHITELIST_MANAGER_ROLE')
 
 async function fixture() {
-  const [admin, investor, operator, gatekeeper, venue, stranger, insurance] = await ethers.getSigners()
+  const [admin, investor, operator, gatekeeper, venue, stranger, insurance, hyperliquid] = await ethers.getSigners()
   const collateral: any = await ethers.deployContract('TestToken', ['Collateral', 'COL', 6])
   const token: any = await ethers.deployContract('VaultToken', ['Bank Dollar', 'BANK', admin.address])
   const config: any = await ethers.deployContract('VaultConfig', [admin.address, [admin.address], admin.address])
@@ -31,7 +34,8 @@ async function fixture() {
   // The guard replaces the custody wallet: registered as a custodian address at
   // minting, and holding minting's collateral manager role so it can draw collateral itself.
   const NATIVE = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE'
-  const guard: any = await ethers.deployContract('VaultAssetGuard', [minting.target, admin.address, 86400, [venue.address], ['Trading venue'], [[collateral.target, NATIVE]], 0, 0, [operator.address], [gatekeeper.address]])
+  const messenger: any = await ethers.deployContract('MockTokenMessenger', [[ARBITRUM, BASE]])
+  const guard: any = await ethers.deployContract('VaultAssetGuard', [minting.target, admin.address, 86400, [venue.address], ['Trading venue'], [[collateral.target, NATIVE]], 0, 0, [operator.address], [gatekeeper.address], messenger.target, [{ domain: ARBITRUM, mintRecipient: b32(hyperliquid.address), label: 'Hyperliquid deposit', assets: [collateral.target] }]])
   await minting.addCustodianAddress(guard.target)
   await minting.grantRole(COLLATERAL_MANAGER, guard.target)
 
@@ -46,7 +50,7 @@ async function fixture() {
   async function mint(units = '100') { await minting.connect(investor).mint(...await order(0, units)) }
   // Puts `units` of collateral inside the guard, the way a live deployment would.
   async function fund(units = '100') { await mint(units); await guard.connect(operator).pullFromMinting(collateral.target, u(units)) }
-  return { admin, investor, operator, gatekeeper, venue, stranger, insurance, collateral, token, minting, guard, order, mint, fund, NATIVE }
+  return { admin, investor, operator, gatekeeper, venue, stranger, insurance, hyperliquid, collateral, token, minting, guard, messenger, order, mint, fund, NATIVE }
 }
 
 describe('VaultAssetGuard gated asset management', () => {
@@ -150,7 +154,7 @@ describe('VaultAssetGuard gated asset management', () => {
 
     // And a guard that could never move or never pause cannot be deployed in the first place.
     const args = (cm: string[], wm: string[]) =>
-      [f.minting.target, f.admin.address, 86400, [], [], [], 0, 0, cm, wm]
+      [f.minting.target, f.admin.address, 86400, [], [], [], 0, 0, cm, wm, z, []]
     await expect(ethers.deployContract('VaultAssetGuard', args([], [f.gatekeeper.address])))
       .revertedWithCustomError(f.guard, 'NoRoleHolders').withArgs(COLLATERAL_MANAGER)
     await expect(ethers.deployContract('VaultAssetGuard', args([f.operator.address], [])))
@@ -323,14 +327,14 @@ describe('VaultAssetGuard gated asset management', () => {
       .revertedWithCustomError(f.guard, 'MintingAlreadySet').withArgs(replacement.target)
 
     // A deployment that has not been pointed at minting yet cannot move funds there.
-    const unbound: any = await ethers.deployContract('VaultAssetGuard', [z, f.admin.address, 86400, [], [], [], 0, 0, [f.operator.address], [f.gatekeeper.address]])
+    const unbound: any = await ethers.deployContract('VaultAssetGuard', [z, f.admin.address, 86400, [], [], [], 0, 0, [f.operator.address], [f.gatekeeper.address], z, []])
     expect(await unbound.mintingAddress()).eq(z)
     await expect(unbound.connect(f.gatekeeper).beginMintingAddressChange(replacement.target)).revertedWithCustomError(unbound, 'MintingNotConfigured')
     await expect(unbound.connect(f.operator).returnToMinting(f.collateral.target, u('1'))).revertedWithCustomError(unbound, 'MintingNotConfigured')
     await expect(unbound.connect(f.operator).returnAllToMinting(f.collateral.target)).revertedWithCustomError(unbound, 'MintingNotConfigured')
     await expect(unbound.connect(f.operator).pullFromMinting(f.collateral.target, u('1'))).revertedWithCustomError(unbound, 'MintingNotConfigured')
     await expect(unbound.connect(f.operator).pullAllFromMinting(f.collateral.target)).revertedWithCustomError(unbound, 'MintingNotConfigured')
-    await expect(ethers.deployContract('VaultAssetGuard', [z, f.admin.address, 86400, [f.venue.address], [], [[]], 0, 0, [f.operator.address], [f.gatekeeper.address]])).reverted
+    await expect(ethers.deployContract('VaultAssetGuard', [z, f.admin.address, 86400, [f.venue.address], [], [[]], 0, 0, [f.operator.address], [f.gatekeeper.address], z, []])).reverted
   })
 
   it('makes the constructor whitelist usable from deployment, unlike later additions', async () => {
@@ -340,7 +344,7 @@ describe('VaultAssetGuard gated asset management', () => {
     const guard: any = await ethers.deployContract('VaultAssetGuard', [
       f.minting.target, f.admin.address, 86400,
       [f.venue.address], ['Trading venue'], [[f.collateral.target]],
-      DAY, 0, [f.operator.address], [f.gatekeeper.address],
+      DAY, 0, [f.operator.address], [f.gatekeeper.address], z, [],
     ])
     await f.collateral.mint(guard.target, u('100'))
 
@@ -370,7 +374,7 @@ describe('VaultAssetGuard gated asset management', () => {
   it('holds a newly whitelisted destination in cooldown, but removes it immediately', async () => {
     const f = await loadFixture(fixture)
     const DAY = 86400
-    const guard: any = await ethers.deployContract('VaultAssetGuard', [f.minting.target, f.admin.address, 86400, [f.venue.address], ['Trading venue'], [[f.collateral.target, f.NATIVE]], DAY, 0, [f.operator.address], [f.gatekeeper.address]])
+    const guard: any = await ethers.deployContract('VaultAssetGuard', [f.minting.target, f.admin.address, 86400, [f.venue.address], ['Trading venue'], [[f.collateral.target, f.NATIVE]], DAY, 0, [f.operator.address], [f.gatekeeper.address], z, []])
     expect(await guard.whitelistCooldown()).eq(DAY)
     await f.collateral.mint(guard.target, u('100'))
     await f.admin.sendTransaction({ to: guard.target, value: e('1') })
@@ -497,7 +501,7 @@ describe('VaultAssetGuard gated asset management', () => {
   it('holds a change of the redemption sink for its cooldown', async () => {
     const f = await loadFixture(fixture)
     const DAY = 86400
-    const guard: any = await ethers.deployContract('VaultAssetGuard', [f.minting.target, f.admin.address, 86400, [], [], [], 0, DAY, [f.operator.address], [f.gatekeeper.address]])
+    const guard: any = await ethers.deployContract('VaultAssetGuard', [f.minting.target, f.admin.address, 86400, [], [], [], 0, DAY, [f.operator.address], [f.gatekeeper.address], z, []])
     expect(await guard.mintingChangeDelay()).eq(DAY)
     const next: any = await ethers.deployContract('TestToken', ['Next Minting', 'NXT', 6])
 
@@ -537,5 +541,287 @@ describe('VaultAssetGuard gated asset management', () => {
     const f = await loadFixture(fixture)
     await expect(f.guard.connect(f.operator).returnAllToMinting(f.collateral.target)).revertedWithCustomError(f.guard, 'InvalidAmount')
     await expect(f.guard.connect(f.operator).withdrawAll(f.collateral.target, f.venue.address)).revertedWithCustomError(f.guard, 'InvalidAmount')
+  })
+})
+
+describe('VaultAssetGuard CCTP bridge', () => {
+  const ROUTE = (domain: number, recipient: string) =>
+    ethers.AbiCoder.defaultAbiCoder().encode(['uint32', 'bytes32'], [domain, b32(recipient)])
+  const routeId = (domain: number, recipient: string) => ethers.keccak256(ROUTE(domain, recipient))
+
+  it('bridges to a seeded route and leaves no standing allowance behind', async () => {
+    const f = await loadFixture(fixture)
+    await f.fund('100')
+    const to = b32(f.hyperliquid.address)
+
+    // Seeded in the constructor, so usable from deployment — same rule as the whitelist.
+    const deployedAt = BigInt((await ethers.provider.getBlock(f.guard.deploymentTransaction()!.blockNumber!))!.timestamp)
+    expect(await f.guard.isCctpRoute(ARBITRUM, to)).eq(true)
+    expect(await f.guard.cctpRouteActiveAt(ARBITRUM, to)).eq(deployedAt)
+    expect(await f.guard.cctpRouteCount()).eq(1)
+    expect(await f.guard.cctpRouteId(ARBITRUM, to)).eq(routeId(ARBITRUM, f.hyperliquid.address))
+    expect(await f.guard.addressToBytes32(f.hyperliquid.address)).eq(to)
+
+    await expect(f.guard.connect(f.operator).bridgeCctp(f.collateral.target, ARBITRUM, to, u('40')))
+      .emit(f.guard, 'CctpBridged').withArgs(f.collateral.target, routeId(ARBITRUM, f.hyperliquid.address), ARBITRUM, to, u('40'))
+
+    // The USDC left, the messenger took exactly it, and nothing is left approved afterwards.
+    expect(await f.guard.assetBalance(f.collateral.target)).eq(u('60'))
+    expect(await f.collateral.balanceOf(f.messenger.target)).eq(u('40'))
+    expect(await f.collateral.allowance(f.guard.target, f.messenger.target)).eq(0)
+
+    const burn = await f.messenger.burns(0)
+    expect(burn.amount).eq(u('40'))
+    expect(burn.domain).eq(ARBITRUM)
+    expect(burn.mintRecipient).eq(to)
+    expect(burn.burnToken).eq(f.collateral.target)
+    expect(burn.caller).eq(f.guard.target)
+    // Always a standard CCTP v2 transfer: no fee, finalized source block, anyone may relay.
+    expect(burn.destinationCaller).eq(ethers.ZeroHash)
+    expect(burn.maxFee).eq(0)
+    expect(burn.minFinalityThreshold).eq(2000)
+  })
+
+  it('bridges straight to a Safe on HyperEVM once its route clears the cooldown', async () => {
+    const f = await loadFixture(fixture)
+    await f.fund('100')
+    // Domain 19 is served by CCTP v2 only; a guard seeing it as unsupported refuses the route.
+    const messenger: any = await ethers.deployContract('MockTokenMessenger', [[HYPEREVM]])
+    const guard: any = await ethers.deployContract('VaultAssetGuard', [f.minting.target, f.admin.address, 86400, [], [], [], 86400, 0, [f.operator.address], [f.gatekeeper.address], messenger.target, []])
+    await f.collateral.mint(guard.target, u('100'))
+    await expect(guard.connect(f.gatekeeper).addCctpRoute(ARBITRUM, b32(f.stranger.address), 'Arbitrum', [f.collateral.target]))
+      .revertedWithCustomError(guard, 'UnsupportedCctpDomain').withArgs(ARBITRUM)
+
+    // The recipient is the Safe's address on HyperEVM; USDC mints there, not on HyperCore.
+    const safe = b32(f.stranger.address)
+    await guard.connect(f.gatekeeper).addCctpRoute(HYPEREVM, safe, 'HyperEVM Safe', [f.collateral.target])
+    await expect(guard.connect(f.operator).bridgeCctp(f.collateral.target, HYPEREVM, safe, u('25')))
+      .revertedWithCustomError(guard, 'CctpRouteInCooldown')
+    await time.increase(86401)
+    await expect(guard.connect(f.operator).bridgeCctp(f.collateral.target, HYPEREVM, safe, u('25')))
+      .emit(guard, 'CctpBridged').withArgs(f.collateral.target, routeId(HYPEREVM, f.stranger.address), HYPEREVM, safe, u('25'))
+
+    const burn = await messenger.burns(0)
+    expect(burn.domain).eq(HYPEREVM)
+    expect(burn.mintRecipient).eq(safe)
+    expect(burn.maxFee).eq(0)
+    expect(burn.minFinalityThreshold).eq(2000)
+    expect(await f.collateral.allowance(guard.target, messenger.target)).eq(0)
+  })
+
+  it('refuses every destination the whitelist manager has not named', async () => {
+    const f = await loadFixture(fixture)
+    await f.fund('100')
+    const to = b32(f.hyperliquid.address)
+
+    // Right domain, wrong recipient: the route is the pair, so this is simply not a route.
+    await expect(f.guard.connect(f.operator).bridgeCctp(f.collateral.target, ARBITRUM, b32(f.stranger.address), u('1')))
+      .revertedWithCustomError(f.guard, 'NotWhitelistedRoute').withArgs(ARBITRUM, b32(f.stranger.address))
+    // Right recipient, wrong domain — approving Arbitrum does not approve Base.
+    await expect(f.guard.connect(f.operator).bridgeCctp(f.collateral.target, BASE, to, u('1')))
+      .revertedWithCustomError(f.guard, 'NotWhitelistedRoute').withArgs(BASE, to)
+    // Approved route, asset never allowed on it.
+    const other: any = await ethers.deployContract('TestToken', ['Other', 'OTH', 6])
+    await other.mint(f.guard.target, u('100'))
+    await expect(f.guard.connect(f.operator).bridgeCctp(other.target, ARBITRUM, to, u('1')))
+      .revertedWithCustomError(f.guard, 'AssetNotAllowedForRoute')
+      .withArgs(routeId(ARBITRUM, f.hyperliquid.address), other.target)
+    // Nothing at all.
+    await expect(f.guard.connect(f.operator).bridgeCctp(f.collateral.target, ARBITRUM, to, 0))
+      .revertedWithCustomError(f.guard, 'InvalidAmount')
+  })
+
+  it('reserves bridging to the collateral manager and routes to the whitelist manager', async () => {
+    const f = await loadFixture(fixture)
+    await f.fund('100')
+    const to = b32(f.hyperliquid.address)
+    const newTo = b32(f.stranger.address)
+
+    // The mover cannot name a destination...
+    for (const caller of [f.operator, f.admin, f.stranger]) {
+      await expect(f.guard.connect(caller).addCctpRoute(BASE, newTo, 'Elsewhere', [f.collateral.target]))
+        .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount').withArgs(caller.address, WHITELIST_MANAGER)
+      await expect(f.guard.connect(caller).removeCctpRoute(ARBITRUM, to))
+        .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount').withArgs(caller.address, WHITELIST_MANAGER)
+      await expect(f.guard.connect(caller).setCctpRouteAssets(ARBITRUM, to, [f.collateral.target], false))
+        .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount').withArgs(caller.address, WHITELIST_MANAGER)
+    }
+
+    // ...and the one who names destinations cannot move funds to them.
+    for (const caller of [f.gatekeeper, f.admin, f.stranger]) {
+      await expect(f.guard.connect(caller).bridgeCctp(f.collateral.target, ARBITRUM, to, u('1')))
+        .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount').withArgs(caller.address, COLLATERAL_MANAGER)
+    }
+  })
+
+  it('holds a route added to a live contract in the whitelist cooldown', async () => {
+    const f = await loadFixture(fixture)
+    const DAY = 86400
+    const messenger: any = await ethers.deployContract('MockTokenMessenger', [[ARBITRUM, BASE]])
+    const guard: any = await ethers.deployContract('VaultAssetGuard', [
+      f.minting.target, f.admin.address, 86400,
+      [], [], [], DAY, 0, [f.operator.address], [f.gatekeeper.address],
+      messenger.target, [{ domain: ARBITRUM, mintRecipient: b32(f.hyperliquid.address), label: 'Day one', assets: [f.collateral.target] }],
+    ])
+    await f.collateral.mint(guard.target, u('100'))
+    const seeded = b32(f.hyperliquid.address), added = b32(f.stranger.address)
+
+    // One cooldown governs both lists — the guard has a single `whitelistCooldown`.
+    expect(await guard.whitelistCooldown()).eq(DAY)
+    await expect(guard.connect(f.operator).bridgeCctp(f.collateral.target, ARBITRUM, seeded, u('1'))).not.reverted
+
+    await expect(guard.connect(f.gatekeeper).addCctpRoute(BASE, added, 'Added later', [f.collateral.target]))
+      .emit(guard, 'CctpRouteAdded')
+    const activeAt = BigInt((await ethers.provider.getBlock('latest'))!.timestamp) + BigInt(DAY)
+    expect(await guard.cctpRouteActiveAt(BASE, added)).eq(activeAt)
+
+    await expect(guard.connect(f.operator).bridgeCctp(f.collateral.target, BASE, added, u('1')))
+      .revertedWithCustomError(guard, 'CctpRouteInCooldown').withArgs(routeId(BASE, f.stranger.address), activeAt)
+    await time.increaseTo(activeAt - 2n)
+    await expect(guard.connect(f.operator).bridgeCctp(f.collateral.target, BASE, added, u('1')))
+      .revertedWithCustomError(guard, 'CctpRouteInCooldown')
+    await time.increaseTo(activeAt)
+    await expect(guard.connect(f.operator).bridgeCctp(f.collateral.target, BASE, added, u('1'))).not.reverted
+
+    // Removal is immediate, and re-adding starts the wait over.
+    await expect(guard.connect(f.gatekeeper).removeCctpRoute(BASE, added))
+      .emit(guard, 'CctpRouteRemoved').withArgs(routeId(BASE, f.stranger.address))
+    expect(await guard.isCctpRoute(BASE, added)).eq(false)
+    expect(await guard.isCctpRouteAsset(BASE, added, f.collateral.target)).eq(false)
+    await expect(guard.connect(f.operator).bridgeCctp(f.collateral.target, BASE, added, u('1')))
+      .revertedWithCustomError(guard, 'NotWhitelistedRoute')
+    await guard.connect(f.gatekeeper).addCctpRoute(BASE, added, 'Added later', [f.collateral.target])
+    await expect(guard.connect(f.operator).bridgeCctp(f.collateral.target, BASE, added, u('1')))
+      .revertedWithCustomError(guard, 'CctpRouteInCooldown')
+  })
+
+  it('maintains per-route asset lists, so a route is not blanket permission', async () => {
+    const f = await loadFixture(fixture)
+    await f.fund('100')
+    const to = b32(f.hyperliquid.address)
+    const id = routeId(ARBITRUM, f.hyperliquid.address)
+    const other: any = await ethers.deployContract('TestToken', ['Other', 'OTH', 6])
+    await other.mint(f.guard.target, u('100'))
+
+    const info = await f.guard.cctpRouteInfo(id)
+    expect(info.domain).eq(ARBITRUM)
+    expect(info.mintRecipient).eq(to)
+    expect(info.label).eq('Hyperliquid deposit')
+    expect(info.assets).deep.eq([f.collateral.target])
+    expect(await f.guard.cctpRouteIds()).deep.eq([id])
+
+    await expect(f.guard.connect(f.gatekeeper).setCctpRouteAssets(ARBITRUM, to, [other.target], true))
+      .emit(f.guard, 'CctpRouteAssetChanged').withArgs(id, other.target, true)
+    expect(await f.guard.cctpRouteAssets(id)).deep.eq([f.collateral.target, other.target])
+    await expect(f.guard.connect(f.operator).bridgeCctp(other.target, ARBITRUM, to, u('1'))).not.reverted
+
+    // Closing one pair leaves the other open. Adding assets carries no cooldown of its own —
+    // the route already waited; this is the same shape as setDestinationAssets.
+    await expect(f.guard.connect(f.gatekeeper).setCctpRouteAssets(ARBITRUM, to, [f.collateral.target], false))
+      .emit(f.guard, 'CctpRouteAssetChanged').withArgs(id, f.collateral.target, false)
+    await expect(f.guard.connect(f.operator).bridgeCctp(f.collateral.target, ARBITRUM, to, u('1')))
+      .revertedWithCustomError(f.guard, 'AssetNotAllowedForRoute').withArgs(id, f.collateral.target)
+    await expect(f.guard.connect(f.operator).bridgeCctp(other.target, ARBITRUM, to, u('1'))).not.reverted
+
+    // The native sentinel is never a bridge asset: CCTP burns ERC-20s only.
+    await expect(f.guard.connect(f.gatekeeper).setCctpRouteAssets(ARBITRUM, to, [f.NATIVE], true))
+      .revertedWithCustomError(f.guard, 'InvalidAddress')
+    await expect(f.guard.connect(f.gatekeeper).setCctpRouteAssets(ARBITRUM, to, [z], true))
+      .revertedWithCustomError(f.guard, 'ZeroAddress')
+    await expect(f.guard.connect(f.gatekeeper).setCctpRouteAssets(ARBITRUM, to, [], true))
+      .revertedWithCustomError(f.guard, 'InvalidArrayLength')
+    await expect(f.guard.connect(f.gatekeeper).setCctpRouteAssets(BASE, to, [other.target], true))
+      .revertedWithCustomError(f.guard, 'NotWhitelistedRoute').withArgs(BASE, to)
+  })
+
+  it('rejects a route Circle does not serve, including one looping back to this chain', async () => {
+    const f = await loadFixture(fixture)
+    const to = b32(f.hyperliquid.address)
+
+    // The mock registers Arbitrum and Base only — SOLANA has no remote messenger, exactly as
+    // domain 0 has none on Ethereum mainnet. A route home is therefore impossible by construction.
+    await expect(f.guard.connect(f.gatekeeper).addCctpRoute(SOLANA, to, 'Nowhere', [f.collateral.target]))
+      .revertedWithCustomError(f.guard, 'UnsupportedCctpDomain').withArgs(SOLANA)
+    await expect(f.guard.connect(f.gatekeeper).addCctpRoute(ARBITRUM, ethers.ZeroHash, 'Void', [f.collateral.target]))
+      .revertedWithCustomError(f.guard, 'ZeroAddress')
+    await expect(f.guard.connect(f.gatekeeper).addCctpRoute(ARBITRUM, to, 'Duplicate', [f.collateral.target]))
+      .revertedWithCustomError(f.guard, 'CctpRouteAlreadyExists').withArgs(routeId(ARBITRUM, f.hyperliquid.address))
+    await expect(f.guard.connect(f.gatekeeper).removeCctpRoute(BASE, to))
+      .revertedWithCustomError(f.guard, 'NotWhitelistedRoute').withArgs(BASE, to)
+  })
+
+  it('reverts rather than trust a messenger that moves an amount other than the one it was given', async () => {
+    const f = await loadFixture(fixture)
+    await f.fund('100')
+    const to = b32(f.hyperliquid.address)
+
+    // Took the allowance and burned nothing: the event would claim value left that is still here.
+    await f.messenger.setMode(1)
+    await expect(f.guard.connect(f.operator).bridgeCctp(f.collateral.target, ARBITRUM, to, u('10')))
+      .revertedWithCustomError(f.guard, 'BridgeAmountMismatch').withArgs(u('10'), 0)
+
+    // Pulled twice. Only possible against a standing allowance larger than the amount, which is
+    // why the approval is exact — here the second pull fails and takes the whole call with it.
+    await f.messenger.setMode(2)
+    await expect(f.guard.connect(f.operator).bridgeCctp(f.collateral.target, ARBITRUM, to, u('10'))).reverted
+
+    // Took it and handed half back — a partial burn, which the delta check catches too.
+    await f.messenger.setMode(3)
+    await expect(f.guard.connect(f.operator).bridgeCctp(f.collateral.target, ARBITRUM, to, u('10')))
+      .revertedWithCustomError(f.guard, 'BridgeAmountMismatch').withArgs(u('10'), u('5'))
+
+    // Nothing was committed by any of them, and no allowance survived.
+    expect(await f.guard.assetBalance(f.collateral.target)).eq(u('100'))
+    expect(await f.collateral.allowance(f.guard.target, f.messenger.target)).eq(0)
+    await f.messenger.setMode(0)
+    await expect(f.guard.connect(f.operator).bridgeCctp(f.collateral.target, ARBITRUM, to, u('10'))).not.reverted
+  })
+
+  it('stops bridging when paused, and surfaces the per-message burn cap', async () => {
+    const f = await loadFixture(fixture)
+    await f.fund('100')
+    const to = b32(f.hyperliquid.address)
+
+    await f.guard.connect(f.gatekeeper).setPaused(true)
+    await expect(f.guard.connect(f.operator).bridgeCctp(f.collateral.target, ARBITRUM, to, u('1')))
+      .revertedWithCustomError(f.guard, 'Paused')
+    // Returning to minting is still open, as it is for every other outbound path.
+    await expect(f.guard.connect(f.operator).returnToMinting(f.collateral.target, u('1'))).not.reverted
+    await f.guard.connect(f.gatekeeper).setPaused(false)
+
+    // Circle caps a single burn. The guard reports it rather than looping.
+    expect(await f.guard.cctpBurnLimit(f.collateral.target)).eq(ethers.MaxUint256)
+    await f.messenger.setBurnLimit(u('25'))
+    expect(await f.guard.cctpBurnLimit(f.collateral.target)).eq(u('25'))
+    await expect(f.guard.connect(f.operator).bridgeCctp(f.collateral.target, ARBITRUM, to, u('30')))
+      .revertedWith('Burn amount exceeds per tx limit')
+    await expect(f.guard.connect(f.operator).bridgeCctp(f.collateral.target, ARBITRUM, to, u('25'))).not.reverted
+  })
+
+  it('leaves bridging permanently unavailable when no messenger was named at deployment', async () => {
+    const f = await loadFixture(fixture)
+    const to = b32(f.hyperliquid.address)
+    const guard: any = await ethers.deployContract('VaultAssetGuard', [
+      f.minting.target, f.admin.address, 86400, [], [], [], 0, 0,
+      [f.operator.address], [f.gatekeeper.address], z, [],
+    ])
+    expect(await guard.cctpTokenMessenger()).eq(z)
+    expect(await guard.cctpBurnLimit(f.collateral.target)).eq(0)
+    await expect(guard.connect(f.operator).bridgeCctp(f.collateral.target, ARBITRUM, to, u('1')))
+      .revertedWithCustomError(guard, 'CctpNotConfigured')
+    // There is no setter, so a route can never be added either.
+    await expect(guard.connect(f.gatekeeper).addCctpRoute(ARBITRUM, to, 'Nope', [f.collateral.target]))
+      .revertedWithCustomError(guard, 'CctpNotConfigured')
+
+    // And the two halves cannot be deployed inconsistently.
+    await expect(ethers.deployContract('VaultAssetGuard', [
+      f.minting.target, f.admin.address, 86400, [], [], [], 0, 0,
+      [f.operator.address], [f.gatekeeper.address], z,
+      [{ domain: ARBITRUM, mintRecipient: to, label: 'Orphan', assets: [f.collateral.target] }],
+    ])).revertedWithCustomError(guard, 'CctpNotConfigured')
+    await expect(ethers.deployContract('VaultAssetGuard', [
+      f.minting.target, f.admin.address, 86400, [], [], [], 0, 0,
+      [f.operator.address], [f.gatekeeper.address], f.stranger.address, [],
+    ])).revertedWithCustomError(guard, 'InvalidAddress')
   })
 })
