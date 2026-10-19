@@ -128,7 +128,44 @@ describe('VaultAssetGuard gated asset management', () => {
     }
   })
 
-  it('fixes both roles at construction so no one can ever change them', async () => {
+  it('lets the whitelist manager grant and revoke collateral managers', async () => {
+    const f = await loadFixture(fixture); await f.fund()
+
+    // A new operator works at once, inside the same whitelist.
+    await expect(f.guard.connect(f.gatekeeper).grantCollateralManager(f.stranger.address))
+      .emit(f.guard, 'RoleGranted').withArgs(COLLATERAL_MANAGER, f.stranger.address, f.gatekeeper.address)
+    await f.guard.connect(f.stranger).withdraw(f.collateral.target, f.venue.address, u('1'))
+    await expect(f.guard.connect(f.stranger).withdraw(f.collateral.target, f.stranger.address, u('1')))
+      .revertedWithCustomError(f.guard, 'NotWhitelistedDestination')
+    await expect(f.guard.connect(f.gatekeeper).grantCollateralManager(f.stranger.address))
+      .revertedWithCustomError(f.guard, 'AlreadyCollateralManager').withArgs(f.stranger.address)
+
+    // Revoking is immediate, may remove the last operator, and is reversible.
+    await expect(f.guard.connect(f.gatekeeper).revokeCollateralManager(f.operator.address))
+      .emit(f.guard, 'RoleRevoked').withArgs(COLLATERAL_MANAGER, f.operator.address, f.gatekeeper.address)
+    await expect(f.guard.connect(f.operator).withdraw(f.collateral.target, f.venue.address, u('1')))
+      .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount')
+    await f.guard.connect(f.gatekeeper).revokeCollateralManager(f.stranger.address)
+    await expect(f.guard.connect(f.gatekeeper).revokeCollateralManager(f.stranger.address))
+      .revertedWithCustomError(f.guard, 'NotCollateralManager').withArgs(f.stranger.address)
+    await f.guard.connect(f.gatekeeper).grantCollateralManager(f.operator.address)
+    await f.guard.connect(f.operator).withdraw(f.collateral.target, f.venue.address, u('1'))
+  })
+
+  it('keeps operator appointment with the whitelist manager, and off its own address', async () => {
+    const f = await loadFixture(fixture)
+    for (const who of [f.operator, f.admin, f.stranger]) {
+      await expect(f.guard.connect(who).grantCollateralManager(f.stranger.address))
+        .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount').withArgs(who.address, WHITELIST_MANAGER)
+      await expect(f.guard.connect(who).revokeCollateralManager(f.operator.address))
+        .revertedWithCustomError(f.guard, 'AccessControlUnauthorizedAccount').withArgs(who.address, WHITELIST_MANAGER)
+    }
+    await expect(f.guard.connect(f.gatekeeper).grantCollateralManager(f.gatekeeper.address)).revertedWithCustomError(f.guard, 'InvalidAddress')
+    await expect(f.guard.connect(f.gatekeeper).grantCollateralManager(f.guard.target)).revertedWithCustomError(f.guard, 'InvalidAddress')
+    await expect(f.guard.connect(f.gatekeeper).grantCollateralManager(z)).revertedWithCustomError(f.guard, 'ZeroAddress')
+  })
+
+  it('locks the generic role functions, so roles change only through the operator appointment', async () => {
     const f = await loadFixture(fixture)
     expect(await f.guard.hasRole(COLLATERAL_MANAGER, f.operator.address)).eq(true)
     expect(await f.guard.hasRole(WHITELIST_MANAGER, f.gatekeeper.address)).eq(true)

@@ -48,14 +48,15 @@ import { ITokenMessenger, ITokenMinter } from "./interfaces/ITokenMessenger.sol"
  *      drained later. The spender is the CCTP TokenMessenger address fixed at construction — it is
  *      immutable, so no role can ever repoint the allowance at a contract of its own choosing.
  *
- *      Roles are fixed at construction and can never be granted, revoked or renounced. `grantRole`
- *      and `revokeRole` always revert. Holders are expected to be multisigs, which rotate their own
- *      signers internally, so the address in each role never needs to change:
+ *      WHITELIST_MANAGER_ROLE is fixed at construction and can never be granted, revoked or
+ *      renounced. COLLATERAL_MANAGER_ROLE is appointed by the whitelist manager through
+ *      `grantCollateralManager` / `revokeCollateralManager`, so operators rotate without a
+ *      redeploy. The generic `grantRole` and `revokeRole` always revert, for every role:
  *
  *        COLLATERAL_MANAGER_ROLE — moves assets: push to whitelisted destinations, return to
  *                                  minting, draw collateral out of minting.
  *        WHITELIST_MANAGER_ROLE  — every boundary: the destination whitelist, the pause switch,
- *                                  and the redemption sink.
+ *                                  the redemption sink, and who the collateral managers are.
  *        DEFAULT_ADMIN_ROLE      — holds no power over this contract. It cannot move assets, set a
  *                                  limit, pause, or change a role. It exists only because
  *                                  AccessControlDefaultAdminRules requires an admin, and it can
@@ -236,6 +237,8 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
     error CctpRouteInCooldown(bytes32 routeId, uint256 activeAt);
     error AssetNotAllowedForRoute(bytes32 routeId, address asset);
     error BridgeAmountMismatch(uint256 expected, uint256 actual);
+    error AlreadyCollateralManager(address account);
+    error NotCollateralManager(address account);
 
     // ============================================
     // CONSTRUCTOR
@@ -262,17 +265,17 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
      *                        same decision: a new address funds can reach. Cannot be changed.
      * @param _mintingChangeDelay Seconds between proposing and applying a new minting address.
      *                        Cannot be changed.
-     * @param _collateralManagers Permanent holders of COLLATERAL_MANAGER_ROLE
+     * @param _collateralManagers Initial holders of COLLATERAL_MANAGER_ROLE
      * @param _whitelistManagers  Permanent holders of WHITELIST_MANAGER_ROLE
      * @param _cctpTokenMessenger Circle CCTP TokenMessenger, or zero to leave bridging unavailable
      *                        for the life of the contract. Cannot be changed.
      * @param _cctpRoutes_    Bridge routes to seed, usable from deployment. May be empty; routes
      *                        added later wait out `_whitelistCooldown`.
      *
-     * @dev Both role lists are fixed here for the life of the contract — see the roles note in the
-     *      contract docs. Each must be non-empty: with no collateral manager the guard could never
-     *      move an asset again, and with no whitelist manager it could never be paused, and neither
-     *      mistake could be corrected afterwards.
+     * @dev The whitelist managers are fixed here for the life of the contract; collateral managers
+     *      can later be changed by them — see the roles note in the contract docs. Both lists must
+     *      be non-empty: with no whitelist manager the guard could never be paused or given an
+     *      operator, and with no collateral manager it would start unable to move anything.
      */
     constructor(
         address _mintingAddress,
@@ -707,29 +710,57 @@ contract VaultAssetGuard is AccessControlDefaultAdminRules, ReentrancyGuard {
     }
 
     // ============================================
+    // OPERATORS — WHITELIST_MANAGER_ROLE
+    // ============================================
+
+    /**
+     * @notice Makes `account` a collateral manager
+     * @dev Immediate, because a new operator gains no new reach: it moves funds only to addresses the
+     *      whitelist already holds, and every new one of those still waits out the cooldown. A
+     *      whitelist manager cannot appoint itself — keeping the two roles on different accounts is
+     *      what stops either one from both naming a destination and sending to it. This cannot stop
+     *      it appointing another account it controls, so the separation ultimately rests on who
+     *      holds WHITELIST_MANAGER_ROLE.
+     */
+    function grantCollateralManager(address account) external onlyRole(WHITELIST_MANAGER_ROLE) {
+        if (account == address(0)) revert ZeroAddress();
+        if (account == address(this) || hasRole(WHITELIST_MANAGER_ROLE, account)) revert InvalidAddress();
+        if (!_grantRole(COLLATERAL_MANAGER_ROLE, account)) revert AlreadyCollateralManager(account);
+    }
+
+    /**
+     * @notice Removes `account` as a collateral manager, effective immediately
+     * @dev May remove the last one. That only freezes movement until a new operator is granted,
+     *      which the whitelist manager can always do.
+     */
+    function revokeCollateralManager(address account) external onlyRole(WHITELIST_MANAGER_ROLE) {
+        if (!_revokeRole(COLLATERAL_MANAGER_ROLE, account)) revert NotCollateralManager(account);
+    }
+
+    // ============================================
     // ROLE LOCK
     // ============================================
 
     /**
-     * @notice Roles cannot be granted after deployment. Always reverts.
-     * @dev Both operational roles are set in the constructor and fixed for the life of the
-     *      contract. Without this, DEFAULT_ADMIN_ROLE could grant itself COLLATERAL_MANAGER_ROLE
-     *      and WHITELIST_MANAGER_ROLE in a single transaction and hold every power the guard has.
-     *      Holders are Safes, so signer rotation happens inside them and never needs this.
+     * @notice The generic role grant is disabled. Always reverts.
+     * @dev Without this, DEFAULT_ADMIN_ROLE could grant itself COLLATERAL_MANAGER_ROLE and
+     *      WHITELIST_MANAGER_ROLE in a single transaction and hold every power the guard has.
+     *      Collateral managers are appointed only through `grantCollateralManager`.
      */
     function grantRole(bytes32, address) public pure override {
         revert RolesAreImmutable();
     }
 
-    /// @notice Roles cannot be revoked after deployment. Always reverts.
+    /// @notice The generic role revoke is disabled. Always reverts. See `revokeCollateralManager`.
     function revokeRole(bytes32, address) public pure override {
         revert RolesAreImmutable();
     }
 
     /**
      * @notice An operational role holder cannot drop its own role; the default admin can retire.
-     * @dev Letting a holder renounce would be a one-way loss of a capability nothing can restore —
-     *      an operator mistake, or a griefing move by a compromised key. Renouncing
+     * @dev Letting a whitelist manager renounce would be a one-way loss of a capability nothing can
+     *      restore. Operators are removed by the whitelist manager instead, so departures are
+     *      decided by the role that appoints them, not by the operator's own key. Renouncing
      *      DEFAULT_ADMIN_ROLE stays available (after its scheduled transfer to the zero address),
      *      because an admin with nothing left to administer should be able to step away.
      */

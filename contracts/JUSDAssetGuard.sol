@@ -45,9 +45,9 @@ import { AggregatorV3Interface } from "./AegisVault/interfaces/AggregatorV3Inter
  *
  *      Every limit, the multisig address, the Ondo asset registry and the price feeds belong to
  *      WHITELIST_MANAGER_ROLE — the same role that decides where funds may go. COLLATERAL_MANAGER_ROLE
- *      moves assets inside those bounds and can neither raise a limit nor reprice an asset. Both
- *      role lists are fixed at construction and can never be changed; DEFAULT_ADMIN_ROLE holds no
- *      power here at all.
+ *      moves assets inside those bounds and can neither raise a limit nor reprice an asset. Roles
+ *      follow the base guard: WHITELIST_MANAGER_ROLE is fixed at construction and appoints
+ *      collateral managers; DEFAULT_ADMIN_ROLE holds no power here at all.
  */
 contract JUSDAssetGuard is VaultAssetGuard {
     using SafeERC20 for IERC20;

@@ -90,9 +90,11 @@ A feed cannot be unset while its asset is still registered on the Ondo leg, and 
 
 | Role | Powers |
 | --- | --- |
-| `DEFAULT_ADMIN_ROLE` | Names the redemption sink, and replaces a live one through `beginMintingAddressChange` / `applyMintingAddressChange` on the deployment's cooldown. Administers roles. Expected to be a multisig; handover is delayed by `AccessControlDefaultAdminRules`. |
-| `WHITELIST_MANAGER_ROLE` | Every boundary: the destination whitelist and each destination's asset list, the CCTP bridge routes and their asset lists, the pause switch, the Ondo multisig address, `maxOndoOutstanding`, the Ondo asset registry, price feeds, and counter reconciliation. |
+| `DEFAULT_ADMIN_ROLE` | Nothing. It exists because `AccessControlDefaultAdminRules` requires an admin, and can retire itself. It cannot grant or revoke either operational role. |
+| `WHITELIST_MANAGER_ROLE` | Every boundary: the destination whitelist and each destination's asset list, the CCTP bridge routes and their asset lists, the pause switch, the Ondo multisig address, `maxOndoOutstanding`, the Ondo asset registry, price feeds, counter reconciliation, the redemption sink, and appointing operators (`grantCollateralManager` / `revokeCollateralManager`). Fixed at construction. |
 | `COLLATERAL_MANAGER_ROLE` | Moves assets inside those boundaries. Cannot raise a limit, reprice an asset, change the multisig, whitelist a destination, or add a bridge route. |
+
+`COLLATERAL_MANAGER_ROLE` is the one role that can change after deployment. The whitelist manager grants and revokes it, effective immediately: a new operator reaches only destinations already on the whitelist, and every new destination still waits out the cooldown. A whitelist manager cannot appoint its own address, but nothing stops it appointing another account it controls — so with this power the whitelist manager can, on its own, both whitelist a destination and send to it once the cooldown passes. The cooldown is the window to notice. The generic `grantRole` / `revokeRole` still always revert, and an operator cannot renounce.
 
 Price feeds sit with the limit-setting role on purpose: a price decides how much headroom a transfer consumes, so repricing an asset is the same power as moving the cap.
 
