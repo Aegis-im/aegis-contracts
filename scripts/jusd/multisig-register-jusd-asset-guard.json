@@ -1,0 +1,22 @@
+{
+  "version": "1.0",
+  "chainId": 1337,
+  "meta": {
+    "name": "Register JUSDAssetGuard with AegisMintingJUSD",
+    "createdFromSafeAddress": "0x4Fe78eF65BD8EDDED480efaB030BA680646503c8"
+  },
+  "transactions": [
+    {
+      "to": "0xBB0F32D176590faEdC7bc552b7EAD7A86809b520",
+      "value": "0",
+      "data": "0x4be7a64b000000000000000000000000d30694e9ca5779652a2601f481832095b209f1d3",
+      "description": "Register the guard as a custodian so collateral can be transferred to it"
+    },
+    {
+      "to": "0xBB0F32D176590faEdC7bc552b7EAD7A86809b520",
+      "value": "0",
+      "data": "0x2f2ff15d85e8f2d6819d6b24108062d87ea08f54651bcb8960d98062d3faf96e7873b8b9000000000000000000000000d30694e9ca5779652a2601f481832095b209f1d3",
+      "description": "OPTIONAL — lets the guard draw collateral itself via pullFromMinting"
+    }
+  ]
+}

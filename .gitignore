@@ -17,3 +17,5 @@ node_modules
 # Temporary deployments
 deployments/localhost/
 deployments/hardhat/
+.gstack/
+.DS_Store

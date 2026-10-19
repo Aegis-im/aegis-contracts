@@ -1,0 +1,48 @@
+{
+  "date": "2026-09-30",
+  "app": "/Users/michaelegorov/code/aegis/aegis-app",
+  "sourceSha256": {
+    "flow.ts": "0ecd4010e0e2671d559cbc7f178e28f2a543799a770cea0f9bbcf88062bccca9",
+    "useAegisVault.ts": "b7defbaecfb9b3d87a711fa739b775a013037c858c4267789c4b4641d1815d5f",
+    "index.tsx": "15380807a58f7d3766d815b4c35bceb5eabd390e87e19c48ae6a23d0203d992e",
+    "model.ts": "fd0414e2ae2e2d8adacc61050ae4e3c8173fd223f6bb5c00208e20222500a898"
+  },
+  "builtBundles": {
+    "static/js/main.2d2e9e2f.js": {
+      "sha256": "07037eda67e4e3c2debe2bb76920d4bcfebbc496c2f379f677fcfcf4e3fc84f3",
+      "markers": [
+        "Continue deposit",
+        "Continue withdrawal",
+        "The wallet did not return a transaction hash.",
+        "Confirm vault shares in your wallet",
+        "Estimated payout after bank approval"
+      ]
+    }
+  },
+  "checks": {
+    "productionBuild": {
+      "exitCode": 0
+    },
+    "componentTests": {
+      "exitCode": 0,
+      "passed": 26,
+      "walletHook": "mocked"
+    },
+    "transactionFlowLocalContracts": {
+      "exitCode": 0,
+      "passed": 14,
+      "command": "npx hardhat test test/aegis-vault/ui-flow.spec.ts"
+    },
+    "eslint": {
+      "exitCode": 0
+    },
+    "typescript5_8_3": {
+      "exitCode": 0
+    }
+  },
+  "limitations": [
+    "Browser/live-wallet interaction was not exercised for this revision.",
+    "App TypeScript 4.9 standalone checker cannot parse installed ox/viem dependency types; TypeScript 5.8.3 check passed.",
+    "Production build omits source maps; emitted bundles checked using asset-manifest references and new-flow markers."
+  ]
+}

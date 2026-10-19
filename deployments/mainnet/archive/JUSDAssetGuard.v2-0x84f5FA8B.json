@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "chainId": 1,
+  "config": {
+    "mintingAddress": "0xBB0F32D176590faEdC7bc552b7EAD7A86809b520",
+    "admin": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+    "initialDelay": 259200,
+    "whitelistCooldown": 259200,
+    "mintingChangeDelay": 259200,
+    "destinations": [
+      {
+        "address": "0xf20de4ab8b2c45fceafc01c2baa134ef694ebacc",
+        "label": "binance",
+        "assets": [
+          "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+          "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+        ]
+      }
+    ],
+    "collateralManagers": [
+      "0x4d19433297498E097e701ABc64a886942895CfCd"
+    ],
+    "whitelistManagers": [
+      "0x4Fe78eF65BD8EDDED480efaB030BA680646503c8"
+    ],
+    "ondo": {
+      "multisig": "0x4Fe78eF65BD8EDDED480efaB030BA680646503c8",
+      "maxOutstandingUsd": "1000000",
+      "usdy": {
+        "token": "0x96F6eF951840721AdBF46Ac996b59E0235CB985C",
+        "oracle": "0xA0219AA5B31e65Bc920B5b6DFb8EdF0988121De0",
+        "deployAdapter": false,
+        "feed": "0x6526966D92d6Ac5AA3D3f619A8A8989F3fD1a0F4",
+        "heartbeat": 3024000
+      },
+      "assets": [
+        {
+          "symbol": "USDC",
+          "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "feed": "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6",
+          "heartbeat": 90000
+        }
+      ]
+    },
+    "maxGasPriceGwei": 1.4,
+    "verify": true,
+    "adminHandoverTo": "0x0000000000000000000000000000000000000000"
+  },
+  "contracts": {
+    "jusdAssetGuard": {
+      "address": "0x84f5FA8Be74EDFbC742ebe0e332b713bbB09f7E8",
+      "contract": "JUSDAssetGuard",
+      "args": [
+        "0xBB0F32D176590faEdC7bc552b7EAD7A86809b520",
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+        259200,
+        [
+          "0xf20de4ab8b2c45fceafc01c2baa134ef694ebacc"
+        ],
+        [
+          "binance"
+        ],
+        [
+          [
+            "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+            "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+          ]
+        ],
+        259200,
+        259200,
+        [
+          "0x4d19433297498E097e701ABc64a886942895CfCd"
+        ],
+        [
+          "0x4Fe78eF65BD8EDDED480efaB030BA680646503c8"
+        ],
+        "0x4Fe78eF65BD8EDDED480efaB030BA680646503c8",
+        "1000000000000000000000000",
+        [
+          {
+            "token": "0x96F6eF951840721AdBF46Ac996b59E0235CB985C",
+            "feed": "0x6526966D92d6Ac5AA3D3f619A8A8989F3fD1a0F4",
+            "heartbeat": 3024000
+          },
+          {
+            "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+            "feed": "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6",
+            "heartbeat": 90000
+          }
+        ]
+      ],
+      "transactionHash": "0xd52be2caff68fccce3d60345068a29008c238d52779817fd685f10c2b9da869e"
+    }
+  },
+  "steps": {
+    "beginDefaultAdminTransfer.0x0000000000000000000000000000000000000000": "2026-10-07T18:05:49.317Z"
+  },
+  "status": "ready",
+  "deployedAt": "2026-10-07T18:05:49.374Z"
+}

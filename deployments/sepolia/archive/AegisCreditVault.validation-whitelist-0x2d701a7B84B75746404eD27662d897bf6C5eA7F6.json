@@ -1,0 +1,11 @@
+{
+  "address": "0x2d701a7B84B75746404eD27662d897bf6C5eA7F6",
+  "chainId": "11155111",
+  "blockNumber": 11730626,
+  "runtimeCodeHash": "0x48ed2cc4213185dde1308d4ebd0e0768034e7c5e9c6ffac93a9472571ea918bd",
+  "runtimeMatchesCompiledArtifact": true,
+  "constructorAndRolesChecked": true,
+  "initialAccountingChecked": true,
+  "whitelistEnabled": true,
+  "deployerEligible": false
+}

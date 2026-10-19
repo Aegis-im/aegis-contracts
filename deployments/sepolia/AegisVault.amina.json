@@ -1,0 +1,160 @@
+{
+  "version": 1,
+  "chainId": 11155111,
+  "settings": {
+    "id": "amina",
+    "chainId": 11155111,
+    "tokenName": "Amina Deposit USDG",
+    "tokenSymbol": "adUSDG",
+    "stakingName": "Amina USDG",
+    "stakingSymbol": "ausdg",
+    "mintingDomain": "AMINA Minting",
+    "rewardsDomain": "AMINA Rewards",
+    "incomeDomain": "AMINA Income",
+    "asset": "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
+    "admin": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+    "manager": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+    "custodian": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+    "trustedSigner": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+    "insuranceFund": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+    "oracleOperator": "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+    "whitelistEnabled": false,
+    "adminDelay": 259200,
+    "cooldown": 2592000,
+    "instantUnstakingFeeBP": 50,
+    "mintFeeBP": 0,
+    "redeemFeeBP": 0,
+    "incomeFeeBP": 500,
+    "limitPeriod": 86400,
+    "mintLimit": "1000000",
+    "redeemLimit": "1000000",
+    "oracleDecimals": 8,
+    "initialTokenPrice": "100000000",
+    "initialAssetPrice": "100000000",
+    "oracleHeartbeat": 604800,
+    "assetHeartbeat": 604800,
+    "collateralFeed": null,
+    "rewards": false,
+    "layerZeroEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
+    "layerZeroEid": 40161,
+    "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+    "explorer": "https://sepolia.etherscan.io"
+  },
+  "contracts": {
+    "token": {
+      "address": "0xfE0ccc9942E98C963Fe6b4e5194EB6e3Baa4cb64",
+      "contract": "VaultToken",
+      "args": [
+        "Amina Deposit USDG",
+        "adUSDG",
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      ],
+      "transactionHash": "0xbac93461006dc7f772b900821c5a00aa5554737a48b11e29f9cb8ed99b4b0d1b"
+    },
+    "config": {
+      "address": "0x539e46827c37A3ef11c7cE521CC56B4d59E602e3",
+      "contract": "VaultConfig",
+      "args": [
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+        [
+          "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+        ],
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      ],
+      "transactionHash": "0x24c0e72cc127d5514b86a2378787b4fddc56e957cdabb18ae9583c74bb0d8894"
+    },
+    "oracle": {
+      "address": "0x37755eD2403936945D9a26b6CC34F1dae4aC6938",
+      "contract": "VaultChainlinkOracleV3",
+      "args": [
+        "adUSDG / USD",
+        8,
+        [
+          "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+        ],
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      ],
+      "transactionHash": "0x4b766d254fb081984520fea5b1db455caade56a5736ebc9d62db68520fc5bfa9"
+    },
+    "collateralOracle": {
+      "address": "0xCFA67e9Da72af570e7f8344B7738D6BdF698BD20",
+      "contract": "VaultChainlinkOracleV3",
+      "args": [
+        "USDC / USD (test reference)",
+        8,
+        [
+          "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+        ],
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      ],
+      "transactionHash": "0x2b64a33d859cc3d09c2f53561180f085e83a24b5d35d3e9a3850d5d87c21d2d1"
+    },
+    "minting": {
+      "address": "0x0360D1d760d06C97e5c9E74d45D9d31c25aB4AeB",
+      "contract": "VaultMinting",
+      "args": [
+        "AMINA Minting",
+        "0xfE0ccc9942E98C963Fe6b4e5194EB6e3Baa4cb64",
+        "0x539e46827c37A3ef11c7cE521CC56B4d59E602e3",
+        "0x0000000000000000000000000000000000000000",
+        "0x37755eD2403936945D9a26b6CC34F1dae4aC6938",
+        "0x0000000000000000000000000000000000000000",
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+        [
+          "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"
+        ],
+        [
+          604800
+        ],
+        [
+          "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+        ],
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+        259200,
+        604800
+      ],
+      "transactionHash": "0x7e29df2eadc6d85faf7141540047bf5ea9be78248d661dc1fe625f93a676adf4"
+    },
+    "staking": {
+      "address": "0x493B44344E17566076E55Bd8498D089C2129118E",
+      "contract": "VaultStaking",
+      "initializerArgs": [
+        "0xfE0ccc9942E98C963Fe6b4e5194EB6e3Baa4cb64",
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9",
+        "Amina USDG",
+        "ausdg",
+        2592000,
+        50,
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      ],
+      "transactionHash": "0xf257c650d9d283aa9050528bbeeb89cfbe5261d2508adc265fa73d92c87fd9f7",
+      "implementation": "0x7552d1B6463f76DdF6DFd919970753BD689b82a4",
+      "proxyAdmin": "0x2eD6cDF8F6CcC63674ED29ad175918a24dd0F62d",
+      "silo": "0x1Fe728b51112B0Fe201CBEdbB123FACdB56939c2"
+    },
+    "tokenOFTAdapter": {
+      "address": "0xAF12b0Ae5A72D7b8A8eC675f3E76E2Db56143565",
+      "contract": "VaultMintBurnOFTAdapter",
+      "args": [
+        "0xfE0ccc9942E98C963Fe6b4e5194EB6e3Baa4cb64",
+        "0x0360D1d760d06C97e5c9E74d45D9d31c25aB4AeB",
+        "0x6EDCE65403992e310A62460808c4b910D972f10f",
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      ],
+      "transactionHash": "0x22636476f757403b009b206d4b389429d57c7c9220f9c642a28ef669a565f016"
+    },
+    "stakingOFTAdapter": {
+      "address": "0xB02FC8fA9fB1cA333c2e8028Ba6Eb6C0B1cDB3Af",
+      "contract": "VaultStakingOFTAdapter",
+      "args": [
+        "0x493B44344E17566076E55Bd8498D089C2129118E",
+        "0x6EDCE65403992e310A62460808c4b910D972f10f",
+        "0x84fE172c15bb030BAA0dD497D30DD436c6b750E9"
+      ],
+      "transactionHash": "0x24ce2098aad27bb609a864b6dd593319843051c84c39659ee80553d94729ddd9"
+    }
+  },
+  "status": "ready",
+  "bridgeStatus": "adapters deployed; no remote peers configured",
+  "deployedAt": "2026-09-28T16:52:48.775Z"
+}
