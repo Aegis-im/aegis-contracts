@@ -30,6 +30,13 @@ import { ICoreDepositWallet } from "./interfaces/ICoreDepositWallet.sol";
  *
  *      Circle controls the CoreDepositWallet: it can pause it, which makes deposits revert, and it
  *      is an upgradeable proxy. While funds sit on HyperCore they are backed by that wallet's pool.
+ *
+ *      There is no minting contract on HyperEVM, so the redemption sink is disabled for good:
+ *      `mintingAddress` is zero forever, every attempt to set one reverts `MintingDisabled`, and
+ *      the minting functions inherited from the base (`returnToMinting`, `returnAllToMinting`,
+ *      `pullFromMinting`, `pullAllFromMinting`) always revert `MintingNotConfigured`. Without
+ *      this, the first `setMintingAddress` would be immediate and `returnToMinting` unpausable —
+ *      an instant exit to any contract the whitelist manager names.
  */
 contract VaultCoreDepositor is VaultAssetGuard {
     using SafeERC20 for IERC20;
@@ -72,28 +79,28 @@ contract VaultCoreDepositor is VaultAssetGuard {
 
     error CoreRecipientInCooldown(address recipient, uint256 activeAt);
     error DepositAmountMismatch(uint256 expected, uint256 actual);
+    error MintingDisabled();
+    error UnsupportedDex(uint32 destinationDex);
 
     // ============================================
     // CONSTRUCTOR
     // ============================================
 
     /**
-     * @param _mintingAddress Redemption sink, or zero — on HyperEVM there is usually none; the guard
-     *                        on Ethereum is reached through a bridge route instead
      * @param _coreDepositWallet Circle's CoreDepositWallet. Cannot be changed.
      * @param _coreRecipient  HyperCore account to credit, usable from deployment
      *
-     * @dev Remaining parameters are VaultAssetGuard's, unchanged.
+     * @dev Remaining parameters are VaultAssetGuard's, minus `_mintingAddress` and
+     *      `_mintingChangeDelay`: there is no redemption sink here (zero, and zero delay, are passed
+     *      to the base). The guard on Ethereum is reached through a bridge route instead.
      */
     constructor(
-        address _mintingAddress,
         address _admin,
         uint48 _initialDelay,
         address[] memory _destinations,
         string[] memory _labels,
         address[][] memory _assets,
         uint256 _whitelistCooldown,
-        uint256 _mintingChangeDelay,
         address[] memory _collateralManagers,
         address[] memory _whitelistManagers,
         address _cctpTokenMessenger,
@@ -101,8 +108,8 @@ contract VaultCoreDepositor is VaultAssetGuard {
         address _coreDepositWallet,
         address _coreRecipient
     ) VaultAssetGuard(
-        _mintingAddress, _admin, _initialDelay, _destinations, _labels, _assets,
-        _whitelistCooldown, _mintingChangeDelay, _collateralManagers, _whitelistManagers,
+        address(0), _admin, _initialDelay, _destinations, _labels, _assets,
+        _whitelistCooldown, 0, _collateralManagers, _whitelistManagers,
         _cctpTokenMessenger, _cctpRoutes
     ) {
         if (_coreDepositWallet == address(0)) revert ZeroAddress();
@@ -126,8 +133,10 @@ contract VaultCoreDepositor is VaultAssetGuard {
      *      balance delta is asserted. Credit is not instant: HyperCore picks the deposit up from the
      *      wallet's event shortly after this transaction.
      * @param amount         Amount in the token's EVM decimals (6 for USDC)
-     * @param destinationDex `CORE_PERPS_DEX` or `CORE_SPOT_DEX`. Either way the same account is
-     *                       credited; this only picks which of its balances.
+     * @param destinationDex `CORE_PERPS_DEX` or `CORE_SPOT_DEX`; anything else reverts. Either way
+     *                       the same account is credited; this only picks which of its balances.
+     *                       CoreDepositWallet itself accepts any dex id, including HIP-3 dexes and
+     *                       ids that do not exist, so the restriction has to live here.
      */
     function depositToHyperCore(
         uint256 amount,
@@ -137,6 +146,7 @@ contract VaultCoreDepositor is VaultAssetGuard {
         uint256 activeFrom = coreRecipientActiveFrom;
         if (block.timestamp < activeFrom) revert CoreRecipientInCooldown(recipient, activeFrom);
         if (amount == 0) revert InvalidAmount();
+        if (destinationDex != CORE_PERPS_DEX && destinationDex != CORE_SPOT_DEX) revert UnsupportedDex(destinationDex);
 
         IERC20 token = IERC20(coreToken);
         address wallet = address(coreDepositWallet);
@@ -170,6 +180,13 @@ contract VaultCoreDepositor is VaultAssetGuard {
     // ============================================
     // INTERNAL
     // ============================================
+
+    /// @dev No address is ever an acceptable redemption sink here, so `setMintingAddress` always
+    ///      reverts and `mintingAddress` stays zero. `beginMintingAddressChange` already reverts
+    ///      `MintingNotConfigured` while it is zero.
+    function _validateMintingAddress(address) internal pure override {
+        revert MintingDisabled();
+    }
 
     /**
      * @param immediate Skip the cooldown — true only for the constructor, whose recipient is part of

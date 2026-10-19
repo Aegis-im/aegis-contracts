@@ -180,7 +180,7 @@ describe('JUSDAssetGuard Ondo reserve leg', () => {
       .emit(f.guard, 'OndoOutstandingReconciled').withArgs(usd('1000000'), usd('19000'))
     await f.guard.connect(f.gatekeeper).setOndoOutstanding(0)
     await expect(f.guard.connect(f.gatekeeper).setOndoMultisig(f.stranger.address))
-      .emit(f.guard, 'OndoMultisigChanged').withArgs(f.stranger.address)
+      .emit(f.guard, 'OndoMultisigChanged').withArgs(f.stranger.address, await time.latest() + 1)
   })
 
   it('pauses outflow to Ondo but never the return leg', async () => {
@@ -210,10 +210,12 @@ describe('JUSDAssetGuard Ondo reserve leg', () => {
       .revertedWithCustomError(fresh, 'OndoLimitExceeded').withArgs(usd('1'), 0)
   })
 
-  it('applies the whitelist cooldown to venues, not to the separately governed Ondo multisig', async () => {
+  it('applies the whitelist cooldown to the Ondo multisig and Ondo assets too', async () => {
     const f = await loadFixture(fixture)
     const guard: any = await ethers.deployContract('JUSDAssetGuard', [f.aegisMintingJUSDAddress, f.owner.address, 86400, [f.venue.address], ['Exchange'], [[f.usdc.target]], 3600, 0, [f.operator.address], [f.gatekeeper.address], ethers.ZeroAddress, [], ethers.ZeroAddress, 0, []])
-    await guard.connect(f.gatekeeper).setOndoMultisig(f.ondo.address)
+    const setMultisig = await guard.connect(f.gatekeeper).setOndoMultisig(f.ondo.address)
+    const multisigActive = BigInt((await ethers.provider.getBlock(setMultisig.blockNumber!))!.timestamp + 3600)
+    await expect(setMultisig).emit(guard, 'OndoMultisigChanged').withArgs(f.ondo.address, multisigActive)
     await guard.connect(f.gatekeeper).setPriceFeed(f.usdc.target, f.usdcFeed.target, 86400)
     await guard.connect(f.gatekeeper).setOndoAsset(f.usdc.target, true)
     await guard.connect(f.gatekeeper).setMaxOndoOutstanding(usd('1000'))
@@ -224,9 +226,15 @@ describe('JUSDAssetGuard Ondo reserve leg', () => {
     await guard.connect(f.gatekeeper).addDestination(f.stranger.address, 'Later venue', [f.usdc.target])
     await expect(guard.connect(f.operator).withdraw(f.usdc.target, f.stranger.address, u('1')))
       .revertedWithCustomError(guard, 'DestinationInCooldown')
-    // The Ondo multisig is not a whitelist entry, so it is never delayed by this at all.
-    await guard.connect(f.operator).withdrawToOndo(f.usdc.target, u('1'))
+    // The Ondo multisig set after deployment waits too, and so does a newly registered asset.
+    expect(await guard.ondoMultisigActiveFrom()).eq(multisigActive)
+    await expect(guard.connect(f.operator).withdrawToOndo(f.usdc.target, u('1')))
+      .revertedWithCustomError(guard, 'OndoMultisigInCooldown').withArgs(f.ondo.address, multisigActive)
+    await time.increaseTo(multisigActive)
+    await expect(guard.connect(f.operator).withdrawToOndo(f.usdc.target, u('1')))
+      .revertedWithCustomError(guard, 'OndoAssetInCooldown')
     await time.increase(3601)
+    await guard.connect(f.operator).withdrawToOndo(f.usdc.target, u('1'))
     await guard.connect(f.operator).withdraw(f.usdc.target, f.stranger.address, u('1'))
   })
 
@@ -361,6 +369,42 @@ describe('JUSDAssetGuard Ondo reserve leg', () => {
     await guard.connect(f.operator).bridgeCctp(f.usdc.target, ARBITRUM, await guard.addressToBytes32(f.venue.address), u('400'))
     expect(await guard.ondoOutstanding()).eq(0)
     expect(await f.usdc.balanceOf(messenger.target)).eq(u('400'))
+  })
+
+  it('seeds the Ondo leg live at construction, and makes every later change wait', async () => {
+    const f = await loadFixture(fixture)
+    const guard: any = await ethers.deployContract('JUSDAssetGuard', [
+      f.aegisMintingJUSDAddress, f.owner.address, 86400, [], [], [], 3600, 0,
+      [f.operator.address], [f.gatekeeper.address], ethers.ZeroAddress, [],
+      f.ondo.address, usd('1000'), [{ token: f.usdc.target, feed: f.usdcFeed.target, heartbeat: 86400 }],
+    ])
+    await f.usdc.mint(guard.target, u('100'))
+    await guard.connect(f.operator).withdrawToOndo(f.usdc.target, u('1'))
+
+    // Re-allowing an asset that is already registered does not restart its cooldown...
+    await guard.connect(f.gatekeeper).setOndoAsset(f.usdc.target, true)
+    await guard.connect(f.operator).withdrawToOndo(f.usdc.target, u('1'))
+    // ...removing it is immediate, and re-adding it waits again.
+    await expect(guard.connect(f.gatekeeper).setOndoAsset(f.usdc.target, false)).emit(guard, 'OndoAssetChanged').withArgs(f.usdc.target, false, 0)
+    expect(await guard.ondoAssetActiveFrom(f.usdc.target)).eq(0)
+    await expect(guard.connect(f.operator).withdrawToOndo(f.usdc.target, u('1'))).revertedWithCustomError(guard, 'NotOndoAsset')
+    await guard.connect(f.gatekeeper).setOndoAsset(f.usdc.target, true)
+    await expect(guard.connect(f.operator).withdrawToOndo(f.usdc.target, u('1'))).revertedWithCustomError(guard, 'OndoAssetInCooldown')
+
+    // Returns are never delayed: the multisig can settle while the asset is in cooldown.
+    await f.usdc.connect(f.ondo).approve(guard.target, u('2'))
+    await guard.connect(f.ondo).pullFromOndo(f.usdc.target, u('2'))
+    expect(await guard.ondoOutstanding()).eq(0)
+
+    // Rotating the multisig stops the old one at once; switching straight back restarts the clock.
+    await guard.connect(f.gatekeeper).setOndoMultisig(f.stranger.address)
+    await guard.connect(f.gatekeeper).setOndoMultisig(f.ondo.address)
+    const activeFrom = await guard.ondoMultisigActiveFrom()
+    await time.setNextBlockTimestamp(activeFrom - 1n)
+    await expect(guard.connect(f.operator).withdrawToOndo(f.usdc.target, u('1')))
+      .revertedWithCustomError(guard, 'OndoMultisigInCooldown').withArgs(f.ondo.address, activeFrom)
+    await time.setNextBlockTimestamp(activeFrom)
+    await guard.connect(f.operator).withdrawToOndo(f.usdc.target, u('1'))
   })
 
   it('keeps a scheduled minting change and the Ondo multisig from colliding', async () => {

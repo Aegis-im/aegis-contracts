@@ -16,7 +16,7 @@ async function fixture() {
   const messenger: any = await ethers.deployContract('MockTokenMessenger', [[ETHEREUM]])
 
   const args = (overrides: { wallet?: string, recipient?: string } = {}) => [
-    z, admin.address, 86400, [], [], [], COOLDOWN, 0, [operator.address], [gatekeeper.address], messenger.target,
+    admin.address, 86400, [], [], [], COOLDOWN, [operator.address], [gatekeeper.address], messenger.target,
     [{ domain: ETHEREUM, mintRecipient: b32(ethGuard.address), label: 'Ethereum guard', assets: [usdc.target] }],
     overrides.wallet ?? wallet.target, overrides.recipient ?? account.address,
   ]
@@ -56,6 +56,17 @@ describe('VaultCoreDepositor HyperCore deposits', () => {
       .revertedWithCustomError(f.depositor, 'AccessControlUnauthorizedAccount').withArgs(f.operator.address, WHITELIST_MANAGER)
     await expect(f.depositor.connect(f.admin).setCoreRecipient(f.stranger.address))
       .revertedWithCustomError(f.depositor, 'AccessControlUnauthorizedAccount')
+  })
+
+  it('credits only the Core perps or spot balance', async () => {
+    const f = await loadFixture(fixture)
+    // The real CoreDepositWallet accepts any uint32, so the depositor is the only check.
+    for (const dex of [1, 2, 7, 1000, SPOT - 1])
+      await expect(f.depositor.connect(f.operator).depositToHyperCore(u('1'), dex))
+        .revertedWithCustomError(f.depositor, 'UnsupportedDex').withArgs(dex)
+    expect(await f.wallet.depositCount()).eq(0)
+    expect(await f.depositor.CORE_PERPS_DEX()).eq(PERPS)
+    expect(await f.depositor.CORE_SPOT_DEX()).eq(SPOT)
   })
 
   it('only lets the collateral manager deposit', async () => {
@@ -123,6 +134,27 @@ describe('VaultCoreDepositor HyperCore deposits', () => {
     await f.wallet.setMode(0)
     await expect(f.depositor.connect(f.operator).depositToHyperCore(0, PERPS)).revertedWithCustomError(f.depositor, 'InvalidAmount')
     await expect(f.depositor.connect(f.operator).depositToHyperCore(u('1001'), PERPS)).reverted
+  })
+
+  it('has the minting sink disabled for good', async () => {
+    const f = await loadFixture(fixture)
+    expect(await f.depositor.mintingAddress()).eq(z)
+    expect(await f.depositor.mintingChangeDelay()).eq(0)
+    const sink: any = await ethers.deployContract('TestToken', ['Fake minting', 'FAKE', 6])
+
+    await expect(f.depositor.connect(f.gatekeeper).setMintingAddress(sink.target)).revertedWithCustomError(f.depositor, 'MintingDisabled')
+    await expect(f.depositor.connect(f.gatekeeper).beginMintingAddressChange(sink.target)).revertedWithCustomError(f.depositor, 'MintingNotConfigured')
+    for (const call of [
+      () => f.depositor.connect(f.operator).returnToMinting(f.usdc.target, u('1')),
+      () => f.depositor.connect(f.operator).returnAllToMinting(f.usdc.target),
+      () => f.depositor.connect(f.operator).pullFromMinting(f.usdc.target, u('1')),
+      () => f.depositor.connect(f.operator).pullAllFromMinting(f.usdc.target),
+    ]) await expect(call()).revertedWithCustomError(f.depositor, 'MintingNotConfigured')
+
+    // The finding-2 path: even an operator appointed by the whitelist manager has no sink to drain into.
+    await f.depositor.connect(f.gatekeeper).grantCollateralManager(f.stranger.address)
+    await expect(f.depositor.connect(f.stranger).returnAllToMinting(f.usdc.target)).revertedWithCustomError(f.depositor, 'MintingNotConfigured')
+    expect(await f.usdc.balanceOf(f.depositor.target)).eq(u('1000'))
   })
 
   it('keeps the guard behaviour: bridges back to Ethereum, and has no minting sink to return to', async () => {

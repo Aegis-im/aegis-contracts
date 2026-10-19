@@ -18,7 +18,7 @@ The Ondo multisig is not an entry on the withdrawal whitelist. It is its own des
 
 `returnToMinting` only accepts assets `AegisMintingJUSD` lists as supported collateral, because minting has no way to release anything else. USDY is a reserve asset, not mint collateral, so while it is not listed there it cannot be returned: it goes back through the Ondo leg and returns as USDC. This matters because returns are never paused — the check, not the pause switch, is what keeps the reserve from being stranded in minting.
 
-The base whitelist cooldown, if configured at deployment, applies to venue withdrawals only; the Ondo multisig is not a whitelist entry and is not delayed by it. For the same reason the multisig carries no per-destination asset list — what it may receive is governed by the Ondo asset registry instead. A venue, by contrast, needs USDY on its own list before any reserve can reach it.
+The base whitelist cooldown, if configured at deployment, also governs the Ondo leg: a multisig set after deployment, and an asset registered after deployment, can only be used by `withdrawToOndo` once `ondoMultisigActiveFrom` / `ondoAssetActiveFrom(asset)` has passed. Replacing the multisig stops the old one at once. Removing an asset is immediate, and re-adding it restarts the wait; re-allowing an asset that is still registered keeps its original activation. Values seeded in the constructor are live from deployment. `pullFromOndo` is never delayed, since it only brings value in. Caps, feeds and `setOndoOutstanding` remain instant. The multisig is still not a whitelist entry, so the multisig carries no per-destination asset list — what it may receive is governed by the Ondo asset registry instead. A venue, by contrast, needs USDY on its own list before any reserve can reach it.
 
 The multisig is also kept apart from a scheduled change of the redemption sink: it cannot be proposed as the new sink, and a pending sink cannot be made the multisig. The same holds for the bridge, and for a reason worth stating: a Safe deployed through the usual factory has the same address on every chain, so a route naming the multisig's own address on Arbitrum would hand the same counterparty the same exposure with the meter untouched. A route cannot name the multisig, and an address already reachable by bridge cannot become the multisig.
 
@@ -102,14 +102,14 @@ Pausing stops outbound movement, draws from minting, `bridgeCctp`, and `withdraw
 
 ## Opening the leg
 
-A freshly deployed guard has the Ondo leg closed: no multisig, no registered assets, and a zero cap. The whitelist manager opens it in this order, since each step checks the previous one:
+A freshly deployed guard has the Ondo leg closed: no multisig, no registered assets, and a zero cap. The whitelist manager opens it in this order, since each step checks the previous one. Opened this way on a live guard, the multisig and each asset wait out `whitelistCooldown` before the first `withdrawToOndo`; pass them to the constructor instead to have them live from deployment:
 
 ```text
 setPriceFeed(USDC, usdcUsdFeed, heartbeat)
 setPriceFeed(USDY, usdyUsdFeed, heartbeat)
-setOndoAsset(USDC, true)          # refused without a feed
+setOndoAsset(USDC, true)          # refused without a feed; usable after whitelistCooldown
 setOndoAsset(USDY, true)
-setOndoMultisig(multisig)         # refused if already whitelisted
+setOndoMultisig(multisig)         # refused if already whitelisted; usable after whitelistCooldown
 setMaxOndoOutstanding(cap)        # zero cap keeps the leg shut
 ```
 

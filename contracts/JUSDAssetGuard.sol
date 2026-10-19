@@ -48,6 +48,10 @@ import { AggregatorV3Interface } from "./AegisVault/interfaces/AggregatorV3Inter
  *      moves assets inside those bounds and can neither raise a limit nor reprice an asset. Roles
  *      follow the base guard: WHITELIST_MANAGER_ROLE is fixed at construction and appoints
  *      collateral managers; DEFAULT_ADMIN_ROLE holds no power here at all.
+ *
+ *      A new multisig and a newly registered asset both wait out `whitelistCooldown` before
+ *      `withdrawToOndo` can use them, so the Ondo leg cannot be repointed or widened faster than
+ *      the whitelist itself. Caps, feeds and the counter are still instant.
  */
 contract JUSDAssetGuard is VaultAssetGuard {
     using SafeERC20 for IERC20;
@@ -59,6 +63,9 @@ contract JUSDAssetGuard is VaultAssetGuard {
 
     /// @notice 2/4 multisig that mints and redeems USDY at Ondo on the protocol's behalf
     address public ondoMultisig;
+
+    /// @notice First timestamp at which `withdrawToOndo` may send to `ondoMultisig`
+    uint256 public ondoMultisigActiveFrom;
 
     /// @notice USD value (18 decimals) sent to the multisig that has not come back yet
     uint256 public ondoOutstanding;
@@ -75,6 +82,9 @@ contract JUSDAssetGuard is VaultAssetGuard {
     /// @dev Assets allowed to move on the Ondo leg — USDC out, USDY back
     EnumerableSet.AddressSet private _ondoAssets;
 
+    /// @notice First timestamp at which a registered asset may be sent to the multisig
+    mapping(address => uint256) public ondoAssetActiveFrom;
+
     // ============================================
     // EVENTS
     // ============================================
@@ -89,13 +99,13 @@ contract JUSDAssetGuard is VaultAssetGuard {
     event OndoOutstandingReconciled(uint256 previous, uint256 current);
 
     /// @dev Emitted when the Ondo multisig address is changed
-    event OndoMultisigChanged(address indexed multisig);
+    event OndoMultisigChanged(address indexed multisig, uint256 activeFrom);
 
     /// @dev Emitted when the cap on outstanding Ondo exposure is changed
     event MaxOndoOutstandingChanged(uint256 max);
 
-    /// @dev Emitted when an asset is allowed on / removed from the Ondo leg
-    event OndoAssetChanged(address indexed asset, bool allowed);
+    /// @dev Emitted when an asset is allowed on / removed from the Ondo leg. `activeFrom` is zero on removal.
+    event OndoAssetChanged(address indexed asset, bool allowed, uint256 activeFrom);
 
     /// @dev Emitted when an asset's USD price feed is set
     event PriceFeedChanged(address indexed asset, address indexed feed, uint32 heartbeat);
@@ -112,6 +122,8 @@ contract JUSDAssetGuard is VaultAssetGuard {
     error UnsupportedDecimals(address asset);
     error OndoAssetInUse(address asset);
     error OutstandingNotSettled(uint256 outstanding);
+    error OndoMultisigInCooldown(address multisig, uint256 activeAt);
+    error OndoAssetInCooldown(address asset, uint256 activeAt);
 
     // ============================================
     // CONSTRUCTOR
@@ -167,7 +179,7 @@ contract JUSDAssetGuard is VaultAssetGuard {
         for (uint256 i = 0; i < _ondoAssetConfigs.length; i++) {
             OndoAssetConfig memory config = _ondoAssetConfigs[i];
             _setPriceFeed(config.token, config.feed, config.heartbeat);
-            _setOndoAsset(config.token, true);
+            _setOndoAsset(config.token, true, true);
         }
 
         /*
@@ -180,7 +192,7 @@ contract JUSDAssetGuard is VaultAssetGuard {
          * WHITELIST_MANAGER_ROLE — so the party holding the outstanding value is not the party that
          * decides it has been returned. Keep those two roles on different accounts.
          */
-        if (_ondoMultisig != address(0)) _setOndoMultisig(_ondoMultisig);
+        if (_ondoMultisig != address(0)) _setOndoMultisig(_ondoMultisig, true);
         if (_maxOndoOutstanding != 0) _setMaxOndoOutstanding(_maxOndoOutstanding);
     }
 
@@ -199,7 +211,9 @@ contract JUSDAssetGuard is VaultAssetGuard {
     ) external nonReentrant onlyRole(COLLATERAL_MANAGER_ROLE) whenNotPaused {
         address multisig = ondoMultisig;
         if (multisig == address(0)) revert OndoNotConfigured();
+        if (block.timestamp < ondoMultisigActiveFrom) revert OndoMultisigInCooldown(multisig, ondoMultisigActiveFrom);
         if (!_ondoAssets.contains(asset)) revert NotOndoAsset(asset);
+        if (block.timestamp < ondoAssetActiveFrom[asset]) revert OndoAssetInCooldown(asset, ondoAssetActiveFrom[asset]);
         if (amount == 0) revert InvalidAmount();
 
         uint256 value = assetUsdValue(asset, amount);
@@ -251,12 +265,18 @@ contract JUSDAssetGuard is VaultAssetGuard {
      * @notice Sets the multisig that mints USDY at Ondo
      * @dev Kept off the withdrawal whitelist so `withdraw` can never bypass the meter. Rotating it
      *      requires a settled position, so outstanding value is never reattributed to a new holder.
+     *
+     *      The new multisig replaces the old one at once but can only receive after
+     *      `whitelistCooldown`, like any new destination: the old one stops receiving immediately,
+     *      the new one cannot receive until the change has been visible on chain for the full
+     *      window. Returns via `pullFromOndo` are not delayed — they only bring value in.
      */
     function setOndoMultisig(address multisig) external onlyRole(WHITELIST_MANAGER_ROLE) {
-        _setOndoMultisig(multisig);
+        _setOndoMultisig(multisig, false);
     }
 
-    function _setOndoMultisig(address multisig) internal {
+    /// @param immediate Skip the cooldown — true only for the constructor, as with the seeded whitelist
+    function _setOndoMultisig(address multisig, bool immediate) internal {
         if (multisig == address(0)) revert ZeroAddress();
         if (
             multisig == address(this) ||
@@ -267,8 +287,10 @@ contract JUSDAssetGuard is VaultAssetGuard {
         ) revert InvalidAddress();
         if (ondoOutstanding != 0) revert OutstandingNotSettled(ondoOutstanding);
 
+        uint256 activeFrom = immediate ? block.timestamp : block.timestamp + whitelistCooldown;
         ondoMultisig = multisig;
-        emit OndoMultisigChanged(multisig);
+        ondoMultisigActiveFrom = activeFrom;
+        emit OndoMultisigChanged(multisig, activeFrom);
     }
 
     /// @notice Sets the cap on outstanding Ondo exposure, in USD with 18 decimals. Zero closes the leg.
@@ -292,20 +314,30 @@ contract JUSDAssetGuard is VaultAssetGuard {
         ondoOutstanding = outstanding;
     }
 
-    /// @notice Allows or removes an asset on the Ondo leg
+    /**
+     * @notice Allows or removes an asset on the Ondo leg
+     * @dev A newly allowed asset can be sent to the multisig only after `whitelistCooldown`;
+     *      re-allowing one that is already registered keeps its original activation. Removal is
+     *      immediate, and re-adding restarts the cooldown. Returns via `pullFromOndo` are not
+     *      delayed.
+     */
     function setOndoAsset(address asset, bool allowed) external onlyRole(WHITELIST_MANAGER_ROLE) {
-        _setOndoAsset(asset, allowed);
+        _setOndoAsset(asset, allowed, false);
     }
 
-    function _setOndoAsset(address asset, bool allowed) internal {
+    /// @param immediate Skip the cooldown — true only for the constructor
+    function _setOndoAsset(address asset, bool allowed, bool immediate) internal {
         if (asset == address(0)) revert ZeroAddress();
         if (allowed) {
             if (address(priceFeed[asset]) == address(0)) revert MissingPriceFeed(asset);
-            _ondoAssets.add(asset);
+            if (_ondoAssets.add(asset)) {
+                ondoAssetActiveFrom[asset] = immediate ? block.timestamp : block.timestamp + whitelistCooldown;
+            }
         } else {
             _ondoAssets.remove(asset);
+            delete ondoAssetActiveFrom[asset];
         }
-        emit OndoAssetChanged(asset, allowed);
+        emit OndoAssetChanged(asset, allowed, ondoAssetActiveFrom[asset]);
     }
 
     /**
